@@ -6,6 +6,7 @@ import { mkdir } from './fs/mkdir';
 import { rename } from './fs/rename';
 import { trashPaths } from './fs/trash';
 import { deletePaths } from './fs/delete';
+import { duplicate } from './fs/duplicate';
 import { OpRunner } from './ops/runner';
 import type { ConflictAnswer, FileOp, OpId } from '@shared/types';
 
@@ -18,6 +19,7 @@ export function registerIpc() {
   ipcMain.handle('fs:rename', (_e, from: string, to: string) => rename(from, to));
   ipcMain.handle('fs:trash', (_e, paths: string[]) => trashPaths(paths));
   ipcMain.handle('fs:delete', (_e, paths: string[]) => deletePaths(paths));
+  ipcMain.handle('fs:duplicate', (_e, path: string) => duplicate(path));
   ipcMain.handle('volumes:list', () => listVolumes());
   ipcMain.handle('shell:openPath', (_e, path: string) => shell.openPath(path));
 

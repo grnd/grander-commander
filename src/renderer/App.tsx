@@ -2,6 +2,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useStore } from './state/store';
 import { Cheatsheet } from './components/Cheatsheet';
+import { FavoritesBar } from './components/FavoritesBar';
+import { FavoritePicker } from './components/FavoritePicker';
+import { ContextMenu, type MenuItem } from './components/ContextMenu';
 import type { PanelSide } from './state/panelSlice';
 import { eventToCombo, lookup } from './keybindings';
 import type { CommandName } from './commands';
@@ -176,7 +179,6 @@ export function App() {
         requestDeleteConfirm({ panel: active, setDialog: useStore.getState().setDialog });
         return;
       case 'deleteCursorConfirm': {
-        // Delete just the cursor item regardless of selection, with confirm.
         const cur = active.entries[active.cursor];
         if (!cur || cur.name === '..') return;
         const name = cur.ext ? `${cur.name}.${cur.ext}` : cur.name;
@@ -184,6 +186,38 @@ export function App() {
         useStore.getState().setDialog({ kind: 'deleteConfirm', paths: [full] });
         return;
       }
+      case 'duplicate': {
+        const cur = active.entries[active.cursor];
+        if (!cur || cur.name === '..') return;
+        const name = cur.ext ? `${cur.name}.${cur.ext}` : cur.name;
+        const full = active.path === '/' ? `/${name}` : `${active.path}/${name}`;
+        void (async () => {
+          const r = await api.fs.duplicate(full);
+          if (!r.ok) { alert(`Duplicate failed: ${r.error.kind}`); return; }
+          await (async () => {
+            const side = useStore.getState().activeSide;
+            const panel = useStore.getState().panels[side];
+            const setSide = (p: Partial<typeof panel>) => setPanel(side, p);
+            await navigateTo({ panel, setPanel: setSide, api, path: panel.path });
+          })();
+        })();
+        return;
+      }
+      case 'copyPath': {
+        const cur = active.entries[active.cursor];
+        if (!cur || cur.name === '..') return;
+        const name = cur.ext ? `${cur.name}.${cur.ext}` : cur.name;
+        const full = active.path === '/' ? `/${name}` : `${active.path}/${name}`;
+        void navigator.clipboard.writeText(full);
+        return;
+      }
+      case 'addToFavorites': {
+        useStore.getState().addFavorite(active.path);
+        return;
+      }
+      case 'pickFavorite':
+        useStore.getState().setFavoritePickerOpen(true);
+        return;
     }
   }, [api, setPanel]);
 
@@ -271,6 +305,14 @@ export function App() {
   // onRowDouble is a no-op — prevents duplicate navigate on browsers that do
   // fire the native dblclick.
   const onRowDouble = (_side: PanelSide) => (_index: number, _e: React.MouseEvent) => {};
+
+  const onRowContextMenu = (side: PanelSide) => (index: number, ev: React.MouseEvent) => {
+    ev.preventDefault();
+    useStore.setState({ activeSide: side });
+    // Move cursor onto the right-clicked row without altering existing selection
+    setPanel(side, { cursor: index });
+    useStore.getState().setContextMenu({ x: ev.clientX, y: ev.clientY, side, index });
+  };
 
   const onPathCommit = (side: PanelSide) => async (p: string): Promise<boolean> => {
     const panel = useStore.getState().panels[side];
@@ -363,6 +405,15 @@ export function App() {
         const setSide = (patch: Partial<typeof panel>) => setPanel(state.activeSide, patch);
         navigateTo({ panel, setPanel: setSide, api, path: p });
       }} />
+      <FavoritesBar
+        favorites={state.favorites}
+        onPick={(p) => {
+          const panel = useStore.getState().panels[state.activeSide];
+          const setSide = (patch: Partial<typeof panel>) => setPanel(state.activeSide, patch);
+          void navigateTo({ panel, setPanel: setSide, api, path: p });
+        }}
+        onRemove={(p) => useStore.getState().removeFavorite(p)}
+      />
       <div className="gc-panel-row">
         <div style={{ width: `${leftWidth}%` }}>
           <Panel
@@ -370,6 +421,7 @@ export function App() {
             onActivate={() => useStore.setState({ activeSide: 'left' })}
             onRowMouseDown={onRowMouseDown('left')}
             onRowDouble={onRowDouble('left')}
+            onRowContextMenu={onRowContextMenu('left')}
             onPathCommit={onPathCommit('left')}
             onSort={onSort('left')}
             pathBarRef={leftPathRef}
@@ -391,6 +443,7 @@ export function App() {
             onActivate={() => useStore.setState({ activeSide: 'right' })}
             onRowMouseDown={onRowMouseDown('right')}
             onRowDouble={onRowDouble('right')}
+            onRowContextMenu={onRowContextMenu('right')}
             onPathCommit={onPathCommit('right')}
             onSort={onSort('right')}
             pathBarRef={rightPathRef}
@@ -399,6 +452,46 @@ export function App() {
       </div>
       <Dialogs {...dialogHandlers} />
       {cheatVisible && <Cheatsheet />}
+      {state.favoritePickerOpen && (
+        <FavoritePicker
+          favorites={state.favorites}
+          onPick={(p) => {
+            useStore.getState().setFavoritePickerOpen(false);
+            const side = useStore.getState().activeSide;
+            const panel = useStore.getState().panels[side];
+            const setSide = (patch: Partial<typeof panel>) => setPanel(side, patch);
+            void navigateTo({ panel, setPanel: setSide, api, path: p });
+          }}
+          onCancel={() => useStore.getState().setFavoritePickerOpen(false)}
+        />
+      )}
+      {state.contextMenu && (() => {
+        const cm = state.contextMenu;
+        const panel = state.panels[cm.side];
+        const entry = panel.entries[cm.index];
+        if (!entry) return null;
+        const isDotDot = entry.name === '..';
+        const name = entry.ext ? `${entry.name}.${entry.ext}` : entry.name;
+        const fullPath = panel.path === '/' ? `/${name}` : `${panel.path}/${name}`;
+        const close = () => useStore.getState().setContextMenu(null);
+        const items: MenuItem[] = [
+          { kind: 'item', label: 'Open', onClick: () => void dispatch('navigateInto'), disabled: isDotDot },
+          { kind: 'separator' },
+          { kind: 'item', label: 'Copy (F5)', onClick: () => void dispatch('copy'), disabled: isDotDot },
+          { kind: 'item', label: 'Move (F6)', onClick: () => void dispatch('move'), disabled: isDotDot },
+          { kind: 'item', label: 'Duplicate', onClick: () => void dispatch('duplicate'), disabled: isDotDot },
+          { kind: 'item', label: 'Rename (F2)', onClick: () => void dispatch('rename'), disabled: isDotDot },
+          { kind: 'separator' },
+          { kind: 'item', label: 'Move to Trash (F8)', onClick: () => void dispatch('trash'), disabled: isDotDot },
+          { kind: 'item', label: 'Delete Permanently… (Shift+F8)', onClick: () => void dispatch('deleteCursorConfirm'), disabled: isDotDot },
+          { kind: 'separator' },
+          { kind: 'item', label: 'Copy full path', onClick: () => { void navigator.clipboard.writeText(fullPath); }, disabled: isDotDot },
+          ...(entry.isDir && !isDotDot
+            ? [{ kind: 'item' as const, label: 'Add to Favorites', onClick: () => useStore.getState().addFavorite(fullPath) }]
+            : []),
+        ];
+        return <ContextMenu x={cm.x} y={cm.y} items={items} onClose={close} />;
+      })()}
     </div>
   );
 }

@@ -8,6 +8,7 @@ export type GCApi = {
     rename(from: string, to: string): Promise<Result<void>>;
     trash(paths: string[]): Promise<Result<void>>;
     delete(paths: string[]): Promise<Result<void>>;
+    duplicate(path: string): Promise<Result<string>>;
   };
   volumes: {
     list(): Promise<Volume[]>;

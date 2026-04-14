@@ -9,6 +9,7 @@ const api: GCApi = {
     rename: (from, to) => ipcRenderer.invoke('fs:rename', from, to),
     trash: (paths) => ipcRenderer.invoke('fs:trash', paths),
     delete: (paths) => ipcRenderer.invoke('fs:delete', paths),
+    duplicate: (path) => ipcRenderer.invoke('fs:duplicate', path),
   },
   volumes: {
     list: () => ipcRenderer.invoke('volumes:list'),

@@ -15,9 +15,10 @@ type Props = {
   height: number;
   onRowMouseDown: (index: number, e: React.MouseEvent) => void;
   onRowDouble: (index: number, e: React.MouseEvent) => void;
+  onRowContextMenu?: (index: number, e: React.MouseEvent) => void;
 };
 
-export function FileList({ entries, cursor, selection, width, height, onRowMouseDown, onRowDouble }: Props) {
+export function FileList({ entries, cursor, selection, width, height, onRowMouseDown, onRowDouble, onRowContextMenu }: Props) {
   const listRef = useRef<List>(null);
 
   useEffect(() => {
@@ -45,6 +46,7 @@ export function FileList({ entries, cursor, selection, width, height, onRowMouse
             isSelected={selection.has(entryKey(e))}
             onMouseDown={(ev) => onRowMouseDown(index, ev)}
             onDoubleClick={(ev) => onRowDouble(index, ev)}
+            onContextMenu={onRowContextMenu ? (ev) => onRowContextMenu(index, ev) : undefined}
           />
         );
       }}

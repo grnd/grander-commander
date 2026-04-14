@@ -5,6 +5,28 @@ import { initialPanelState, type PanelSide, type PanelState } from './panelSlice
 const DEFAULT_LEFT = '/';
 const DEFAULT_RIGHT = '/';
 
+const FAVORITES_KEY = 'gc.favorites';
+
+function loadFavorites(): string[] {
+  try {
+    const raw = localStorage.getItem(FAVORITES_KEY);
+    if (!raw) return [];
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr.filter((v): v is string => typeof v === 'string') : [];
+  } catch { return []; }
+}
+
+function saveFavorites(fav: string[]): void {
+  try { localStorage.setItem(FAVORITES_KEY, JSON.stringify(fav)); } catch { /* ignore */ }
+}
+
+export type ContextMenuState = {
+  x: number;
+  y: number;
+  side: PanelSide;
+  index: number;      // row index in panel.entries
+};
+
 export type AppState = {
   panels: { left: PanelState; right: PanelState };
   activeSide: PanelSide;
@@ -13,11 +35,18 @@ export type AppState = {
   mouseMode: 'windows' | 'tc';
   volumes: Volume[];
   dialog: DialogState | null;
+  favorites: string[];
+  favoritePickerOpen: boolean;
+  contextMenu: ContextMenuState | null;
 
   setActive: (side: PanelSide) => void;
   replacePanel: (side: PanelSide, patch: Partial<PanelState>) => void;
   setVolumes: (v: Volume[]) => void;
   setDialog: (d: DialogState | null) => void;
+  addFavorite: (path: string) => void;
+  removeFavorite: (path: string) => void;
+  setFavoritePickerOpen: (open: boolean) => void;
+  setContextMenu: (m: ContextMenuState | null) => void;
 };
 
 export const useStore = create<AppState>((set) => ({
@@ -31,10 +60,26 @@ export const useStore = create<AppState>((set) => ({
   mouseMode: 'windows',
   volumes: [],
   dialog: null,
+  favorites: loadFavorites(),
+  favoritePickerOpen: false,
+  contextMenu: null,
 
   setActive: (side) => set({ activeSide: side }),
   replacePanel: (side, patch) =>
     set((s) => ({ panels: { ...s.panels, [side]: { ...s.panels[side], ...patch } } })),
   setVolumes: (volumes) => set({ volumes }),
   setDialog: (d) => set({ dialog: d }),
+  addFavorite: (path) => set((s) => {
+    if (s.favorites.includes(path)) return s;
+    const next = [...s.favorites, path];
+    saveFavorites(next);
+    return { favorites: next };
+  }),
+  removeFavorite: (path) => set((s) => {
+    const next = s.favorites.filter((p) => p !== path);
+    saveFavorites(next);
+    return { favorites: next };
+  }),
+  setFavoritePickerOpen: (open) => set({ favoritePickerOpen: open }),
+  setContextMenu: (m) => set({ contextMenu: m }),
 }));

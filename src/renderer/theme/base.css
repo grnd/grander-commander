@@ -124,3 +124,43 @@ body {
   padding: 6px 12px; border-top: 1px solid var(--gc-border);
   font-size: 10px; text-align: center; color: var(--gc-border);
 }
+
+/* Favorites bar */
+.gc-favorites {
+  display: flex; align-items: center; gap: 2px; padding: 2px 6px;
+  background: var(--gc-chrome); border-bottom: 1px solid var(--gc-border);
+  overflow-x: auto;
+}
+.gc-favorites-label {
+  font-size: 12px; color: var(--gc-status-active-bg, #0a5fcf);
+  margin-right: 4px; font-weight: 600;
+}
+.gc-fav-btn { max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Favorite picker */
+.gc-fav-picker { list-style: none; padding: 0; margin: 0 0 8px; max-height: 50vh; overflow: auto; }
+.gc-fav-picker li {
+  padding: 4px 8px; font-family: Menlo, monospace; font-size: 11px;
+  border-bottom: 1px solid var(--gc-border);
+  cursor: pointer;
+}
+.gc-fav-picker li.is-cursor {
+  background: var(--gc-status-active-bg); color: var(--gc-status-active-fg);
+}
+
+/* Context menu */
+.gc-context-menu {
+  position: fixed; background: var(--gc-panel); border: 1px solid var(--gc-border);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.25); padding: 2px 0; z-index: 1500;
+  min-width: 180px; font-size: 12px;
+}
+.gc-context-item {
+  display: block; width: 100%; text-align: left; padding: 4px 12px;
+  background: transparent; border: none; cursor: pointer; color: var(--gc-fg);
+  font-size: 12px;
+}
+.gc-context-item:hover:not(:disabled) {
+  background: var(--gc-status-active-bg); color: var(--gc-status-active-fg);
+}
+.gc-context-item:disabled { opacity: 0.45; cursor: default; }
+.gc-context-sep { height: 1px; background: var(--gc-border); margin: 3px 0; }
