@@ -44,6 +44,16 @@ const SECTIONS: { title: string; rows: [string, string][] }[] = [
       ['F6 / Cmd+X', 'Move'],
       ['F8 / Cmd+Delete', 'Move to Trash'],
       ['Shift+F8 / Cmd+Shift+Delete', 'Delete permanently'],
+      ['Cmd+Backspace', 'Delete cursor item (confirm)'],
+    ],
+  },
+  {
+    title: 'Favorites',
+    rows: [
+      ['Cmd+Shift+F / Ctrl+Shift+F', 'Add current folder to favorites'],
+      ['Cmd+G / Cmd+/', 'Go to favorite (picker)'],
+      ['Right-click favorite', 'Remove from favorites'],
+      ['Right-click folder → Add to Favorites', 'Add that folder'],
     ],
   },
   {
