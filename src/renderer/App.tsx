@@ -19,6 +19,12 @@ import { Panel } from './components/Panel';
 import { Splitter } from './components/Splitter';
 import type { SortCol } from '@shared/types';
 import type { PanelState } from './state/panelSlice';
+import {
+  openMkdirDialog, openRenameDialog, openCopyDialog, openMoveDialog,
+  requestTrash, requestDeleteConfirm,
+} from './commands/mutations';
+import { Dialogs } from './components/dialogs';
+import type { FileOp, OpEvent, OpId, ConflictAnswer } from '@shared/types';
 
 function applySort(
   panel: PanelState,
@@ -123,6 +129,38 @@ export function App() {
         if (el) { el.focus(); el.select(); }
         return;
       }
+      case 'mkdir':
+        openMkdirDialog({ side: s.activeSide, setDialog: useStore.getState().setDialog });
+        return;
+      case 'rename':
+        openRenameDialog({ side: s.activeSide, panel: active, setDialog: useStore.getState().setDialog });
+        return;
+      case 'copy':
+        openCopyDialog({
+          activePath: active.path, active,
+          inactive: s.panels[s.activeSide === 'left' ? 'right' : 'left'],
+          setDialog: useStore.getState().setDialog,
+        });
+        return;
+      case 'move':
+        openMoveDialog({
+          active,
+          inactive: s.panels[s.activeSide === 'left' ? 'right' : 'left'],
+          setDialog: useStore.getState().setDialog,
+        });
+        return;
+      case 'trash':
+        void requestTrash({
+          panel: active, api,
+          afterDone: () => {
+            const setSide = (p: Partial<typeof active>) => setPanel(s.activeSide, p);
+            navigateTo({ panel: active, setPanel: setSide, api, path: active.path });
+          },
+        });
+        return;
+      case 'deleteConfirm':
+        requestDeleteConfirm({ panel: active, setDialog: useStore.getState().setDialog });
+        return;
     }
   }, [api, setPanel]);
 
@@ -192,6 +230,76 @@ export function App() {
     applySort(panel, col, (patch) => setPanel(side, patch));
   };
 
+  const refreshSide = (side: PanelSide) => {
+    const panel = useStore.getState().panels[side];
+    const setSide = (p: Partial<typeof panel>) => setPanel(side, p);
+    return navigateTo({ panel, setPanel: setSide, api, path: panel.path });
+  };
+
+  const runOp = async (op: FileOp, title: string, side: PanelSide, otherSide: PanelSide) => {
+    const setDialog = useStore.getState().setDialog;
+    const id: OpId = await api.ops.start(op);
+    setDialog({
+      kind: 'progress', opId: id, title,
+      filesDone: 0, filesTotal: op.sources.length, bytesDone: 0, bytesTotal: 0, currentFile: '',
+    });
+    const unsub = api.ops.subscribe(id, async (ev: OpEvent) => {
+      if (ev.kind === 'progress') {
+        setDialog({
+          kind: 'progress', opId: id, title,
+          filesDone: ev.filesDone, filesTotal: ev.filesTotal,
+          bytesDone: ev.bytesDone, bytesTotal: ev.bytesTotal, currentFile: ev.currentFile,
+        });
+      } else if (ev.kind === 'conflict') {
+        setDialog({ kind: 'overwrite', opId: id, srcPath: ev.srcPath, dstPath: ev.dstPath });
+      } else if (ev.kind === 'error') {
+        setDialog(null);
+      } else if (ev.kind === 'complete' || ev.kind === 'cancelled') {
+        setDialog(null);
+        unsub();
+        await Promise.all([refreshSide(side), refreshSide(otherSide)]);
+      }
+    });
+  };
+
+  const dialogHandlers = {
+    onMkdir: async (side: PanelSide, name: string) => {
+      const panel = useStore.getState().panels[side];
+      const r = await api.fs.mkdir(panel.path, name);
+      if (r.ok) await refreshSide(side);
+      else alert(`Could not create folder: ${r.error.kind}`);
+    },
+    onRename: async (side: PanelSide, oldName: string, newName: string) => {
+      const panel = useStore.getState().panels[side];
+      const from = panel.path === '/' ? `/${oldName}` : `${panel.path}/${oldName}`;
+      const to = panel.path === '/' ? `/${newName}` : `${panel.path}/${newName}`;
+      const r = await api.fs.rename(from, to);
+      if (r.ok) await refreshSide(side);
+      else alert(`Could not rename: ${r.error.kind}`);
+    },
+    onDeleteConfirmed: async (paths: string[]) => {
+      const r = await api.fs.delete(paths);
+      if (!r.ok) alert(`Delete failed: ${r.error.kind}`);
+      await Promise.all([refreshSide('left'), refreshSide('right')]);
+    },
+    onCopyConfirmed: (sources: string[], dst: string) => {
+      const side = useStore.getState().activeSide;
+      const other: PanelSide = side === 'left' ? 'right' : 'left';
+      void runOp({ kind: 'copy', sources, dst }, `Copying ${sources.length} item(s)…`, side, other);
+    },
+    onMoveConfirmed: (sources: string[], dst: string) => {
+      const side = useStore.getState().activeSide;
+      const other: PanelSide = side === 'left' ? 'right' : 'left';
+      void runOp({ kind: 'move', sources, dst }, `Moving ${sources.length} item(s)…`, side, other);
+    },
+    onOverwriteAnswer: (opId: string, a: ConflictAnswer) => {
+      void api.ops.answerConflict(opId, a);
+    },
+    onCancelOp: (opId: string) => {
+      void api.ops.cancel(opId);
+    },
+  };
+
   return (
     <div className="gc-app">
       <DriveBar volumes={state.volumes} currentPath={active.path} onPick={(p) => {
@@ -233,6 +341,7 @@ export function App() {
           />
         </div>
       </div>
+      <Dialogs {...dialogHandlers} />
     </div>
   );
 }
