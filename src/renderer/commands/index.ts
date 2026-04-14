@@ -9,4 +9,4 @@ export type CommandName =
   | 'toggleHidden'
   | 'refresh'
   | 'focusPathBar' | 'focusPathBarRoot'
-  | 'mkdir' | 'rename' | 'copy' | 'move' | 'trash' | 'deleteConfirm';
+  | 'mkdir' | 'rename' | 'copy' | 'move' | 'trash' | 'deleteConfirm' | 'deleteCursorConfirm';

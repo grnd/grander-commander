@@ -88,3 +88,39 @@ body {
   height: 100%; background: var(--gc-status-active-bg, #0a5fcf);
   transition: width 80ms linear;
 }
+
+/* Cheatsheet (held ?) */
+.gc-cheatsheet-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 2000; pointer-events: none;
+}
+.gc-cheatsheet {
+  background: var(--gc-panel); border: 1px solid var(--gc-border);
+  max-width: 900px; max-height: 80vh; overflow: auto;
+  box-shadow: 0 6px 40px rgba(0,0,0,0.4);
+}
+.gc-cheatsheet-title {
+  background: var(--gc-status-active-bg, #0a5fcf); color: var(--gc-status-active-fg, #fff);
+  padding: 6px 12px; font-weight: 600; font-size: 13px;
+}
+.gc-cheatsheet-body {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+  padding: 16px;
+}
+.gc-cheatsheet-section h3 {
+  margin: 0 0 4px; font-size: 11px; text-transform: uppercase;
+  color: var(--gc-border);
+  border-bottom: 1px solid var(--gc-border); padding-bottom: 3px;
+}
+.gc-cheatsheet-section table { width: 100%; font-size: 11px; border-collapse: collapse; }
+.gc-cheatsheet-section td { padding: 2px 4px; vertical-align: top; }
+.gc-cheatsheet-combo {
+  font-family: Menlo, monospace;
+  white-space: nowrap; color: var(--gc-fg); font-weight: 600;
+  padding-right: 10px !important;
+}
+.gc-cheatsheet-footer {
+  padding: 6px 12px; border-top: 1px solid var(--gc-border);
+  font-size: 10px; text-align: center; color: var(--gc-border);
+}

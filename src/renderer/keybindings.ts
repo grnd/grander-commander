@@ -40,6 +40,7 @@ export const bindings: Binding[] = [
   { combo: 'F6', command: 'move' },
   { combo: 'F8', command: 'trash' },
   { combo: 'Shift+F8', command: 'deleteConfirm' },
+  { combo: 'Ctrl+Backspace', command: 'deleteCursorConfirm' },
   { combo: 'F2', command: 'rename' },
   { combo: 'Cmd+Shift+R', command: 'rename' },
   { combo: 'Cmd+C', command: 'copy' },

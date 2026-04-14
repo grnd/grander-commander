@@ -1,6 +1,7 @@
 // src/renderer/App.tsx
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useStore } from './state/store';
+import { Cheatsheet } from './components/Cheatsheet';
 import type { PanelSide } from './state/panelSlice';
 import { eventToCombo, lookup } from './keybindings';
 import type { CommandName } from './commands';
@@ -46,6 +47,7 @@ export function App() {
   const rightPathRef = useRef<HTMLInputElement>(null);
   const lastClickRef = useRef<{ side: PanelSide; index: number; time: number } | null>(null);
   const DBL_CLICK_MS = 450;
+  const [cheatVisible, setCheatVisible] = useState(false);
 
   const setPanel = useCallback((side: PanelSide, patch: Partial<typeof state.panels.left>) => {
     useStore.setState((s) => ({ panels: { ...s.panels, [side]: { ...s.panels[side], ...patch } } }));
@@ -173,6 +175,15 @@ export function App() {
       case 'deleteConfirm':
         requestDeleteConfirm({ panel: active, setDialog: useStore.getState().setDialog });
         return;
+      case 'deleteCursorConfirm': {
+        // Delete just the cursor item regardless of selection, with confirm.
+        const cur = active.entries[active.cursor];
+        if (!cur || cur.name === '..') return;
+        const name = cur.ext ? `${cur.name}.${cur.ext}` : cur.name;
+        const full = active.path === '/' ? `/${name}` : `${active.path}/${name}`;
+        useStore.getState().setDialog({ kind: 'deleteConfirm', paths: [full] });
+        return;
+      }
     }
   }, [api, setPanel]);
 
@@ -199,6 +210,29 @@ export function App() {
     });
     return unsub;
   }, [dispatch, api]);
+
+  // Cheatsheet: show while '?' is held
+  useEffect(() => {
+    const down = (e: KeyboardEvent) => {
+      if (e.key === '?') {
+        const tag = (e.target as HTMLElement).tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+        setCheatVisible(true);
+      }
+    };
+    const up = (e: KeyboardEvent) => {
+      if (e.key === '?' || e.key === 'Shift') setCheatVisible(false);
+    };
+    const blur = () => setCheatVisible(false);
+    document.addEventListener('keydown', down);
+    document.addEventListener('keyup', up);
+    window.addEventListener('blur', blur);
+    return () => {
+      document.removeEventListener('keydown', down);
+      document.removeEventListener('keyup', up);
+      window.removeEventListener('blur', blur);
+    };
+  }, []);
 
   const left = state.panels.left;
   const right = state.panels.right;
@@ -364,6 +398,7 @@ export function App() {
         </div>
       </div>
       <Dialogs {...dialogHandlers} />
+      {cheatVisible && <Cheatsheet />}
     </div>
   );
 }
