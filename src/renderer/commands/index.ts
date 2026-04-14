@@ -8,5 +8,5 @@ export type CommandName =
   | 'sortByName' | 'sortByExt' | 'sortBySize' | 'sortByDate'
   | 'toggleHidden'
   | 'refresh'
-  | 'focusPathBar'
+  | 'focusPathBar' | 'focusPathBarRoot'
   | 'mkdir' | 'rename' | 'copy' | 'move' | 'trash' | 'deleteConfirm';

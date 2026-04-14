@@ -129,6 +129,18 @@ export function App() {
         if (el) { el.focus(); el.select(); }
         return;
       }
+      case 'focusPathBarRoot': {
+        const el = (s.activeSide === 'left' ? leftPathRef : rightPathRef).current;
+        if (el) {
+          // Controlled input: use the native setter + input event so React picks up the change.
+          const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+          setter?.call(el, '/');
+          el.dispatchEvent(new Event('input', { bubbles: true }));
+          el.focus();
+          el.setSelectionRange(1, 1);
+        }
+        return;
+      }
       case 'mkdir':
         openMkdirDialog({ side: s.activeSide, setDialog: useStore.getState().setDialog });
         return;

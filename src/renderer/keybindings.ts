@@ -33,6 +33,7 @@ export const bindings: Binding[] = [
   { combo: 'Ctrl+R', command: 'refresh' },
   { combo: 'Cmd+R', command: 'refresh' },
   { combo: 'Cmd+L', command: 'focusPathBar' },
+  { combo: '/', command: 'focusPathBarRoot' },
   { combo: 'F7', command: 'mkdir' },
   { combo: 'Cmd+N', command: 'mkdir' },
   { combo: 'F5', command: 'copy' },
