@@ -520,7 +520,13 @@ export function App() {
         </div>
       </div>
       <CommandLine
-        cwd={active.path}
+        cwd={(() => {
+          const home = state.volumes.find((v) => v.kind === 'home')?.path;
+          if (home && (active.path === home || active.path.startsWith(home + '/'))) {
+            return '~' + active.path.slice(home.length);
+          }
+          return active.path;
+        })()}
         inputRef={cmdRef}
         onRun={async (cmd) => {
           const r = await api.shell.runCommand(cmd, active.path);

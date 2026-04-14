@@ -12,7 +12,36 @@
     "lint": "eslint 'src/**/*.{ts,tsx}' 'tests/**/*.{ts,tsx}'",
     "format": "prettier --write 'src/**/*.{ts,tsx,css}' 'tests/**/*.{ts,tsx}'",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "dist": "electron-vite build && electron-builder --mac --arm64",
+    "dist:universal": "electron-vite build && electron-builder --mac --universal"
+  },
+  "build": {
+    "appId": "com.grnd.grandercommander",
+    "productName": "GranderCommander",
+    "directories": { "output": "dist" },
+    "files": [
+      "out/**/*",
+      "package.json",
+      "!node_modules/**/*"
+    ],
+    "asarUnpack": [],
+    "mac": {
+      "target": [
+        { "target": "dmg", "arch": ["arm64"] }
+      ],
+      "category": "public.app-category.utilities",
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false,
+      "identity": null
+    },
+    "dmg": {
+      "title": "GranderCommander ${version}",
+      "contents": [
+        { "x": 140, "y": 180 },
+        { "x": 400, "y": 180, "type": "link", "path": "/Applications" }
+      ]
+    }
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.4.0",
@@ -25,6 +54,7 @@
     "@typescript-eslint/parser": "^7.0.0",
     "@vitejs/plugin-react": "^4.3.0",
     "electron": "^30.0.0",
+    "electron-builder": "^26.8.1",
     "electron-vite": "^2.2.0",
     "eslint": "^8.57.0",
     "eslint-plugin-react": "^7.34.0",
