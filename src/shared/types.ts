@@ -36,3 +36,35 @@ export type ListDirOptions = { showHidden: boolean };
 
 // Noise files that are ALWAYS hidden regardless of showHidden setting
 export const NOISE_FILENAMES = new Set(['.DS_Store', 'Icon\r']);
+
+// ---- M2: mutation ops ----
+
+export type OpId = string;
+
+export type FileOp =
+  | { kind: 'copy'; sources: string[]; dst: string }   // dst is destination DIR
+  | { kind: 'move'; sources: string[]; dst: string };
+
+export type ConflictAnswer =
+  | { action: 'overwrite'; applyToAll: boolean }
+  | { action: 'skip'; applyToAll: boolean }
+  | { action: 'rename'; newName: string; applyToAll: false }  // rename applies only to this file
+  | { action: 'cancel' };
+
+export type OpEvent =
+  | { kind: 'progress'; bytesDone: number; bytesTotal: number; filesDone: number; filesTotal: number; currentFile: string }
+  | { kind: 'conflict'; srcPath: string; dstPath: string }
+  | { kind: 'error'; error: OpError; path: string }
+  | { kind: 'complete'; filesDone: number; bytesDone: number }
+  | { kind: 'cancelled'; filesDone: number; bytesDone: number };
+
+// ---- M2: dialog state (renderer-only) ----
+
+export type DialogState =
+  | { kind: 'mkdir'; side: 'left' | 'right' }
+  | { kind: 'rename'; side: 'left' | 'right'; oldName: string }
+  | { kind: 'copy'; sources: string[]; dstDefault: string }
+  | { kind: 'move'; sources: string[]; dstDefault: string }
+  | { kind: 'deleteConfirm'; paths: string[] }
+  | { kind: 'overwrite'; opId: OpId; srcPath: string; dstPath: string }
+  | { kind: 'progress'; opId: OpId; title: string; filesDone: number; filesTotal: number; bytesDone: number; bytesTotal: number; currentFile: string };
