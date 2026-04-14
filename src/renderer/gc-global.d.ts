@@ -19,6 +19,7 @@ export type GCApi = {
     subscribe(id: OpId, cb: (ev: OpEvent) => void): () => void;
   };
   shell: { openPath(path: string): Promise<void> };
+  menu: { onCommand(cb: (cmd: string) => void): () => void };
 };
 
 declare global {

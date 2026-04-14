@@ -181,6 +181,13 @@ export function App() {
     return () => document.removeEventListener('keydown', onKey);
   }, [dispatch]);
 
+  useEffect(() => {
+    const unsub = api.menu.onCommand((cmd) => {
+      void dispatch(cmd as import('./commands').CommandName);
+    });
+    return unsub;
+  }, [dispatch, api]);
+
   const left = state.panels.left;
   const right = state.panels.right;
   const active = state.panels[state.activeSide];

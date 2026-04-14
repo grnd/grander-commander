@@ -27,6 +27,13 @@ const api: GCApi = {
   shell: {
     openPath: (path) => ipcRenderer.invoke('shell:openPath', path),
   },
+  menu: {
+    onCommand: (cb) => {
+      const listener = (_: unknown, cmd: unknown) => cb(String(cmd));
+      ipcRenderer.on('menu:command', listener);
+      return () => ipcRenderer.removeListener('menu:command', listener);
+    },
+  },
 };
 
 contextBridge.exposeInMainWorld('gc', api);

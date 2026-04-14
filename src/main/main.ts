@@ -23,11 +23,19 @@ function buildMenu() {
     {
       label: 'Files',
       submenu: [
-        { label: 'New Folder', accelerator: 'F7', enabled: false },
+        { label: 'New Folder', accelerator: 'CmdOrCtrl+N',
+          click: (_i, w) => w?.webContents.send('menu:command', 'mkdir') },
+        { label: 'Rename', accelerator: 'CmdOrCtrl+Shift+R',
+          click: (_i, w) => w?.webContents.send('menu:command', 'rename') },
         { type: 'separator' as const },
-        { label: 'Copy', accelerator: 'F5', enabled: false },
-        { label: 'Move', accelerator: 'F6', enabled: false },
-        { label: 'Delete', accelerator: 'F8', enabled: false },
+        { label: 'Copy', accelerator: 'F5',
+          click: (_i, w) => w?.webContents.send('menu:command', 'copy') },
+        { label: 'Move', accelerator: 'F6',
+          click: (_i, w) => w?.webContents.send('menu:command', 'move') },
+        { label: 'Move to Trash', accelerator: 'F8',
+          click: (_i, w) => w?.webContents.send('menu:command', 'trash') },
+        { label: 'Delete Permanently…', accelerator: 'Shift+F8',
+          click: (_i, w) => w?.webContents.send('menu:command', 'deleteConfirm') },
       ],
     },
     {
