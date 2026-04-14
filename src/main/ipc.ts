@@ -8,6 +8,8 @@ import { trashPaths } from './fs/trash';
 import { deletePaths } from './fs/delete';
 import { duplicate } from './fs/duplicate';
 import { quickLook } from './shell/quickLook';
+import { openTerminal } from './shell/openTerminal';
+import { runCommand } from './shell/runCommand';
 import { OpRunner } from './ops/runner';
 import type { ConflictAnswer, FileOp, OpId } from '@shared/types';
 
@@ -24,6 +26,8 @@ export function registerIpc() {
   ipcMain.handle('volumes:list', () => listVolumes());
   ipcMain.handle('shell:openPath', (_e, path: string) => shell.openPath(path));
   ipcMain.handle('shell:quickLook', (_e, path: string) => { quickLook(path); });
+  ipcMain.handle('shell:openTerminal', (_e, path: string) => openTerminal(path));
+  ipcMain.handle('shell:runCommand', (_e, cmd: string, cwd: string) => runCommand(cmd, cwd));
 
   ipcMain.handle('ops:start', (e, op: FileOp) => {
     const id = runner.start(op);

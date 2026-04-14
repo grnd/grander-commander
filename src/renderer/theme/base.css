@@ -164,3 +164,53 @@ body {
 }
 .gc-context-item:disabled { opacity: 0.45; cursor: default; }
 .gc-context-sep { height: 1px; background: var(--gc-border); margin: 3px 0; }
+
+/* Command line */
+.gc-cmdline {
+  display: flex; align-items: center; gap: 6px;
+  padding: 3px 6px;
+  background: var(--gc-chrome);
+  border-top: 1px solid var(--gc-border);
+}
+.gc-cmdline-prompt {
+  font-family: Menlo, monospace; font-size: 10px;
+  color: var(--gc-status-active-bg, #0a5fcf);
+  white-space: nowrap; max-width: 40%; overflow: hidden; text-overflow: ellipsis;
+}
+.gc-cmdline-input {
+  flex: 1;
+  background: var(--gc-input-bg);
+  border: 1px inset var(--gc-border);
+  padding: 2px 6px;
+  font-family: Menlo, monospace; font-size: 11px;
+  color: var(--gc-fg);
+}
+
+/* F-key button bar */
+.gc-fkeybar {
+  display: flex; gap: 2px; padding: 2px;
+  background: var(--gc-chrome);
+  border-top: 1px solid var(--gc-border);
+}
+.gc-fkey-btn {
+  flex: 1; padding: 3px 4px;
+  background: var(--gc-btn);
+  border: 1px solid var(--gc-border);
+  font-size: 10px; color: var(--gc-fg);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.gc-fkey-btn:hover { background: var(--gc-btn-active); }
+.gc-fkey-label { color: var(--gc-status-active-bg, #0a5fcf); font-weight: 700; }
+
+/* Command result modal */
+.gc-cmdresult { min-width: 600px; max-width: 900px; }
+.gc-cmd-stdout, .gc-cmd-stderr {
+  font-family: Menlo, monospace; font-size: 11px;
+  background: var(--gc-bg); padding: 8px;
+  border: 1px solid var(--gc-border);
+  max-height: 40vh; overflow: auto;
+  margin: 8px 0 0; white-space: pre-wrap;
+}
+.gc-cmd-stderr { color: #a00; }

@@ -28,6 +28,8 @@ const api: GCApi = {
   shell: {
     openPath: (path) => ipcRenderer.invoke('shell:openPath', path),
     quickLook: (path) => ipcRenderer.invoke('shell:quickLook', path),
+    openTerminal: (path) => ipcRenderer.invoke('shell:openTerminal', path),
+    runCommand: (cmd, cwd) => ipcRenderer.invoke('shell:runCommand', cmd, cwd),
   },
   menu: {
     onCommand: (cb) => {

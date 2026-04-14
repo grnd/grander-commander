@@ -12,4 +12,4 @@ export type CommandName =
   | 'mkdir' | 'rename' | 'copy' | 'move' | 'trash' | 'deleteConfirm' | 'deleteCursorConfirm'
   | 'duplicate' | 'copyPath'
   | 'addToFavorites' | 'pickFavorite'
-  | 'quickLook';
+  | 'quickLook' | 'openTerminal' | 'quitApp' | 'runShellCommand';

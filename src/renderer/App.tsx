@@ -5,6 +5,8 @@ import { Cheatsheet } from './components/Cheatsheet';
 import { FavoritesBar } from './components/FavoritesBar';
 import { FavoritePicker } from './components/FavoritePicker';
 import { ContextMenu, type MenuItem } from './components/ContextMenu';
+import { CommandLine } from './components/CommandLine';
+import { FKeyBar } from './components/FKeyBar';
 import type { PanelSide } from './state/panelSlice';
 import { eventToCombo, lookup } from './keybindings';
 import type { CommandName } from './commands';
@@ -51,6 +53,7 @@ export function App() {
   const lastClickRef = useRef<{ side: PanelSide; index: number; time: number } | null>(null);
   const DBL_CLICK_MS = 450;
   const [cheatVisible, setCheatVisible] = useState(false);
+  const [cmdOutput, setCmdOutput] = useState<{ cmd: string; stdout: string; stderr: string; exitCode: number } | null>(null);
 
   const setPanel = useCallback((side: PanelSide, patch: Partial<typeof state.panels.left>) => {
     useStore.setState((s) => ({ panels: { ...s.panels, [side]: { ...s.panels[side], ...patch } } }));
@@ -226,6 +229,15 @@ export function App() {
         void api.shell.quickLook(full);
         return;
       }
+      case 'openTerminal':
+        void api.shell.openTerminal(active.path);
+        return;
+      case 'quitApp':
+        window.close();
+        return;
+      case 'runShellCommand':
+        // Invoked inline with command string from CommandLine; no-op from key dispatch.
+        return;
     }
   }, [api, setPanel]);
 
@@ -461,6 +473,31 @@ export function App() {
           />
         </div>
       </div>
+      <CommandLine
+        cwd={active.path}
+        onRun={async (cmd) => {
+          const r = await api.shell.runCommand(cmd, active.path);
+          setCmdOutput({ cmd, ...r });
+          // Refresh both panels in case the command changed files.
+          await Promise.all([refreshSide('left'), refreshSide('right')]);
+        }}
+      />
+      <FKeyBar onInvoke={(cmd) => void dispatch(cmd)} />
+      {cmdOutput && (
+        <div className="gc-modal-backdrop" onMouseDown={() => setCmdOutput(null)}>
+          <div className="gc-modal gc-cmdresult" onMouseDown={(e) => e.stopPropagation()}>
+            <div className="gc-modal-title">{cmdOutput.exitCode === 0 ? '✓' : '✗'} {cmdOutput.cmd}</div>
+            <div className="gc-modal-body">
+              {cmdOutput.stdout && <pre className="gc-cmd-stdout">{cmdOutput.stdout}</pre>}
+              {cmdOutput.stderr && <pre className="gc-cmd-stderr">{cmdOutput.stderr}</pre>}
+              {!cmdOutput.stdout && !cmdOutput.stderr && <p>(no output)</p>}
+              <div className="gc-modal-actions">
+                <button autoFocus onClick={() => setCmdOutput(null)}>Close</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       <Dialogs {...dialogHandlers} />
       {cheatVisible && <Cheatsheet />}
       {state.favoritePickerOpen && (
