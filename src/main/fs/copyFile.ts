@@ -24,6 +24,7 @@ export async function copyFile(src: string, dst: string, opts: CopyOptions): Pro
     dstFh = await open(dst, 'w');
     const buf = Buffer.alloc(CHUNK);
     let done = 0;
+    // eslint-disable-next-line no-constant-condition
     while (true) {
       if (opts.signal?.aborted) {
         throw Object.assign(new Error('aborted'), { code: 'ABORT' });
