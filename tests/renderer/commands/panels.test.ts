@@ -34,6 +34,7 @@ describe('sameDirToOther', () => {
   it('copies active panel path to the inactive panel (triggers loadDir via api)', async () => {
     const s = mkStore();
     const api = { fs: { listDir: vi.fn().mockResolvedValue({ ok: true, value: [] }) } };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await sameDirToOther({ get: s.get, set: s.set, api: api as any });
     expect(api.fs.listDir).toHaveBeenCalledWith('/a', expect.objectContaining({ showHidden: false }));
   });

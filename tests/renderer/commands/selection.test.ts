@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { toggleMark, selectAll, clearSelection, rangeSelect } from '@renderer/commands/selection';
 import type { FileEntry } from '@shared/types';
-import { initialPanelState, entryKey } from '@renderer/state/panelSlice';
+import { initialPanelState } from '@renderer/state/panelSlice';
 
 const e = (name: string, isDir = false): FileEntry => ({
   name, ext: '', isDir, isSymlink: false, isAppBundle: false,

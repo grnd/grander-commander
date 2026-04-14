@@ -39,6 +39,8 @@ export function App() {
 
   const setPanel = useCallback((side: PanelSide, patch: Partial<typeof state.panels.left>) => {
     useStore.setState((s) => ({ panels: { ...s.panels, [side]: { ...s.panels[side], ...patch } } }));
+    // state is referenced only at the type level (typeof state.panels.left); no runtime dep
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Initial volumes + initial paths
