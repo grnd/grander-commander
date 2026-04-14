@@ -33,7 +33,7 @@ function parentOf(path: string): string | null {
   return path.slice(0, idx);
 }
 
-async function loadInto(ctx: NavCtx, newPath: string): Promise<boolean> {
+async function loadInto(ctx: NavCtx, newPath: string, cursorOnName?: string): Promise<boolean> {
   ctx.setPanel({ loading: true, error: null });
   const r = await ctx.api.fs.listDir(newPath, { showHidden: ctx.panel.showHidden });
   if (!r.ok) {
@@ -47,10 +47,18 @@ async function loadInto(ctx: NavCtx, newPath: string): Promise<boolean> {
       isHidden: false, size: 0, mtime: 0, mode: 0 } as FileEntry,
     ...sorted,
   ];
+  let cursor = 0;
+  if (cursorOnName) {
+    const idx = entries.findIndex((e) => {
+      const full = e.ext ? `${e.name}.${e.ext}` : e.name;
+      return full === cursorOnName;
+    });
+    if (idx >= 0) cursor = idx;
+  }
   ctx.setPanel({
     path: newPath,
     entries,
-    cursor: 0,
+    cursor,
     selection: new Set(),
     loading: false,
     error: null,
@@ -58,12 +66,17 @@ async function loadInto(ctx: NavCtx, newPath: string): Promise<boolean> {
   return true;
 }
 
+function leafOf(path: string): string {
+  const i = path.lastIndexOf('/');
+  return i >= 0 ? path.slice(i + 1) : path;
+}
+
 export async function navigateInto(ctx: NavCtx) {
   const cur = ctx.panel.entries[ctx.panel.cursor];
   if (!cur) return;
   if (cur.name === '..') {
     const parent = parentOf(ctx.panel.path);
-    if (parent) await loadInto(ctx, parent);
+    if (parent) await loadInto(ctx, parent, leafOf(ctx.panel.path));
     return;
   }
   if (cur.isDir) {
@@ -80,7 +93,7 @@ export async function navigateInto(ctx: NavCtx) {
 export async function navigateUp(ctx: NavCtx) {
   const parent = parentOf(ctx.panel.path);
   if (!parent) return;
-  await loadInto(ctx, parent);
+  await loadInto(ctx, parent, leafOf(ctx.panel.path));
 }
 
 export async function navigateTo(ctx: NavCtx & { path: string }): Promise<boolean> {
