@@ -31,6 +31,7 @@
         { "target": "dmg", "arch": ["arm64"] }
       ],
       "category": "public.app-category.utilities",
+      "icon": "build/icon.icns",
       "hardenedRuntime": false,
       "gatekeeperAssess": false,
       "identity": null
