@@ -38,6 +38,8 @@ export function App() {
   const api = window.gc;
   const leftPathRef = useRef<HTMLInputElement>(null);
   const rightPathRef = useRef<HTMLInputElement>(null);
+  const lastClickRef = useRef<{ side: PanelSide; index: number; time: number } | null>(null);
+  const DBL_CLICK_MS = 450;
 
   const setPanel = useCallback((side: PanelSide, patch: Partial<typeof state.panels.left>) => {
     useStore.setState((s) => ({ panels: { ...s.panels, [side]: { ...s.panels[side], ...patch } } }));
@@ -150,6 +152,20 @@ export function App() {
     useStore.setState({ activeSide: side });
     const panel = useStore.getState().panels[side];
     const setSide = (p: Partial<typeof panel>) => setPanel(side, p);
+
+    const now = Date.now();
+    const prev = lastClickRef.current;
+    const isDouble =
+      !ev.shiftKey && !ev.metaKey &&
+      prev !== null && prev.side === side && prev.index === index && now - prev.time < DBL_CLICK_MS;
+
+    if (isDouble) {
+      lastClickRef.current = null;
+      navigateInto({ panel: { ...panel, cursor: index }, setPanel: setSide, api });
+      return;
+    }
+    lastClickRef.current = { side, index, time: now };
+
     if (ev.shiftKey) {
       rangeSelect({ panel, setPanel: setSide, toIndex: index });
     } else if (ev.metaKey) {
@@ -160,12 +176,10 @@ export function App() {
     }
   };
 
-  const onRowDouble = (side: PanelSide) => (index: number) => {
-    useStore.setState({ activeSide: side });
-    const panel = useStore.getState().panels[side];
-    const setSide = (p: Partial<typeof panel>) => setPanel(side, p);
-    navigateInto({ panel: { ...panel, cursor: index }, setPanel: setSide, api });
-  };
+  // Double-click navigation is handled via onRowMouseDown timing above, so
+  // onRowDouble is a no-op — prevents duplicate navigate on browsers that do
+  // fire the native dblclick.
+  const onRowDouble = (_side: PanelSide) => (_index: number, _e: React.MouseEvent) => {};
 
   const onPathCommit = (side: PanelSide) => async (p: string): Promise<boolean> => {
     const panel = useStore.getState().panels[side];
