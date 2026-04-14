@@ -7,4 +7,5 @@ export type CommandName =
   | 'switchActive' | 'swapPanels' | 'sameDirToOther' | 'sameDirFromOther'
   | 'sortByName' | 'sortByExt' | 'sortBySize' | 'sortByDate'
   | 'toggleHidden'
-  | 'refresh';
+  | 'refresh'
+  | 'focusPathBar';

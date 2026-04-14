@@ -15,9 +15,10 @@ type Props = {
   onRowDouble: (index: number, e: React.MouseEvent) => void;
   onPathCommit: (p: string) => void;
   onSort: (col: SortCol) => void;
+  pathBarRef?: React.Ref<HTMLInputElement>;
 };
 
-export function Panel({ panel, isActive, onActivate, onRowClick, onRowDouble, onPathCommit, onSort }: Props) {
+export function Panel({ panel, isActive, onActivate, onRowClick, onRowDouble, onPathCommit, onSort, pathBarRef }: Props) {
   const bodyRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 0, h: 0 });
 
@@ -35,7 +36,7 @@ export function Panel({ panel, isActive, onActivate, onRowClick, onRowDouble, on
       className={`gc-panel${isActive ? ' is-active' : ''}`}
       onMouseDown={onActivate}
     >
-      <PathBar path={panel.path} onCommit={onPathCommit} active={isActive} />
+      <PathBar path={panel.path} onCommit={onPathCommit} active={isActive} inputRef={pathBarRef} />
       <ColumnHeader sort={panel.sort} onSort={onSort} />
       <div className="gc-panel-body" ref={bodyRef}>
         {size.h > 0 && (

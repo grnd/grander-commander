@@ -1,5 +1,5 @@
 // src/renderer/App.tsx
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useStore } from './state/store';
 import type { PanelSide } from './state/panelSlice';
 import { eventToCombo, lookup } from './keybindings';
@@ -36,6 +36,8 @@ function applySort(
 export function App() {
   const state = useStore();
   const api = window.gc;
+  const leftPathRef = useRef<HTMLInputElement>(null);
+  const rightPathRef = useRef<HTMLInputElement>(null);
 
   const setPanel = useCallback((side: PanelSide, patch: Partial<typeof state.panels.left>) => {
     useStore.setState((s) => ({ panels: { ...s.panels, [side]: { ...s.panels[side], ...patch } } }));
@@ -114,6 +116,11 @@ export function App() {
         return navigateTo({ panel: { ...active, showHidden: newShow }, setPanel: setActive, api, path: active.path });
       }
       case 'refresh':         return navigateTo({ panel: active, setPanel: setActive, api, path: active.path });
+      case 'focusPathBar': {
+        const el = (s.activeSide === 'left' ? leftPathRef : rightPathRef).current;
+        if (el) { el.focus(); el.select(); }
+        return;
+      }
     }
   }, [api, setPanel]);
 
@@ -187,6 +194,7 @@ export function App() {
             onRowDouble={onRowDouble('left')}
             onPathCommit={onPathCommit('left')}
             onSort={onSort('left')}
+            pathBarRef={leftPathRef}
           />
         </div>
         <Splitter
@@ -207,6 +215,7 @@ export function App() {
             onRowDouble={onRowDouble('right')}
             onPathCommit={onPathCommit('right')}
             onSort={onSort('right')}
+            pathBarRef={rightPathRef}
           />
         </div>
       </div>

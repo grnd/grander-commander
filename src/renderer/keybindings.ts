@@ -32,6 +32,7 @@ export const bindings: Binding[] = [
   { combo: 'Ctrl+H', command: 'toggleHidden' },
   { combo: 'Ctrl+R', command: 'refresh' },
   { combo: 'Cmd+R', command: 'refresh' },
+  { combo: 'Cmd+L', command: 'focusPathBar' },
 ];
 
 // Convert a KeyboardEvent to its canonical combo string.
