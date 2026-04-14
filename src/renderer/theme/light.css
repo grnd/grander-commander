@@ -15,5 +15,6 @@ html[data-theme='light'] {
   --gc-status-active-fg: #ffffff;
   --gc-input-bg: #ffffff;
   --gc-selection: #ffcc66;
+  --gc-selection-light: #ffe6a8;
   --gc-selection-fg: #000000;
 }

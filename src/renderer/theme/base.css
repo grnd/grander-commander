@@ -33,6 +33,11 @@ body {
   background: var(--gc-cursor-active-bg);
 }
 .gc-file-row.is-selected { background: var(--gc-selection); color: var(--gc-selection-fg); }
+.gc-panel.is-active .gc-file-row.is-cursor.is-selected {
+  background: var(--gc-selection-light);
+  color: var(--gc-selection-fg);
+  outline: 1px solid var(--gc-cursor-active-outline);
+}
 .gc-file-row.is-dir { font-weight: 600; }
 .gc-file-row.is-symlink { font-style: italic; }
 .gc-status { padding: 3px 6px; background: var(--gc-chrome); border-top: 1px solid var(--gc-border); font-size: 10px; }

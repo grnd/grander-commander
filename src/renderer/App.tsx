@@ -285,8 +285,11 @@ export function App() {
     onMkdir: async (side: PanelSide, name: string) => {
       const panel = useStore.getState().panels[side];
       const r = await api.fs.mkdir(panel.path, name);
-      if (r.ok) await refreshSide(side);
-      else alert(`Could not create folder: ${r.error.kind}`);
+      if (!r.ok) { alert(`Could not create folder: ${r.error.kind}`); return; }
+      await refreshSide(side);
+      const refreshed = useStore.getState().panels[side];
+      const idx = refreshed.entries.findIndex((e) => e.name === name && e.isDir);
+      if (idx >= 0) setPanel(side, { cursor: idx });
     },
     onRename: async (side: PanelSide, oldName: string, newName: string) => {
       const panel = useStore.getState().panels[side];

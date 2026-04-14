@@ -56,7 +56,7 @@ export function OverwritePrompt({ srcPath, dstPath, onAnswer }: Props) {
         <button onClick={() => onAnswer({ action: 'cancel' })}>Cancel</button>
         <button onClick={() => setRenaming(true)}>Rename…</button>
         <button onClick={() => onAnswer({ action: 'skip', applyToAll })}>Skip</button>
-        <button onClick={() => onAnswer({ action: 'overwrite', applyToAll })}>Overwrite</button>
+        <button autoFocus onClick={() => onAnswer({ action: 'overwrite', applyToAll })}>Overwrite</button>
       </div>
     </div>
   );

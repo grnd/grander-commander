@@ -1,4 +1,5 @@
 // src/renderer/components/FileList.tsx
+import { useEffect, useRef } from 'react';
 import { FixedSizeList as List } from 'react-window';
 import { FileRow } from './FileRow';
 import type { FileEntry } from '@shared/types';
@@ -17,8 +18,17 @@ type Props = {
 };
 
 export function FileList({ entries, cursor, selection, width, height, onRowMouseDown, onRowDouble }: Props) {
+  const listRef = useRef<List>(null);
+
+  useEffect(() => {
+    // Keep the cursor row within view; 'smart' only scrolls when cursor moves
+    // out of the current viewport, matching TC's behavior.
+    listRef.current?.scrollToItem(cursor, 'smart');
+  }, [cursor]);
+
   return (
     <List
+      ref={listRef}
       height={height}
       width={width}
       itemCount={entries.length}

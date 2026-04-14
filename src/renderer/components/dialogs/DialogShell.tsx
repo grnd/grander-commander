@@ -13,7 +13,11 @@ export function DialogShell({ title, onClose, children }: Props) {
       if (e.key === 'Escape') { e.preventDefault(); onClose(); }
     };
     document.addEventListener('keydown', onKey);
-    rootRef.current?.querySelector<HTMLInputElement>('input,button')?.focus();
+    // If a child element already claimed focus via autoFocus, don't override it.
+    const root = rootRef.current;
+    if (root && (!document.activeElement || !root.contains(document.activeElement))) {
+      root.querySelector<HTMLInputElement>('input,button')?.focus();
+    }
     return () => document.removeEventListener('keydown', onKey);
   }, [onClose]);
 
