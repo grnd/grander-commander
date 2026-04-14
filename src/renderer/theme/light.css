@@ -9,6 +9,10 @@ html[data-theme='light'] {
   --gc-btn-active: #ffffff;
   --gc-active-outline: #0a5fcf;
   --gc-cursor-outline: #444;
+  --gc-cursor-active-outline: #0a5fcf;
+  --gc-cursor-active-bg: #cfe0f5;
+  --gc-status-active-bg: #0a5fcf;
+  --gc-status-active-fg: #ffffff;
   --gc-input-bg: #ffffff;
   --gc-selection: #ffcc66;
   --gc-selection-fg: #000000;

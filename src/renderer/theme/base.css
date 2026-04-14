@@ -27,8 +27,17 @@ body {
 .gc-panel-body { flex: 1; min-height: 0; }
 .gc-file-row { display: flex; height: 18px; line-height: 18px; padding: 0; font-family: Menlo, monospace; font-size: 11px; }
 .gc-file-row .gc-col { padding: 0 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.gc-file-row.is-cursor { outline: 1px dotted var(--gc-cursor-outline); outline-offset: -1px; }
+.gc-panel.is-active .gc-file-row.is-cursor {
+  outline: 1px solid var(--gc-cursor-active-outline);
+  outline-offset: -1px;
+  background: var(--gc-cursor-active-bg);
+}
 .gc-file-row.is-selected { background: var(--gc-selection); color: var(--gc-selection-fg); }
 .gc-file-row.is-dir { font-weight: 600; }
 .gc-file-row.is-symlink { font-style: italic; }
 .gc-status { padding: 3px 6px; background: var(--gc-chrome); border-top: 1px solid var(--gc-border); font-size: 10px; }
+.gc-panel.is-active .gc-status {
+  background: var(--gc-status-active-bg);
+  color: var(--gc-status-active-fg);
+  font-weight: 600;
+}
