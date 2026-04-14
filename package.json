@@ -28,7 +28,7 @@
     "asarUnpack": [],
     "mac": {
       "target": [
-        { "target": "dmg", "arch": ["arm64"] }
+        { "target": "dmg", "arch": ["universal"] }
       ],
       "category": "public.app-category.utilities",
       "icon": "build/icon.icns",

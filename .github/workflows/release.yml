@@ -29,8 +29,8 @@ jobs:
       - name: Test
         run: npm test
 
-      - name: Build DMG (arm64)
-        run: npm run dist
+      - name: Build universal DMG
+        run: npm run dist:universal
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
