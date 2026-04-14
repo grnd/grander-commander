@@ -52,6 +52,8 @@ export function App() {
   const rightPathRef = useRef<HTMLInputElement>(null);
   const lastClickRef = useRef<{ side: PanelSide; index: number; time: number } | null>(null);
   const DBL_CLICK_MS = 450;
+  const cmdRef = useRef<HTMLInputElement>(null);
+  const qsTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [cheatVisible, setCheatVisible] = useState(false);
   const [cmdOutput, setCmdOutput] = useState<{ cmd: string; stdout: string; stderr: string; exitCode: number } | null>(null);
 
@@ -244,22 +246,64 @@ export function App() {
   // Global keyboard router
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      // Don't steal keys when an input is focused (PathBar)
+      // Don't steal keys when an input is focused (PathBar / cmdline)
       const tag = (e.target as HTMLElement).tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA') return;
       // Don't route panel shortcuts while a modal/picker owns the keyboard
       const s = useStore.getState();
       if (s.dialog || s.favoritePickerOpen) return;
+
+      // Escape clears active quick search before falling through to clearSelection
+      if (e.key === 'Escape' && s.quickSearch) {
+        e.preventDefault();
+        s.setQuickSearch(null);
+        if (qsTimeout.current) clearTimeout(qsTimeout.current);
+        return;
+      }
+
+      // Alt+letter/digit → TC-style quick search in active pane
+      if (e.altKey && !e.metaKey && !e.ctrlKey && (/^Key[A-Z]$/.test(e.code) || /^Digit[0-9]$/.test(e.code))) {
+        e.preventDefault();
+        const ch = /^Key/.test(e.code) ? e.code.slice(3).toLowerCase() : e.code.slice(5);
+        const prev = s.quickSearch;
+        const side = s.activeSide;
+        const buffer = prev && prev.side === side ? prev.buffer + ch : ch;
+        const active = s.panels[side];
+        const idx = active.entries.findIndex((ent) => {
+          const full = (ent.ext ? `${ent.name}.${ent.ext}` : ent.name).toLowerCase();
+          return full.startsWith(buffer);
+        });
+        if (idx >= 0) setPanel(side, { cursor: idx });
+        s.setQuickSearch({ buffer, side });
+        if (qsTimeout.current) clearTimeout(qsTimeout.current);
+        qsTimeout.current = setTimeout(() => useStore.getState().setQuickSearch(null), 1500);
+        return;
+      }
+
       const combo = eventToCombo(e);
       if (!combo) return;
       const cmd = lookup(combo);
-      if (!cmd) return;
-      e.preventDefault();
-      dispatch(cmd);
+      if (cmd) {
+        e.preventDefault();
+        dispatch(cmd);
+        return;
+      }
+
+      // Unmapped printable char → focus command line, prefill with it
+      if (!e.metaKey && !e.ctrlKey && !e.altKey && e.key.length === 1) {
+        const cl = cmdRef.current;
+        if (!cl) return;
+        e.preventDefault();
+        const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+        setter?.call(cl, e.key);
+        cl.dispatchEvent(new Event('input', { bubbles: true }));
+        cl.focus();
+        cl.setSelectionRange(e.key.length, e.key.length);
+      }
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [dispatch]);
+  }, [dispatch, setPanel]);
 
   useEffect(() => {
     const unsub = api.menu.onCommand((cmd) => {
@@ -448,6 +492,7 @@ export function App() {
             onPathCommit={onPathCommit('left')}
             onSort={onSort('left')}
             pathBarRef={leftPathRef}
+            searchBuffer={state.quickSearch && state.quickSearch.side === 'left' ? state.quickSearch.buffer : null}
           />
         </div>
         <Splitter
@@ -470,11 +515,13 @@ export function App() {
             onPathCommit={onPathCommit('right')}
             onSort={onSort('right')}
             pathBarRef={rightPathRef}
+            searchBuffer={state.quickSearch && state.quickSearch.side === 'right' ? state.quickSearch.buffer : null}
           />
         </div>
       </div>
       <CommandLine
         cwd={active.path}
+        inputRef={cmdRef}
         onRun={async (cmd) => {
           const r = await api.shell.runCommand(cmd, active.path);
           setCmdOutput({ cmd, ...r });

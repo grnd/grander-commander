@@ -14,12 +14,13 @@ type Props = {
   onRowMouseDown: (index: number, e: React.MouseEvent) => void;
   onRowDouble: (index: number, e: React.MouseEvent) => void;
   onRowContextMenu?: (index: number, e: React.MouseEvent) => void;
+  searchBuffer?: string | null;
   onPathCommit: (p: string) => Promise<boolean>;
   onSort: (col: SortCol) => void;
   pathBarRef?: React.Ref<HTMLInputElement>;
 };
 
-export function Panel({ panel, isActive, onActivate, onRowMouseDown, onRowDouble, onRowContextMenu, onPathCommit, onSort, pathBarRef }: Props) {
+export function Panel({ panel, isActive, onActivate, onRowMouseDown, onRowDouble, onRowContextMenu, onPathCommit, onSort, pathBarRef, searchBuffer }: Props) {
   const bodyRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 0, h: 0 });
 
@@ -53,7 +54,7 @@ export function Panel({ panel, isActive, onActivate, onRowMouseDown, onRowDouble
           />
         )}
       </div>
-      <PanelStatusBar entries={panel.entries} selection={panel.selection} />
+      <PanelStatusBar entries={panel.entries} selection={panel.selection} searchBuffer={searchBuffer} />
     </div>
   );
 }
