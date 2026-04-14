@@ -4,3 +4,5 @@ dist/
 .DS_Store
 *.log
 .superpowers/
+docs/superpowers/
+history-backup*.bundle

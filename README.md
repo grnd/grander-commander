@@ -140,9 +140,6 @@ src/
     keybindings combo → CommandName lookup
   shared/       types shared between main / preload / renderer
 tests/          vitest (jsdom for components)
-docs/superpowers/
-  specs/        design documents
-  plans/        milestone-by-milestone implementation plans
 ```
 
 **Design principle:** commands are pure functions that take `(panel, ctx)` and return side-effectful work through a small API surface (`window.gc`). Keybindings, menus, F-key bar, and context menus all dispatch the same `CommandName` — one vocabulary, one implementation.
@@ -153,4 +150,4 @@ See [`todo.md`](./todo.md) for the running list of what's next.
 
 ## License
 
-Private / unreleased. No license granted.
+[MIT](./LICENSE) © grnd

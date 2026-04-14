@@ -289,8 +289,9 @@ export function App() {
         return;
       }
 
-      // Unmapped printable char → focus command line, prefill with it
-      if (!e.metaKey && !e.ctrlKey && !e.altKey && e.key.length === 1) {
+      // Unmapped printable char → focus command line, prefill with it.
+      // Except '?' — reserved for the cheatsheet overlay (handled below).
+      if (!e.metaKey && !e.ctrlKey && !e.altKey && e.key.length === 1 && e.key !== '?') {
         const cl = cmdRef.current;
         if (!cl) return;
         e.preventDefault();
