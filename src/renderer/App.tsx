@@ -528,6 +528,8 @@ export function App() {
           return active.path;
         })()}
         inputRef={cmdRef}
+        onCursorUp={() => void dispatch('cursorUp')}
+        onCursorDown={() => void dispatch('cursorDown')}
         onRun={async (cmd) => {
           const r = await api.shell.runCommand(cmd, active.path);
           setCmdOutput({ cmd, ...r });

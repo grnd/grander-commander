@@ -3,20 +3,18 @@ import { useState } from 'react';
 type Props = {
   cwd: string;
   onRun: (cmd: string) => void;
+  onCursorUp?: () => void;
+  onCursorDown?: () => void;
   inputRef?: React.Ref<HTMLInputElement>;
 };
 
-export function CommandLine({ cwd, onRun, inputRef }: Props) {
+export function CommandLine({ cwd, onRun, onCursorUp, onCursorDown, inputRef }: Props) {
   const [value, setValue] = useState('');
-  const [history, setHistory] = useState<string[]>([]);
-  const [historyIdx, setHistoryIdx] = useState(-1);
 
   const commit = () => {
     const cmd = value.trim();
     if (!cmd) return;
     onRun(cmd);
-    setHistory((h) => [cmd, ...h].slice(0, 50));
-    setHistoryIdx(-1);
     setValue('');
   };
 
@@ -37,13 +35,12 @@ export function CommandLine({ cwd, onRun, inputRef }: Props) {
           }
           else if (e.key === 'ArrowUp') {
             e.preventDefault();
-            const next = Math.min(history.length - 1, historyIdx + 1);
-            if (next >= 0 && history[next]) { setHistoryIdx(next); setValue(history[next]); }
+            (e.target as HTMLInputElement).blur();
+            onCursorUp?.();
           } else if (e.key === 'ArrowDown') {
             e.preventDefault();
-            const next = historyIdx - 1;
-            if (next < 0) { setHistoryIdx(-1); setValue(''); }
-            else { setHistoryIdx(next); setValue(history[next]); }
+            (e.target as HTMLInputElement).blur();
+            onCursorDown?.();
           }
         }}
       />

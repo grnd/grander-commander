@@ -1,74 +1,156 @@
 # GranderCommander
 
-Total Commander-style file manager for macOS.
+<p align="center">
+  <img src="build/icon.png" alt="GranderCommander" width="160" />
+</p>
 
-## Status
+<p align="center">
+  <b>Total Commander-style dual-pane file manager for macOS</b><br/>
+  <i>Keyboard-first. Fast. Native-feeling. Built with Electron + React + TypeScript.</i>
+</p>
 
-M2 complete. Supports mkdir (F7 / Cmd+N), rename (F2 / Cmd+Shift+R), copy (F5 / Cmd+C), move (F6 / Cmd+X), trash (F8 / Cmd+Delete), permanent delete (Shift+F8 / Cmd+Shift+Delete), with Overwrite / Skip / Rename / Apply-to-all conflict handling and cancellable progress.
+<p align="center">
+  <img alt="platform" src="https://img.shields.io/badge/platform-macOS-lightgrey" />
+  <img alt="status" src="https://img.shields.io/badge/status-M2%20complete-brightgreen" />
+  <img alt="electron" src="https://img.shields.io/badge/electron-30-47848F" />
+  <img alt="react" src="https://img.shields.io/badge/react-18-61DAFB" />
+  <img alt="typescript" src="https://img.shields.io/badge/typescript-5.4-3178C6" />
+</p>
 
-## Develop
+---
 
-Prereq: Node 20+.
+## Why
+
+Finder is fine for clicking around. But if you've ever lived inside Total Commander, Far, or Midnight Commander, nothing else feels right: two panels side by side, a cursor you move with the keyboard, a command line glued to the bottom, and every operation one shortcut away. GranderCommander brings that muscle memory to macOS, with native file ops, Quick Look, and Finder-tier trashing.
+
+## Features
+
+### Dual-pane navigation
+- **Two panels** side by side with a draggable splitter (double-click to reset 50/50).
+- **Windows-mode mouse**: single click moves the cursor, `Cmd+Click` toggles marks, `Shift+Click` range-selects, double-click opens.
+- **Quick search** — `Alt+letter` jumps to the next entry whose name starts with what you're typing.
+- **TC-style sorting** — click a column header or use `Ctrl+F3/F4/F5/F6` for name / ext / size / date. Toggle hidden files with `Ctrl+H`.
+- **Virtualized file list** (`react-window`) scrolls smoothly through directories with thousands of entries.
+
+### File operations (M2)
+- **Create / rename / duplicate** folders and files with keyboard shortcuts.
+- **Copy (F5)** and **Move (F6)** with a background ops runner, cancellable progress dialog, and per-conflict Overwrite / Skip / Rename / Apply-to-all.
+- **Same-volume moves** are instant renames; **cross-device** falls back to copy + trash.
+- **Trash (F8)** routes through the native macOS Trash; **Shift+F8** deletes permanently after confirm.
+- **Quick Look** preview with the spacebar.
+- **Open in Terminal** from any directory.
+
+### Chrome & productivity
+- **Drive bar** with mounted volumes and quick jump.
+- **Favorites bar** — bookmark directories, pick them from a palette.
+- **Path bar** — `Cmd+L` to focus, type a path, `Enter` to jump.
+- **Command line** at the bottom of the window — type a shell command, `Enter` runs it in the active panel's cwd, output appears in a modal. `Up/Down` returns focus to the pane and moves the cursor.
+- **F-key bar** and a **Cheatsheet overlay** (hold `?`) so you never have to memorize anything.
+- **Context menu** on right-click with the full set of file actions.
+
+## Screenshot
+
+_Drop a screenshot into `docs/screenshot.png` and it'll render here._
+
+<!-- ![GranderCommander](docs/screenshot.png) -->
+
+## Install & Run
+
+Requires **Node 20+** and **macOS 12+**.
 
 ```bash
 npm install
-npm run dev         # launches Electron in dev mode
-npm test            # vitest
-npm run typecheck   # tsc --noEmit for main/preload/renderer
-npm run lint        # eslint
+npm run dev          # Electron dev mode with HMR
 ```
 
-## Build a `.dmg`
+## Build a signed-less `.dmg`
 
 ```bash
-npm run build
+npm run dist         # arm64 only
+npm run dist:universal   # arm64 + x64
 ```
 
-(Signing + notarization come in M4.)
+Output lands in `dist/`. Current builds are unsigned — Gatekeeper will ask you to allow it in System Settings the first time. Code signing and notarization are queued for M4.
 
-## Layout
+## Quality gates
 
-- `src/main` — Node process: fs I/O, volumes, IPC, ops runner.
-- `src/preload` — `contextBridge` definition of `window.gc`.
-- `src/renderer` — React + Zustand UI (components, commands, keybindings, dialogs, theme).
-- `src/shared` — types shared across all three.
-- `tests` — Vitest unit + component tests.
-- `docs/superpowers/specs` — design spec.
-- `docs/superpowers/plans` — milestone implementation plans.
+```bash
+npm run typecheck    # strict tsc for main / preload / renderer
+npm run lint         # eslint
+npm test             # vitest unit + component tests
+npm run format       # prettier
+```
 
-## Manual smoke checklist (M2)
+## Keyboard shortcuts
 
-Launch `npm run dev` and verify each case in both panels:
+### Navigation
+| Keys | Action |
+|---|---|
+| `↑` `↓` | Move cursor |
+| `PgUp` `PgDn` | Jump 20 rows |
+| `Home` `End` | First / last entry |
+| `Enter` | Open file / enter folder |
+| `Backspace` | Parent directory |
+| `Tab` | Switch active panel |
+| `Cmd+L` | Focus path bar |
+| `Cmd+/` | Focus path bar at `/` |
+| `Cmd+R` · `Ctrl+R` | Refresh active panel |
+| `Alt+letter` | Quick-search in active panel |
 
-**Mouse (Windows mode):**
-- Single click → cursor moves, selection cleared.
-- Cmd+click → toggles selection on that row.
-- Shift+click → range selects from cursor to clicked row.
-- Double-click a folder → navigates in.
-- Double-click a file → opens in default macOS app.
-- Drag the splitter between panels → panels resize; double-click splitter resets 50/50.
+### Selection
+| Keys | Action |
+|---|---|
+| `Space` · `Insert` | Toggle mark |
+| `Shift+↑` `Shift+↓` | Mark and move |
+| `Cmd+A` | Select all |
+| `Esc` | Clear selection / quick search |
 
-**Keyboard navigation:**
-- ArrowUp/Down moves cursor; PageUp/Down jumps 20 rows; Home/End first/last.
-- Enter on folder navigates in; on file opens it.
-- Backspace → parent (no-op at `/`).
-- Tab switches active panel.
-- Ctrl+U / Cmd+U swaps panels.
-- Cmd+Right copies active path into inactive; Cmd+Left copies inactive into active.
-- Space / Insert toggles mark on cursor; Shift+Arrow marks and moves.
-- Cmd+A selects all (except `..`). Escape clears selection.
-- Click column header toggles sort; Ctrl+F3/F4/F5/F6 sort by name/ext/size/date.
-- Ctrl+H toggles hidden; `.DS_Store`/`Icon\r` never appear.
-- Ctrl+R / Cmd+R refreshes active panel.
-- Cmd+L focuses the path bar; Enter navigates and returns focus; Escape cancels.
+### Panels
+| Keys | Action |
+|---|---|
+| `Ctrl+U` · `Cmd+U` | Swap panels |
+| `Cmd+→` | Copy active path to inactive |
+| `Cmd+←` | Copy inactive path to active |
+| `Ctrl+F3` / `F4` / `F5` / `F6` | Sort by name / ext / size / date |
+| `Ctrl+H` | Toggle hidden files |
 
-**Mutations (M2):**
-1. **F7 / Cmd+N**: dialog opens; type name + Enter creates folder; panel refreshes.
-2. **F2 / Cmd+Shift+R** on a single file: rename dialog opens with filename prefilled, stem pre-selected; Enter renames and panel refreshes.
-3. **F5 / Cmd+C**: mark a file, press F5; copy dialog opens prefilled with inactive panel path; Enter triggers progress dialog; both panels refresh on complete.
-4. **F5 into a dir containing the same name**: overwrite prompt appears; test Skip (preserves dst), Overwrite (replaces dst), Rename (prompts for new name).
-5. **F6 / Cmd+X**: same-volume move is instant; cross-device falls back to copy+trash with progress.
-6. **F8 / Cmd+Delete**: moves to macOS Trash silently; verify via Finder Trash.
-7. **Shift+F8 / Cmd+Shift+Delete**: confirm dialog; Cancel leaves file; OK deletes permanently.
-8. **Large file copy**: progress bar advances; Cancel aborts immediately; partial dst file removed.
-9. **Menu → Files**: each item triggers its shortcut equivalent.
+### File operations
+| Keys | Action |
+|---|---|
+| `F2` · `Cmd+Shift+R` | Rename |
+| `F5` · `Cmd+C` | Copy to other panel |
+| `F6` · `Cmd+X` | Move to other panel |
+| `F7` · `Cmd+N` | New folder |
+| `F8` · `Cmd+Delete` | Move to Trash |
+| `Shift+F8` · `Cmd+Shift+Delete` | Delete permanently |
+| `Space` (on file) | Quick Look |
+
+Hold `?` anywhere in the app for the full cheatsheet.
+
+## Architecture
+
+```
+src/
+  main/         Node process — fs, volumes, IPC, background ops
+  preload/      contextBridge → window.gc
+  renderer/    React + Zustand UI
+    commands/   pure commands (navigation, selection, mutations, sort, panels)
+    components/ Panel, FileList, PathBar, CommandLine, dialogs, …
+    state/      Zustand store (panels, favorites, dialogs, quick search)
+    keybindings combo → CommandName lookup
+  shared/       types shared between main / preload / renderer
+tests/          vitest (jsdom for components)
+docs/superpowers/
+  specs/        design documents
+  plans/        milestone-by-milestone implementation plans
+```
+
+**Design principle:** commands are pure functions that take `(panel, ctx)` and return side-effectful work through a small API surface (`window.gc`). Keybindings, menus, F-key bar, and context menus all dispatch the same `CommandName` — one vocabulary, one implementation.
+
+## Roadmap
+
+See [`todo.md`](./todo.md) for the running list of what's next.
+
+## License
+
+Private / unreleased. No license granted.
