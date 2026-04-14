@@ -227,6 +227,9 @@ export function App() {
       // Don't steal keys when an input is focused (PathBar)
       const tag = (e.target as HTMLElement).tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+      // Don't route panel shortcuts while a modal/picker owns the keyboard
+      const s = useStore.getState();
+      if (s.dialog || s.favoritePickerOpen) return;
       const combo = eventToCombo(e);
       if (!combo) return;
       const cmd = lookup(combo);
