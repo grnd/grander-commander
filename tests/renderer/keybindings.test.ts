@@ -23,7 +23,7 @@ describe('eventToCombo', () => {
 });
 
 describe('lookup', () => {
-  it('F5 is NOT bound in M1 (deferred to M2)', () => expect(lookup('F5')).toBeNull());
+  it('F5 maps to copy', () => expect(lookup('F5')).toBe('copy'));
   it('ArrowDown maps to cursorDown', () => expect(lookup('ArrowDown')).toBe('cursorDown'));
   it('Cmd+A maps to selectAll', () => expect(lookup('Cmd+A')).toBe('selectAll'));
   it('unknown combo returns null', () => expect(lookup('Ctrl+Z')).toBeNull());

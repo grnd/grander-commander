@@ -33,6 +33,18 @@ export const bindings: Binding[] = [
   { combo: 'Ctrl+R', command: 'refresh' },
   { combo: 'Cmd+R', command: 'refresh' },
   { combo: 'Cmd+L', command: 'focusPathBar' },
+  { combo: 'F7', command: 'mkdir' },
+  { combo: 'Cmd+N', command: 'mkdir' },
+  { combo: 'F5', command: 'copy' },
+  { combo: 'F6', command: 'move' },
+  { combo: 'F8', command: 'trash' },
+  { combo: 'Shift+F8', command: 'deleteConfirm' },
+  { combo: 'F2', command: 'rename' },
+  { combo: 'Cmd+Shift+R', command: 'rename' },
+  { combo: 'Cmd+C', command: 'copy' },
+  { combo: 'Cmd+X', command: 'move' },
+  { combo: 'Cmd+Delete', command: 'trash' },
+  { combo: 'Cmd+Shift+Delete', command: 'deleteConfirm' },
 ];
 
 // Convert a KeyboardEvent to its canonical combo string.
