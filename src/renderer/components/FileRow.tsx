@@ -4,7 +4,7 @@ type Props = {
   entry: FileEntry;
   isCursor: boolean;
   isSelected: boolean;
-  onClick: (e: React.MouseEvent) => void;
+  onMouseDown: (e: React.MouseEvent) => void;
   onDoubleClick: (e: React.MouseEvent) => void;
   style?: React.CSSProperties;
 };
@@ -25,7 +25,7 @@ function formatDate(mtime: number): string {
   return `${mm}/${dd}/${yy} ${hh}:${mi}`;
 }
 
-export function FileRow({ entry, isCursor, isSelected, onClick, onDoubleClick, style }: Props) {
+export function FileRow({ entry, isCursor, isSelected, onMouseDown, onDoubleClick, style }: Props) {
   const cls = ['gc-file-row'];
   if (isCursor) cls.push('is-cursor');
   if (isSelected) cls.push('is-selected');
@@ -33,7 +33,7 @@ export function FileRow({ entry, isCursor, isSelected, onClick, onDoubleClick, s
   if (entry.isSymlink) cls.push('is-symlink');
 
   return (
-    <div className={cls.join(' ')} style={style} onClick={onClick} onDoubleClick={onDoubleClick}>
+    <div className={cls.join(' ')} style={style} onMouseDown={onMouseDown} onDoubleClick={onDoubleClick}>
       <div className="gc-col gc-col-name">{entry.name}</div>
       <div className="gc-col gc-col-ext">{entry.ext}</div>
       <div className="gc-col gc-col-size">{formatSize(entry)}</div>

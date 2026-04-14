@@ -12,11 +12,11 @@ type Props = {
   selection: Set<string>;
   width: number;
   height: number;
-  onRowClick: (index: number, e: React.MouseEvent) => void;
+  onRowMouseDown: (index: number, e: React.MouseEvent) => void;
   onRowDouble: (index: number, e: React.MouseEvent) => void;
 };
 
-export function FileList({ entries, cursor, selection, width, height, onRowClick, onRowDouble }: Props) {
+export function FileList({ entries, cursor, selection, width, height, onRowMouseDown, onRowDouble }: Props) {
   return (
     <List
       height={height}
@@ -33,7 +33,7 @@ export function FileList({ entries, cursor, selection, width, height, onRowClick
             style={style}
             isCursor={index === cursor}
             isSelected={selection.has(entryKey(e))}
-            onClick={(ev) => onRowClick(index, ev)}
+            onMouseDown={(ev) => onRowMouseDown(index, ev)}
             onDoubleClick={(ev) => onRowDouble(index, ev)}
           />
         );

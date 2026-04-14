@@ -146,8 +146,8 @@ export function App() {
   const active = state.panels[state.activeSide];
   const leftWidth = left.width;
 
-  const onRowClick = (side: PanelSide) => (index: number, ev: React.MouseEvent) => {
-    if (state.activeSide !== side) useStore.setState({ activeSide: side });
+  const onRowMouseDown = (side: PanelSide) => (index: number, ev: React.MouseEvent) => {
+    useStore.setState({ activeSide: side });
     const panel = useStore.getState().panels[side];
     const setSide = (p: Partial<typeof panel>) => setPanel(side, p);
     if (ev.shiftKey) {
@@ -190,7 +190,7 @@ export function App() {
           <Panel
             side="left" panel={left} isActive={state.activeSide === 'left'}
             onActivate={() => useStore.setState({ activeSide: 'left' })}
-            onRowClick={onRowClick('left')}
+            onRowMouseDown={onRowMouseDown('left')}
             onRowDouble={onRowDouble('left')}
             onPathCommit={onPathCommit('left')}
             onSort={onSort('left')}
@@ -211,7 +211,7 @@ export function App() {
           <Panel
             side="right" panel={right} isActive={state.activeSide === 'right'}
             onActivate={() => useStore.setState({ activeSide: 'right' })}
-            onRowClick={onRowClick('right')}
+            onRowMouseDown={onRowMouseDown('right')}
             onRowDouble={onRowDouble('right')}
             onPathCommit={onPathCommit('right')}
             onSort={onSort('right')}

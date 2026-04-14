@@ -11,14 +11,14 @@ type Props = {
   panel: PanelState;
   isActive: boolean;
   onActivate: () => void;
-  onRowClick: (index: number, e: React.MouseEvent) => void;
+  onRowMouseDown: (index: number, e: React.MouseEvent) => void;
   onRowDouble: (index: number, e: React.MouseEvent) => void;
   onPathCommit: (p: string) => Promise<boolean>;
   onSort: (col: SortCol) => void;
   pathBarRef?: React.Ref<HTMLInputElement>;
 };
 
-export function Panel({ panel, isActive, onActivate, onRowClick, onRowDouble, onPathCommit, onSort, pathBarRef }: Props) {
+export function Panel({ panel, isActive, onActivate, onRowMouseDown, onRowDouble, onPathCommit, onSort, pathBarRef }: Props) {
   const bodyRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 0, h: 0 });
 
@@ -46,7 +46,7 @@ export function Panel({ panel, isActive, onActivate, onRowClick, onRowDouble, on
             selection={panel.selection}
             width={size.w}
             height={size.h}
-            onRowClick={onRowClick}
+            onRowMouseDown={onRowMouseDown}
             onRowDouble={onRowDouble}
           />
         )}

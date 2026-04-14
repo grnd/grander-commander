@@ -11,7 +11,7 @@ const mk = (over: Partial<FileEntry>): FileEntry => ({
 describe('FileRow', () => {
   it('renders name, ext, size, mtime columns', () => {
     const e = mk({ name: 'readme', ext: 'md', size: 1234, mtime: 1712000000000 });
-    render(<FileRow entry={e} isCursor={false} isSelected={false} onClick={() => {}} onDoubleClick={() => {}} />);
+    render(<FileRow entry={e} isCursor={false} isSelected={false} onMouseDown={() => {}} onDoubleClick={() => {}} />);
     expect(screen.getByText('readme')).toBeInTheDocument();
     expect(screen.getByText('md')).toBeInTheDocument();
     expect(screen.getByText('1,234')).toBeInTheDocument();
@@ -19,14 +19,14 @@ describe('FileRow', () => {
 
   it('shows <DIR> for directories', () => {
     const e = mk({ name: 'photos', isDir: true });
-    render(<FileRow entry={e} isCursor={false} isSelected={false} onClick={() => {}} onDoubleClick={() => {}} />);
+    render(<FileRow entry={e} isCursor={false} isSelected={false} onMouseDown={() => {}} onDoubleClick={() => {}} />);
     expect(screen.getByText('<DIR>')).toBeInTheDocument();
   });
 
   it('applies selected class when isSelected', () => {
     const e = mk({ name: 'a' });
     const { container } = render(
-      <FileRow entry={e} isCursor={false} isSelected={true} onClick={() => {}} onDoubleClick={() => {}} />,
+      <FileRow entry={e} isCursor={false} isSelected={true} onMouseDown={() => {}} onDoubleClick={() => {}} />,
     );
     expect(container.firstChild).toHaveClass('is-selected');
   });
@@ -34,7 +34,7 @@ describe('FileRow', () => {
   it('applies cursor class when isCursor', () => {
     const e = mk({ name: 'a' });
     const { container } = render(
-      <FileRow entry={e} isCursor={true} isSelected={false} onClick={() => {}} onDoubleClick={() => {}} />,
+      <FileRow entry={e} isCursor={true} isSelected={false} onMouseDown={() => {}} onDoubleClick={() => {}} />,
     );
     expect(container.firstChild).toHaveClass('is-cursor');
   });
