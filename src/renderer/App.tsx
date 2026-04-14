@@ -167,10 +167,10 @@ export function App() {
     navigateInto({ panel: { ...panel, cursor: index }, setPanel: setSide, api });
   };
 
-  const onPathCommit = (side: PanelSide) => (p: string) => {
+  const onPathCommit = (side: PanelSide) => async (p: string): Promise<boolean> => {
     const panel = useStore.getState().panels[side];
     const setSide = (patch: Partial<typeof panel>) => setPanel(side, patch);
-    navigateTo({ panel, setPanel: setSide, api, path: p });
+    return navigateTo({ panel, setPanel: setSide, api, path: p });
   };
 
   const onSort = (side: PanelSide) => (col: SortCol) => {

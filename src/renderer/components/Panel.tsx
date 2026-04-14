@@ -13,7 +13,7 @@ type Props = {
   onActivate: () => void;
   onRowClick: (index: number, e: React.MouseEvent) => void;
   onRowDouble: (index: number, e: React.MouseEvent) => void;
-  onPathCommit: (p: string) => void;
+  onPathCommit: (p: string) => Promise<boolean>;
   onSort: (col: SortCol) => void;
   pathBarRef?: React.Ref<HTMLInputElement>;
 };

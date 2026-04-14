@@ -33,12 +33,12 @@ function parentOf(path: string): string | null {
   return path.slice(0, idx);
 }
 
-async function loadInto(ctx: NavCtx, newPath: string) {
+async function loadInto(ctx: NavCtx, newPath: string): Promise<boolean> {
   ctx.setPanel({ loading: true, error: null });
   const r = await ctx.api.fs.listDir(newPath, { showHidden: ctx.panel.showHidden });
   if (!r.ok) {
     ctx.setPanel({ loading: false, error: String((r as { error: unknown }).error) });
-    return;
+    return false;
   }
   const sorted = sortEntries(r.value, ctx.panel.sort);
   // Add synthetic ".." when not at root
@@ -55,6 +55,7 @@ async function loadInto(ctx: NavCtx, newPath: string) {
     loading: false,
     error: null,
   });
+  return true;
 }
 
 export async function navigateInto(ctx: NavCtx) {
@@ -82,6 +83,6 @@ export async function navigateUp(ctx: NavCtx) {
   await loadInto(ctx, parent);
 }
 
-export async function navigateTo(ctx: NavCtx & { path: string }) {
-  await loadInto(ctx, ctx.path);
+export async function navigateTo(ctx: NavCtx & { path: string }): Promise<boolean> {
+  return loadInto(ctx, ctx.path);
 }
