@@ -1,11 +1,7 @@
-// src/renderer/state/store.ts
 import { create } from 'zustand';
-import type { Volume } from '@shared/types';
+import type { Volume, DialogState } from '@shared/types';
 import { initialPanelState, type PanelSide, type PanelState } from './panelSlice';
 
-// Seed paths; real home comes from main at startup via gc.volumes.list(), at
-// which point App.tsx calls navigateTo() for both panels. Renderer has no
-// access to node `os`, so we can't read HOME here.
 const DEFAULT_LEFT = '/';
 const DEFAULT_RIGHT = '/';
 
@@ -16,10 +12,12 @@ export type AppState = {
   effectiveTheme: 'light' | 'dark';
   mouseMode: 'windows' | 'tc';
   volumes: Volume[];
+  dialog: DialogState | null;
 
   setActive: (side: PanelSide) => void;
   replacePanel: (side: PanelSide, patch: Partial<PanelState>) => void;
   setVolumes: (v: Volume[]) => void;
+  setDialog: (d: DialogState | null) => void;
 };
 
 export const useStore = create<AppState>((set) => ({
@@ -32,9 +30,11 @@ export const useStore = create<AppState>((set) => ({
   effectiveTheme: 'light',
   mouseMode: 'windows',
   volumes: [],
+  dialog: null,
 
   setActive: (side) => set({ activeSide: side }),
   replacePanel: (side, patch) =>
     set((s) => ({ panels: { ...s.panels, [side]: { ...s.panels[side], ...patch } } })),
   setVolumes: (volumes) => set({ volumes }),
+  setDialog: (d) => set({ dialog: d }),
 }));
