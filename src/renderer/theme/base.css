@@ -41,3 +41,45 @@ body {
   color: var(--gc-status-active-fg);
   font-weight: 600;
 }
+
+/* M2: dialogs */
+.gc-modal-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.35);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1000;
+}
+.gc-modal {
+  background: var(--gc-panel); border: 1px solid var(--gc-border);
+  min-width: 360px; max-width: 600px; box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+  padding: 0;
+}
+.gc-modal-title {
+  background: var(--gc-status-active-bg, #0a5fcf); color: var(--gc-status-active-fg, #fff);
+  padding: 5px 10px; font-weight: 600;
+}
+.gc-modal-body { padding: 12px; font-size: 12px; }
+.gc-modal-body input[type='text'], .gc-modal-body input:not([type]) {
+  width: 100%; padding: 4px 6px; border: 1px inset var(--gc-border);
+  font-family: Menlo, monospace; font-size: 12px; box-sizing: border-box;
+}
+.gc-modal-actions {
+  margin-top: 12px; display: flex; justify-content: flex-end; gap: 6px;
+}
+.gc-modal-actions button {
+  padding: 3px 14px; border: 1px solid var(--gc-border); background: var(--gc-btn);
+  cursor: pointer; font-size: 12px;
+}
+.gc-modal-actions button:disabled { opacity: 0.5; cursor: not-allowed; }
+.gc-modal-paths {
+  font-family: Menlo, monospace; font-size: 11px;
+  background: var(--gc-bg); padding: 6px; border: 1px solid var(--gc-border);
+  white-space: pre-wrap; max-height: 120px; overflow: auto;
+}
+.gc-progress-bar {
+  height: 10px; background: var(--gc-bg); border: 1px solid var(--gc-border);
+  margin: 8px 0;
+}
+.gc-progress-fill {
+  height: 100%; background: var(--gc-status-active-bg, #0a5fcf);
+  transition: width 80ms linear;
+}
