@@ -8,6 +8,10 @@
   <b>Total Commander-style dual-pane file manager for macOS.</b>
 </p>
 
+<p align="center">
+  <img src="docs/screenshot.png" alt="GranderCommander screenshot" width="820" />
+</p>
+
 ---
 
 ## Why
