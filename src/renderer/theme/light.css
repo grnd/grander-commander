@@ -1,1 +1,15 @@
-/* stub: replaced in Task 19 */
+/* src/renderer/theme/light.css */
+html[data-theme='light'] {
+  --gc-fg: #111;
+  --gc-bg: #ece9d8;
+  --gc-chrome: #ece9d8;
+  --gc-panel: #ffffff;
+  --gc-border: #8a8a8a;
+  --gc-btn: #ece9d8;
+  --gc-btn-active: #ffffff;
+  --gc-active-outline: #0a5fcf;
+  --gc-cursor-outline: #444;
+  --gc-input-bg: #ffffff;
+  --gc-selection: #ffcc66;
+  --gc-selection-fg: #000000;
+}
