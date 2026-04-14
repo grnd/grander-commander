@@ -46,7 +46,6 @@ export function CommandLine({ cwd, onRun, inputRef }: Props) {
             else { setHistoryIdx(next); setValue(history[next]); }
           }
         }}
-        placeholder="Type a shell command and press Enter…"
       />
     </div>
   );
