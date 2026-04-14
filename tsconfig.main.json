@@ -9,6 +9,11 @@
     "resolveJsonModule": true,
     "outDir": "out/main",
     "rootDir": ".",
+    "baseUrl": ".",
+    "paths": {
+      "@shared/*": ["src/shared/*"],
+      "@main/*": ["src/main/*"]
+    },
     "types": ["node"],
     "composite": true
   },

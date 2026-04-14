@@ -10,6 +10,11 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "outDir": "out/renderer",
     "rootDir": ".",
+    "baseUrl": ".",
+    "paths": {
+      "@shared/*": ["src/shared/*"],
+      "@renderer/*": ["src/renderer/*"]
+    },
     "types": ["vite/client"],
     "composite": true
   },

@@ -1,4 +1,4 @@
-import type { FileEntry, ListDirOptions, Result, Volume } from '../shared/types';
+import type { FileEntry, ListDirOptions, Result, Volume } from '@shared/types';
 
 export type GCApi = {
   fs: {

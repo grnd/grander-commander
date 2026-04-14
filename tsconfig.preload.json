@@ -8,6 +8,10 @@
     "skipLibCheck": true,
     "outDir": "out/preload",
     "rootDir": ".",
+    "baseUrl": ".",
+    "paths": {
+      "@shared/*": ["src/shared/*"]
+    },
     "types": ["node"],
     "composite": true
   },
