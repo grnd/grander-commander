@@ -21,6 +21,7 @@ export type GCApi = {
   };
   shell: {
     openPath(path: string): Promise<void>;
+    quickLook(path: string): Promise<void>;
   };
   menu: {
     onCommand(cb: (cmd: string) => void): () => void;

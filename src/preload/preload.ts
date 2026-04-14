@@ -27,6 +27,7 @@ const api: GCApi = {
   },
   shell: {
     openPath: (path) => ipcRenderer.invoke('shell:openPath', path),
+    quickLook: (path) => ipcRenderer.invoke('shell:quickLook', path),
   },
   menu: {
     onCommand: (cb) => {

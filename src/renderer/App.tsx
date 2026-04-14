@@ -218,6 +218,14 @@ export function App() {
       case 'pickFavorite':
         useStore.getState().setFavoritePickerOpen(true);
         return;
+      case 'quickLook': {
+        const cur = active.entries[active.cursor];
+        if (!cur || cur.name === '..') return;
+        const name = cur.ext ? `${cur.name}.${cur.ext}` : cur.name;
+        const full = active.path === '/' ? `/${name}` : `${active.path}/${name}`;
+        void api.shell.quickLook(full);
+        return;
+      }
     }
   }, [api, setPanel]);
 

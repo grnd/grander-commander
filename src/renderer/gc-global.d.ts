@@ -19,7 +19,7 @@ export type GCApi = {
     answerConflict(id: OpId, a: ConflictAnswer): Promise<void>;
     subscribe(id: OpId, cb: (ev: OpEvent) => void): () => void;
   };
-  shell: { openPath(path: string): Promise<void> };
+  shell: { openPath(path: string): Promise<void>; quickLook(path: string): Promise<void> };
   menu: { onCommand(cb: (cmd: string) => void): () => void };
 };
 

@@ -7,6 +7,7 @@ import { rename } from './fs/rename';
 import { trashPaths } from './fs/trash';
 import { deletePaths } from './fs/delete';
 import { duplicate } from './fs/duplicate';
+import { quickLook } from './shell/quickLook';
 import { OpRunner } from './ops/runner';
 import type { ConflictAnswer, FileOp, OpId } from '@shared/types';
 
@@ -22,6 +23,7 @@ export function registerIpc() {
   ipcMain.handle('fs:duplicate', (_e, path: string) => duplicate(path));
   ipcMain.handle('volumes:list', () => listVolumes());
   ipcMain.handle('shell:openPath', (_e, path: string) => shell.openPath(path));
+  ipcMain.handle('shell:quickLook', (_e, path: string) => { quickLook(path); });
 
   ipcMain.handle('ops:start', (e, op: FileOp) => {
     const id = runner.start(op);
