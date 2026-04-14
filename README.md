@@ -8,13 +8,16 @@
   <b>Total Commander-style dual-pane file manager for macOS.</b>
 </p>
 
-> **Hold `?` anywhere in the app for the full keyboard cheatsheet.** That's the only shortcut you need to memorize.
-
 ---
 
 ## Why
 
 I really miss Total Commander. Over the years I couldn't find anything on macOS that stuck with me — so I vibe-coded one.
+
+## Manual
+
+> **Hold `?` anywhere in the app for the full keyboard cheatsheet.** That's the only shortcut you need to memorize.
+
 
 ## Run it
 
