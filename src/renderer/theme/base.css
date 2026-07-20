@@ -148,23 +148,6 @@ body {
   background: var(--gc-status-active-bg); color: var(--gc-status-active-fg);
 }
 
-/* Context menu */
-.gc-context-menu {
-  position: fixed; background: var(--gc-panel); border: 1px solid var(--gc-border);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.25); padding: 2px 0; z-index: 1500;
-  min-width: 180px; font-size: 12px;
-}
-.gc-context-item {
-  display: block; width: 100%; text-align: left; padding: 4px 12px;
-  background: transparent; border: none; cursor: pointer; color: var(--gc-fg);
-  font-size: 12px;
-}
-.gc-context-item:hover:not(:disabled) {
-  background: var(--gc-status-active-bg); color: var(--gc-status-active-fg);
-}
-.gc-context-item:disabled { opacity: 0.45; cursor: default; }
-.gc-context-sep { height: 1px; background: var(--gc-border); margin: 3px 0; }
-
 /* Command line */
 .gc-cmdline {
   display: flex; align-items: center; gap: 6px;

@@ -20,13 +20,6 @@ function saveFavorites(fav: string[]): void {
   try { localStorage.setItem(FAVORITES_KEY, JSON.stringify(fav)); } catch { /* ignore */ }
 }
 
-export type ContextMenuState = {
-  x: number;
-  y: number;
-  side: PanelSide;
-  index: number;      // row index in panel.entries
-};
-
 export type AppState = {
   panels: { left: PanelState; right: PanelState };
   activeSide: PanelSide;
@@ -37,7 +30,6 @@ export type AppState = {
   dialog: DialogState | null;
   favorites: string[];
   favoritePickerOpen: boolean;
-  contextMenu: ContextMenuState | null;
   quickSearch: { buffer: string; side: PanelSide } | null;
 
   setActive: (side: PanelSide) => void;
@@ -47,7 +39,6 @@ export type AppState = {
   addFavorite: (path: string) => void;
   removeFavorite: (path: string) => void;
   setFavoritePickerOpen: (open: boolean) => void;
-  setContextMenu: (m: ContextMenuState | null) => void;
   setQuickSearch: (qs: { buffer: string; side: PanelSide } | null) => void;
 };
 
@@ -64,7 +55,6 @@ export const useStore = create<AppState>((set) => ({
   dialog: null,
   favorites: loadFavorites(),
   favoritePickerOpen: false,
-  contextMenu: null,
   quickSearch: null,
 
   setActive: (side) => set({ activeSide: side }),
@@ -84,6 +74,5 @@ export const useStore = create<AppState>((set) => ({
     return { favorites: next };
   }),
   setFavoritePickerOpen: (open) => set({ favoritePickerOpen: open }),
-  setContextMenu: (m) => set({ contextMenu: m }),
   setQuickSearch: (qs) => set({ quickSearch: qs }),
 }));

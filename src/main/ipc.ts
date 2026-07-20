@@ -1,4 +1,4 @@
-import { ipcMain, shell, webContents } from 'electron';
+import { BrowserWindow, ipcMain, shell } from 'electron';
 import { listDir } from './fs/listDir';
 import { stat } from './fs/stat';
 import { listVolumes } from './volumes/list';
@@ -10,6 +10,7 @@ import { duplicate } from './fs/duplicate';
 import { quickLook } from './shell/quickLook';
 import { openTerminal } from './shell/openTerminal';
 import { runCommand } from './shell/runCommand';
+import { popupFileContext, type FileContextArgs } from './menu/fileContext';
 import { OpRunner } from './ops/runner';
 import type { ConflictAnswer, FileOp, OpId } from '@shared/types';
 
@@ -29,6 +30,11 @@ export function registerIpc() {
   ipcMain.handle('shell:openTerminal', (_e, path: string) => openTerminal(path));
   ipcMain.handle('shell:runCommand', (_e, cmd: string, cwd: string) => runCommand(cmd, cwd));
 
+  ipcMain.handle('menu:popupFileContext', (e, args: FileContextArgs) => {
+    const win = BrowserWindow.fromWebContents(e.sender);
+    if (win) popupFileContext(win, args);
+  });
+
   ipcMain.handle('ops:start', (e, op: FileOp) => {
     const id = runner.start(op);
     const wc = e.sender;
@@ -42,4 +48,3 @@ export function registerIpc() {
 }
 
 export { runner };
-void webContents;
