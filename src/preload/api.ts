@@ -27,6 +27,14 @@ export type GCApi = {
   };
   menu: {
     onCommand(cb: (cmd: string) => void): () => void;
+    popupFileContext(args: {
+      x: number;
+      y: number;
+      fullPath: string;
+      isDir: boolean;
+      isDotDot: boolean;
+      isAppBundle: boolean;
+    }): Promise<void>;
   };
 };
 

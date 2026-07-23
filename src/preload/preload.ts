@@ -37,6 +37,7 @@ const api: GCApi = {
       ipcRenderer.on('menu:command', listener);
       return () => ipcRenderer.removeListener('menu:command', listener);
     },
+    popupFileContext: (args) => ipcRenderer.invoke('menu:popupFileContext', args),
   },
 };
 

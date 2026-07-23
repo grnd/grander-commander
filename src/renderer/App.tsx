@@ -4,7 +4,6 @@ import { useStore } from './state/store';
 import { Cheatsheet } from './components/Cheatsheet';
 import { FavoritesBar } from './components/FavoritesBar';
 import { FavoritePicker } from './components/FavoritePicker';
-import { ContextMenu, type MenuItem } from './components/ContextMenu';
 import { CommandLine } from './components/CommandLine';
 import { FKeyBar } from './components/FKeyBar';
 import type { PanelSide } from './state/panelSlice';
@@ -379,7 +378,20 @@ export function App() {
     useStore.setState({ activeSide: side });
     // Move cursor onto the right-clicked row without altering existing selection
     setPanel(side, { cursor: index });
-    useStore.getState().setContextMenu({ x: ev.clientX, y: ev.clientY, side, index });
+    const panel = useStore.getState().panels[side];
+    const entry = panel.entries[index];
+    if (!entry) return;
+    const isDotDot = entry.name === '..';
+    const name = entry.ext ? `${entry.name}.${entry.ext}` : entry.name;
+    const fullPath = panel.path === '/' ? `/${name}` : `${panel.path}/${name}`;
+    void api.menu.popupFileContext({
+      x: ev.clientX,
+      y: ev.clientY,
+      fullPath,
+      isDir: !!entry.isDir,
+      isDotDot,
+      isAppBundle: !!entry.isAppBundle,
+    });
   };
 
   const onPathCommit = (side: PanelSide) => async (p: string): Promise<boolean> => {
@@ -569,33 +581,6 @@ export function App() {
           onCancel={() => useStore.getState().setFavoritePickerOpen(false)}
         />
       )}
-      {state.contextMenu && (() => {
-        const cm = state.contextMenu;
-        const panel = state.panels[cm.side];
-        const entry = panel.entries[cm.index];
-        if (!entry) return null;
-        const isDotDot = entry.name === '..';
-        const name = entry.ext ? `${entry.name}.${entry.ext}` : entry.name;
-        const fullPath = panel.path === '/' ? `/${name}` : `${panel.path}/${name}`;
-        const close = () => useStore.getState().setContextMenu(null);
-        const items: MenuItem[] = [
-          { kind: 'item', label: 'Open', onClick: () => void dispatch('navigateInto'), disabled: isDotDot },
-          { kind: 'separator' },
-          { kind: 'item', label: 'Copy (F5)', onClick: () => void dispatch('copy'), disabled: isDotDot },
-          { kind: 'item', label: 'Move (F6)', onClick: () => void dispatch('move'), disabled: isDotDot },
-          { kind: 'item', label: 'Duplicate', onClick: () => void dispatch('duplicate'), disabled: isDotDot },
-          { kind: 'item', label: 'Rename (F2)', onClick: () => void dispatch('rename'), disabled: isDotDot },
-          { kind: 'separator' },
-          { kind: 'item', label: 'Move to Trash (F8)', onClick: () => void dispatch('trash'), disabled: isDotDot },
-          { kind: 'item', label: 'Delete Permanently… (Shift+F8)', onClick: () => void dispatch('deleteCursorConfirm'), disabled: isDotDot },
-          { kind: 'separator' },
-          { kind: 'item', label: 'Copy full path', onClick: () => { void navigator.clipboard.writeText(fullPath); }, disabled: isDotDot },
-          ...(entry.isDir && !isDotDot
-            ? [{ kind: 'item' as const, label: 'Add to Favorites', onClick: () => useStore.getState().addFavorite(fullPath) }]
-            : []),
-        ];
-        return <ContextMenu x={cm.x} y={cm.y} items={items} onClose={close} />;
-      })()}
     </div>
   );
 }

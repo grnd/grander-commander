@@ -16,6 +16,10 @@ export async function listVolumes(): Promise<Volume[]> {
     { name: 'Home', path: home, kind: 'home' },
   ];
 
+  // Include the standard home subdirectories unconditionally. Probing them
+  // with access() triggers macOS TCC prompts for Desktop / Documents /
+  // Downloads on every launch of an ad-hoc-signed dev build, which is what
+  // caused the "constantly asks for Downloads permission" symptom.
   const userFavorites: { name: string; path: string }[] = [
     { name: 'Desktop', path: join(home, 'Desktop') },
     { name: 'Documents', path: join(home, 'Documents') },
@@ -25,9 +29,7 @@ export async function listVolumes(): Promise<Volume[]> {
     { name: 'Pictures', path: join(home, 'Pictures') },
     { name: 'iCloud Drive', path: join(home, 'Library/Mobile Documents/com~apple~CloudDocs') },
   ];
-  for (const f of userFavorites) {
-    if (await exists(f.path)) vols.push({ ...f, kind: 'home' });
-  }
+  for (const f of userFavorites) vols.push({ ...f, kind: 'home' });
 
   if (await exists('/Applications')) {
     vols.push({ name: 'Applications', path: '/Applications', kind: 'home' });

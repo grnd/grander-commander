@@ -25,7 +25,17 @@ export type GCApi = {
     openTerminal(path: string): Promise<void>;
     runCommand(cmd: string, cwd: string): Promise<{ stdout: string; stderr: string; exitCode: number }>;
   };
-  menu: { onCommand(cb: (cmd: string) => void): () => void };
+  menu: {
+    onCommand(cb: (cmd: string) => void): () => void;
+    popupFileContext(args: {
+      x: number;
+      y: number;
+      fullPath: string;
+      isDir: boolean;
+      isDotDot: boolean;
+      isAppBundle: boolean;
+    }): Promise<void>;
+  };
 };
 
 declare global {
