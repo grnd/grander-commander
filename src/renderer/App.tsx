@@ -480,6 +480,12 @@ export function App() {
     onCancelOp: (opId: string) => {
       void api.ops.cancel(opId);
     },
+    onFavoriteSaved: (path: string, label: string) => {
+      useStore.getState().renameFavorite(path, label);
+    },
+    onFavoriteRemoved: (path: string) => {
+      useStore.getState().removeFavorite(path);
+    },
   };
 
   return (
@@ -496,7 +502,10 @@ export function App() {
           const setSide = (patch: Partial<typeof panel>) => setPanel(state.activeSide, patch);
           void navigateTo({ panel, setPanel: setSide, api, path: p });
         }}
-        onRemove={(p) => useStore.getState().removeFavorite(p)}
+        onEdit={(f) => useStore.getState().setDialog({
+          kind: 'favoriteEdit', path: f.path, label: f.label ?? '',
+        })}
+        onReorder={(from, to) => useStore.getState().moveFavorite(from, to)}
       />
       <div className="gc-panel-row">
         <div style={{ width: `${leftWidth}%` }}>

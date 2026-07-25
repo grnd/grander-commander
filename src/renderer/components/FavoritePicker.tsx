@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
+import type { Favorite } from '@shared/types';
 
 type Props = {
-  favorites: string[];
+  favorites: Favorite[];
   onPick: (path: string) => void;
   onCancel: () => void;
 };
@@ -15,8 +16,8 @@ export function FavoritePicker({ favorites, onPick, onCancel }: Props) {
       else if (e.key === 'ArrowUp') { e.preventDefault(); setCursor((c) => Math.max(0, c - 1)); }
       else if (e.key === 'Enter') {
         e.preventDefault();
-        const p = favorites[cursor];
-        if (p) onPick(p);
+        const f = favorites[cursor];
+        if (f) onPick(f.path);
       }
       else if (e.key === 'Escape') { e.preventDefault(); onCancel(); }
     };
@@ -33,13 +34,22 @@ export function FavoritePicker({ favorites, onPick, onCancel }: Props) {
             <p>No favorites yet. Press Ctrl+Shift+F in a folder to add it.</p>
           ) : (
             <ul className="gc-fav-picker">
-              {favorites.map((p, i) => (
+              {favorites.map((f, i) => (
                 <li
-                  key={p}
+                  key={f.path}
                   className={i === cursor ? 'is-cursor' : ''}
-                  onMouseDown={() => onPick(p)}
+                  onMouseDown={() => onPick(f.path)}
                   onMouseEnter={() => setCursor(i)}
-                >{p}</li>
+                >
+                  {f.label ? (
+                    <>
+                      <span className="gc-fav-picker-label">{f.label}</span>
+                      <span className="gc-fav-picker-path"> — {f.path}</span>
+                    </>
+                  ) : (
+                    <span className="gc-fav-picker-path">{f.path}</span>
+                  )}
+                </li>
               ))}
             </ul>
           )}
