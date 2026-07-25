@@ -136,6 +136,9 @@ body {
   margin-right: 4px; font-weight: 600;
 }
 .gc-fav-btn { max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gc-fav-btn.is-drop-target { outline: 2px solid var(--gc-status-active-bg, #0a5fcf); outline-offset: -2px; }
+.gc-fav-btn[draggable='true'] { cursor: grab; }
+.gc-fav-btn[draggable='true']:active { cursor: grabbing; }
 
 /* Favorite picker */
 .gc-fav-picker { list-style: none; padding: 0; margin: 0 0 8px; max-height: 50vh; overflow: auto; }
@@ -147,6 +150,9 @@ body {
 .gc-fav-picker li.is-cursor {
   background: var(--gc-status-active-bg); color: var(--gc-status-active-fg);
 }
+.gc-fav-picker-label { font-weight: 600; }
+.gc-fav-picker-path { opacity: 0.75; }
+.gc-fav-picker li.is-cursor .gc-fav-picker-path { opacity: 1; }
 
 /* Command line */
 .gc-cmdline {

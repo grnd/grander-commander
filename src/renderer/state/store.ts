@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Volume, DialogState } from '@shared/types';
+import type { Volume, DialogState, Favorite } from '@shared/types';
 import { initialPanelState, type PanelSide, type PanelState } from './panelSlice';
 
 const DEFAULT_LEFT = '/';
@@ -7,16 +7,26 @@ const DEFAULT_RIGHT = '/';
 
 const FAVORITES_KEY = 'gc.favorites';
 
-function loadFavorites(): string[] {
+function loadFavorites(): Favorite[] {
   try {
     const raw = localStorage.getItem(FAVORITES_KEY);
     if (!raw) return [];
     const arr = JSON.parse(raw);
-    return Array.isArray(arr) ? arr.filter((v): v is string => typeof v === 'string') : [];
+    if (!Array.isArray(arr)) return [];
+    return arr
+      .map((v): Favorite | null => {
+        if (typeof v === 'string') return { path: v };
+        if (v && typeof v === 'object' && typeof v.path === 'string') {
+          const label = typeof v.label === 'string' && v.label.length > 0 ? v.label : undefined;
+          return { path: v.path, ...(label ? { label } : {}) };
+        }
+        return null;
+      })
+      .filter((v): v is Favorite => v !== null);
   } catch { return []; }
 }
 
-function saveFavorites(fav: string[]): void {
+function saveFavorites(fav: Favorite[]): void {
   try { localStorage.setItem(FAVORITES_KEY, JSON.stringify(fav)); } catch { /* ignore */ }
 }
 
@@ -28,7 +38,7 @@ export type AppState = {
   mouseMode: 'windows' | 'tc';
   volumes: Volume[];
   dialog: DialogState | null;
-  favorites: string[];
+  favorites: Favorite[];
   favoritePickerOpen: boolean;
   quickSearch: { buffer: string; side: PanelSide } | null;
   terminalOpen: boolean;
@@ -37,8 +47,10 @@ export type AppState = {
   replacePanel: (side: PanelSide, patch: Partial<PanelState>) => void;
   setVolumes: (v: Volume[]) => void;
   setDialog: (d: DialogState | null) => void;
-  addFavorite: (path: string) => void;
+  addFavorite: (path: string, label?: string) => void;
+  renameFavorite: (path: string, label: string) => void;
   removeFavorite: (path: string) => void;
+  moveFavorite: (from: number, to: number) => void;
   setFavoritePickerOpen: (open: boolean) => void;
   setQuickSearch: (qs: { buffer: string; side: PanelSide } | null) => void;
   setTerminalOpen: (open: boolean) => void;
@@ -65,14 +77,34 @@ export const useStore = create<AppState>((set) => ({
     set((s) => ({ panels: { ...s.panels, [side]: { ...s.panels[side], ...patch } } })),
   setVolumes: (volumes) => set({ volumes }),
   setDialog: (d) => set({ dialog: d }),
-  addFavorite: (path) => set((s) => {
-    if (s.favorites.includes(path)) return s;
-    const next = [...s.favorites, path];
+  addFavorite: (path, label) => set((s) => {
+    if (s.favorites.some((f) => f.path === path)) return s;
+    const fav: Favorite = label ? { path, label } : { path };
+    const next = [...s.favorites, fav];
+    saveFavorites(next);
+    return { favorites: next };
+  }),
+  renameFavorite: (path, label) => set((s) => {
+    const next = s.favorites.map((f) =>
+      f.path === path
+        ? (label ? { path: f.path, label } : { path: f.path })
+        : f,
+    );
     saveFavorites(next);
     return { favorites: next };
   }),
   removeFavorite: (path) => set((s) => {
-    const next = s.favorites.filter((p) => p !== path);
+    const next = s.favorites.filter((f) => f.path !== path);
+    saveFavorites(next);
+    return { favorites: next };
+  }),
+  moveFavorite: (from, to) => set((s) => {
+    if (from === to) return s;
+    if (from < 0 || from >= s.favorites.length) return s;
+    if (to < 0 || to >= s.favorites.length) return s;
+    const next = s.favorites.slice();
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
     saveFavorites(next);
     return { favorites: next };
   }),

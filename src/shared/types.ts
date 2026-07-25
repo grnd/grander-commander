@@ -18,6 +18,11 @@ export type Volume = {
   kind: 'home' | 'root' | 'external' | 'network';
 };
 
+export type Favorite = {
+  path: string;
+  label?: string;
+};
+
 export type SortCol = 'name' | 'ext' | 'size' | 'date';
 export type SortDir = 'asc' | 'desc';
 
@@ -67,4 +72,5 @@ export type DialogState =
   | { kind: 'move'; sources: string[]; dstDefault: string }
   | { kind: 'deleteConfirm'; paths: string[] }
   | { kind: 'overwrite'; opId: OpId; srcPath: string; dstPath: string }
-  | { kind: 'progress'; opId: OpId; title: string; filesDone: number; filesTotal: number; bytesDone: number; bytesTotal: number; currentFile: string };
+  | { kind: 'progress'; opId: OpId; title: string; filesDone: number; filesTotal: number; bytesDone: number; bytesTotal: number; currentFile: string }
+  | { kind: 'favoriteEdit'; path: string; label: string };

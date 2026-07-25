@@ -7,6 +7,7 @@ import { CopyDialog } from './CopyDialog';
 import { MoveDialog } from './MoveDialog';
 import { OverwritePrompt } from './OverwritePrompt';
 import { ProgressDialog } from './ProgressDialog';
+import { EditFavoritePrompt } from './EditFavoritePrompt';
 
 type Handlers = {
   onMkdir: (side: 'left' | 'right', name: string) => void;
@@ -16,6 +17,8 @@ type Handlers = {
   onMoveConfirmed: (sources: string[], dst: string) => void;
   onOverwriteAnswer: (opId: string, answer: import('@shared/types').ConflictAnswer) => void;
   onCancelOp: (opId: string) => void;
+  onFavoriteSaved: (path: string, label: string) => void;
+  onFavoriteRemoved: (path: string) => void;
 };
 
 export function Dialogs(h: Handlers) {
@@ -57,6 +60,13 @@ export function Dialogs(h: Handlers) {
         <ProgressDialog title={dialog.title} filesDone={dialog.filesDone} filesTotal={dialog.filesTotal}
           bytesDone={dialog.bytesDone} bytesTotal={dialog.bytesTotal} currentFile={dialog.currentFile}
           onCancel={() => h.onCancelOp(dialog.opId)} />
+      </DialogShell>;
+    case 'favoriteEdit':
+      return <DialogShell title="Edit favorite" onClose={close}>
+        <EditFavoritePrompt path={dialog.path} initialLabel={dialog.label}
+          onSave={(label) => { h.onFavoriteSaved(dialog.path, label); close(); }}
+          onRemove={() => { h.onFavoriteRemoved(dialog.path); close(); }}
+          onCancel={close} />
       </DialogShell>;
   }
 }
