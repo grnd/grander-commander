@@ -31,6 +31,24 @@ const api: GCApi = {
     openTerminal: (path) => ipcRenderer.invoke('shell:openTerminal', path),
     runCommand: (cmd, cwd) => ipcRenderer.invoke('shell:runCommand', cmd, cwd),
   },
+  terminal: {
+    spawn: (cwd, cols, rows) => ipcRenderer.invoke('term:spawn', cwd, cols, rows),
+    write: (id, data) => ipcRenderer.invoke('term:write', id, data),
+    resize: (id, cols, rows) => ipcRenderer.invoke('term:resize', id, cols, rows),
+    kill: (id) => ipcRenderer.invoke('term:kill', id),
+    onData: (id, cb) => {
+      const chan = `term:data:${id}`;
+      const listener = (_: unknown, data: unknown) => cb(String(data));
+      ipcRenderer.on(chan, listener);
+      return () => ipcRenderer.removeListener(chan, listener);
+    },
+    onExit: (id, cb) => {
+      const chan = `term:exit:${id}`;
+      const listener = (_: unknown, info: unknown) => cb(info as { exitCode: number; signal?: number });
+      ipcRenderer.on(chan, listener);
+      return () => ipcRenderer.removeListener(chan, listener);
+    },
+  },
   menu: {
     onCommand: (cb) => {
       const listener = (_: unknown, cmd: unknown) => cb(String(cmd));

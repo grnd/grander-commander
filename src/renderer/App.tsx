@@ -6,6 +6,7 @@ import { FavoritesBar } from './components/FavoritesBar';
 import { FavoritePicker } from './components/FavoritePicker';
 import { CommandLine } from './components/CommandLine';
 import { FKeyBar } from './components/FKeyBar';
+import { Terminal } from './components/Terminal';
 import type { PanelSide } from './state/panelSlice';
 import { eventToCombo, lookup } from './keybindings';
 import type { CommandName } from './commands';
@@ -232,6 +233,9 @@ export function App() {
       }
       case 'openTerminal':
         void api.shell.openTerminal(active.path);
+        return;
+      case 'toggleTerminal':
+        useStore.getState().setTerminalOpen(!useStore.getState().terminalOpen);
         return;
       case 'quitApp':
         window.close();
@@ -532,6 +536,12 @@ export function App() {
           />
         </div>
       </div>
+      {state.terminalOpen && (
+        <Terminal
+          cwd={active.path}
+          onClose={() => useStore.getState().setTerminalOpen(false)}
+        />
+      )}
       <CommandLine
         cwd={(() => {
           const home = state.volumes.find((v) => v.kind === 'home')?.path;

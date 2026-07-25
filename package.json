@@ -14,7 +14,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "dist": "electron-vite build && electron-builder --mac --arm64",
-    "dist:universal": "electron-vite build && electron-builder --mac --universal"
+    "dist:universal": "electron-vite build && electron-builder --mac --universal",
+    "postinstall": "electron-builder install-app-deps"
   },
   "build": {
     "appId": "com.grnd.grandercommander",
@@ -25,7 +26,9 @@
       "package.json",
       "!node_modules/**/*"
     ],
-    "asarUnpack": [],
+    "asarUnpack": [
+      "node_modules/node-pty/**"
+    ],
     "mac": {
       "target": [
         { "target": "dmg", "arch": ["universal"] }
@@ -74,6 +77,9 @@
     "vitest": "^1.5.0"
   },
   "dependencies": {
+    "@xterm/addon-fit": "^0.10.0",
+    "@xterm/xterm": "^5.5.0",
+    "node-pty": "^1.0.0",
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
     "react-window": "^1.8.10",
