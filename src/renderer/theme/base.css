@@ -187,6 +187,35 @@ body {
 .gc-fkey-btn:hover { background: var(--gc-btn-active); }
 .gc-fkey-label { color: var(--gc-status-active-bg, #0a5fcf); font-weight: 700; }
 
+/* Embedded terminal */
+.gc-terminal {
+  display: flex; flex-direction: column;
+  height: 260px; min-height: 100px;
+  background: #1e1e1e;
+  border-top: 1px solid var(--gc-border);
+}
+.gc-terminal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 2px 6px;
+  background: var(--gc-chrome);
+  border-bottom: 1px solid var(--gc-border);
+  font-size: 10px;
+}
+.gc-terminal-title {
+  font-family: Menlo, monospace;
+  color: var(--gc-fg);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.gc-terminal-close {
+  background: transparent; border: none; color: var(--gc-fg);
+  font-size: 14px; line-height: 1; cursor: pointer; padding: 0 4px;
+}
+.gc-terminal-close:hover { color: #f66; }
+.gc-terminal-host { flex: 1; min-height: 0; padding: 4px; }
+.gc-terminal-host .xterm,
+.gc-terminal-host .xterm-viewport,
+.gc-terminal-host .xterm-screen { height: 100% !important; }
+
 /* Command result modal */
 .gc-cmdresult { min-width: 600px; max-width: 900px; }
 .gc-cmd-stdout, .gc-cmd-stderr {

@@ -10,6 +10,7 @@ import { duplicate } from './fs/duplicate';
 import { quickLook } from './shell/quickLook';
 import { openTerminal } from './shell/openTerminal';
 import { runCommand } from './shell/runCommand';
+import { spawnTerminal, writeTerminal, resizeTerminal, killTerminal, killAllForContents } from './shell/terminal';
 import { popupFileContext, type FileContextArgs } from './menu/fileContext';
 import { OpRunner } from './ops/runner';
 import type { ConflictAnswer, FileOp, OpId } from '@shared/types';
@@ -29,6 +30,15 @@ export function registerIpc() {
   ipcMain.handle('shell:quickLook', (_e, path: string) => { quickLook(path); });
   ipcMain.handle('shell:openTerminal', (_e, path: string) => openTerminal(path));
   ipcMain.handle('shell:runCommand', (_e, cmd: string, cwd: string) => runCommand(cmd, cwd));
+
+  ipcMain.handle('term:spawn', (e, cwd: string, cols: number, rows: number) => {
+    const id = spawnTerminal(e.sender, cwd, cols, rows);
+    e.sender.once('destroyed', () => killAllForContents(e.sender));
+    return id;
+  });
+  ipcMain.handle('term:write', (_e, id: string, data: string) => writeTerminal(id, data));
+  ipcMain.handle('term:resize', (_e, id: string, cols: number, rows: number) => resizeTerminal(id, cols, rows));
+  ipcMain.handle('term:kill', (_e, id: string) => killTerminal(id));
 
   ipcMain.handle('menu:popupFileContext', (e, args: FileContextArgs) => {
     const win = BrowserWindow.fromWebContents(e.sender);

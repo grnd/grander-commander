@@ -25,6 +25,14 @@ export type GCApi = {
     openTerminal(path: string): Promise<void>;
     runCommand(cmd: string, cwd: string): Promise<{ stdout: string; stderr: string; exitCode: number }>;
   };
+  terminal: {
+    spawn(cwd: string, cols: number, rows: number): Promise<string>;
+    write(id: string, data: string): Promise<void>;
+    resize(id: string, cols: number, rows: number): Promise<void>;
+    kill(id: string): Promise<void>;
+    onData(id: string, cb: (data: string) => void): () => void;
+    onExit(id: string, cb: (info: { exitCode: number; signal?: number }) => void): () => void;
+  };
   menu: {
     onCommand(cb: (cmd: string) => void): () => void;
     popupFileContext(args: {

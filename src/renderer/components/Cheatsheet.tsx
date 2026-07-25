@@ -59,6 +59,13 @@ const SECTIONS: { title: string; rows: [string, string][] }[] = [
     ],
   },
   {
+    title: 'Shell',
+    rows: [
+      ['Cmd+S', 'Open external terminal at current dir'],
+      ['Ctrl+`', 'Toggle embedded bash terminal'],
+    ],
+  },
+  {
     title: 'Help',
     rows: [
       ['?', 'Show this cheatsheet (hold)'],

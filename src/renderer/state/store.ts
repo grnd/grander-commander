@@ -31,6 +31,7 @@ export type AppState = {
   favorites: string[];
   favoritePickerOpen: boolean;
   quickSearch: { buffer: string; side: PanelSide } | null;
+  terminalOpen: boolean;
 
   setActive: (side: PanelSide) => void;
   replacePanel: (side: PanelSide, patch: Partial<PanelState>) => void;
@@ -40,6 +41,7 @@ export type AppState = {
   removeFavorite: (path: string) => void;
   setFavoritePickerOpen: (open: boolean) => void;
   setQuickSearch: (qs: { buffer: string; side: PanelSide } | null) => void;
+  setTerminalOpen: (open: boolean) => void;
 };
 
 export const useStore = create<AppState>((set) => ({
@@ -56,6 +58,7 @@ export const useStore = create<AppState>((set) => ({
   favorites: loadFavorites(),
   favoritePickerOpen: false,
   quickSearch: null,
+  terminalOpen: false,
 
   setActive: (side) => set({ activeSide: side }),
   replacePanel: (side, patch) =>
@@ -75,4 +78,5 @@ export const useStore = create<AppState>((set) => ({
   }),
   setFavoritePickerOpen: (open) => set({ favoritePickerOpen: open }),
   setQuickSearch: (qs) => set({ quickSearch: qs }),
+  setTerminalOpen: (open) => set({ terminalOpen: open }),
 }));
