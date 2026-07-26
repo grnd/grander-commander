@@ -17,12 +17,13 @@ Rolling list of what's next. Grouped by milestone. Check off as we ship.
 
 ## M4 — Release
 
-- [ ] **Code signing + notarization** for `.dmg` (Developer ID).
 - [ ] **Auto-update** via electron-updater on a private S3 bucket.
+- [ ] **Proper update mechanism**, like orca ([https://github.com/stablyai/orca](https://github.com/stablyai/orca)): electron-updater with a generic feed pointed at GitHub Releases (`/releases/latest/download`), re-pinned per check to a concrete tag URL to avoid redirect drift. Local reference: `/Users/grnd/projects/agent-orchestrators/orca/src/main/updater.ts`. Supersedes the S3 idea above — we already publish DMGs via the GitHub release workflow.
 - [ ] **Crash reporting** (Sentry or Crashpad).
 - [ ] **CI**: GitHub Actions — typecheck + lint + test on PRs; release job on tags.
 - [ ] **Icon + DMG background polish**: current icon is a dog-with-shield placeholder.
 - [ ] **App Store-ready build**? (Evaluate sandbox restrictions on fs access.)
+- [ ] **Code signing + notarization** for `.dmg` (Developer ID).
 
 ## Polish / UX
 
@@ -40,6 +41,7 @@ Rolling list of what's next. Grouped by milestone. Check off as we ship.
 
 - [ ] **Watch active directories** with `fs.watch` + debounce; refresh on external changes.
 - [ ] **Lazy entry enrichment**: size/mtime for huge dirs after initial render.
+- [ ] **Google Drive folder support**: currently impossible to enter the Google Drive mount (`~/Library/CloudStorage/GoogleDrive-*`) — panel should navigate into it like any directory; handle File Provider placeholder files (size/date from metadata, download-on-open).
 - [ ] **Symlink handling**: show target, Cmd+Enter to follow vs open.
 - [ ] **Permission errors**: surface as inline banner, not `alert()`.
 - [ ] **Progress dialog** ETA + bytes/sec.
@@ -63,4 +65,5 @@ Rolling list of what's next. Grouped by milestone. Check off as we ship.
 - [ ] Plugin API — user scripts that register commands and panels.
 - [ ] FTP / SFTP / SMB virtual panels.
 - [ ] Git status column in panels.
-- [ ] iCloud Drive / OneDrive / Dropbox awareness (show sync state).
+- [ ] Google Drive / iCloud Drive / OneDrive / Dropbox awareness (show sync state).
+
