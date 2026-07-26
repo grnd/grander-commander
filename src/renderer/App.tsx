@@ -56,12 +56,20 @@ export function App() {
   const qsTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [cheatVisible, setCheatVisible] = useState(false);
   const [cmdOutput, setCmdOutput] = useState<{ cmd: string; stdout: string; stderr: string; exitCode: number } | null>(null);
+  // Mirrors cmdOutput for the global key router, which is registered once and
+  // can't see this component state directly.
+  const cmdOutputRef = useRef(cmdOutput);
+  cmdOutputRef.current = cmdOutput;
 
   const setPanel = useCallback((side: PanelSide, patch: Partial<typeof state.panels.left>) => {
     useStore.setState((s) => ({ panels: { ...s.panels, [side]: { ...s.panels[side], ...patch } } }));
     // state is referenced only at the type level (typeof state.panels.left); no runtime dep
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Must be referentially stable: Terminal's effect depends on onClose, so a
+  // fresh arrow on every App render would kill and respawn the pty session.
+  const closeTerminal = useCallback(() => useStore.getState().setTerminalOpen(false), []);
 
   // Initial volumes + initial paths
   useEffect(() => {
@@ -252,6 +260,15 @@ export function App() {
       // Don't steal keys when an input is focused (PathBar / cmdline)
       const tag = (e.target as HTMLElement).tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+      // Command-output overlay: Esc/Enter dismiss it, everything else is
+      // swallowed so panel shortcuts don't fire underneath the modal.
+      if (cmdOutputRef.current) {
+        if (e.key === 'Escape' || e.key === 'Enter') {
+          e.preventDefault();
+          setCmdOutput(null);
+        }
+        return;
+      }
       // Don't route panel shortcuts while a modal/picker owns the keyboard
       const s = useStore.getState();
       if (s.dialog || s.favoritePickerOpen) return;
@@ -548,7 +565,7 @@ export function App() {
       {state.terminalOpen && (
         <Terminal
           cwd={active.path}
-          onClose={() => useStore.getState().setTerminalOpen(false)}
+          onClose={closeTerminal}
         />
       )}
       <CommandLine
