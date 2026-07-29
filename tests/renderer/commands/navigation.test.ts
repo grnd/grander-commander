@@ -58,6 +58,21 @@ describe('navigateInto', () => {
     }));
   });
 
+  it('keeps the extension when entering a directory whose name contains a dot', async () => {
+    const { panel, setPanel, api } = mkCtx();
+    // listDir splits a dotted directory name into name+ext exactly as it does
+    // for files — e.g. the Google Drive CloudStorage mount.
+    panel.entries = [
+      mkEntry({ name: 'GoogleDrive-danny.grander@gmail', ext: 'com', isDir: true }),
+    ];
+    panel.cursor = 0;
+    await navigateInto({ panel, setPanel, api });
+    expect(api.fs.listDir).toHaveBeenCalledWith(
+      '/tmp/GoogleDrive-danny.grander@gmail.com',
+      { showHidden: false },
+    );
+  });
+
   it('opens non-directory via shell.openPath and does NOT navigate', async () => {
     const { panel, setPanel, api } = mkCtx();
     panel.cursor = 2; // readme.md

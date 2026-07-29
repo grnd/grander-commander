@@ -79,14 +79,15 @@ export async function navigateInto(ctx: NavCtx) {
     if (parent) await loadInto(ctx, parent, leafOf(ctx.panel.path));
     return;
   }
+  // Directories are split into name+ext too, so always reassemble before
+  // building a path — "GoogleDrive-x@gmail.com" lists as name+ext "com".
+  const fullName = cur.ext ? `${cur.name}.${cur.ext}` : cur.name;
+  const full = ctx.panel.path === '/' ? `/${fullName}` : `${ctx.panel.path}/${fullName}`;
   if (cur.isDir) {
-    const joined = ctx.panel.path === '/' ? `/${cur.name}` : `${ctx.panel.path}/${cur.name}`;
-    await loadInto(ctx, joined);
+    await loadInto(ctx, full);
     return;
   }
   // App bundle or file → open with default app
-  const fullName = cur.ext ? `${cur.name}.${cur.ext}` : cur.name;
-  const full = ctx.panel.path === '/' ? `/${fullName}` : `${ctx.panel.path}/${fullName}`;
   await ctx.api.shell.openPath(full);
 }
 
