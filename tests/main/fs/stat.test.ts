@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync, mkdirSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { stat as gcStat } from '@main/fs/stat';
@@ -25,5 +25,16 @@ describe('stat', () => {
     const r = await gcStat(join(tmp, 'nope'));
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.error.kind).toBe('not-found');
+  });
+
+  it('reports a symlinked directory as a directory, agreeing with listDir', async () => {
+    // stat.ts duplicates listDir's symlink logic; when the two disagree about
+    // what is a directory, callers get inconsistent answers for one path.
+    mkdirSync(join(tmp, 'target-dir'));
+    symlinkSync(join(tmp, 'target-dir'), join(tmp, 'link-to-dir'));
+    const r = await gcStat(join(tmp, 'link-to-dir'));
+    if (!r.ok) throw new Error('expected ok');
+    expect(r.value.isDir).toBe(true);
+    expect(r.value.isSymlink).toBe(true);
   });
 });
