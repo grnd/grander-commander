@@ -41,9 +41,9 @@ Rolling list of what's next. Grouped by milestone. Check off as we ship.
 
 - [ ] **Watch active directories** with `fs.watch` + debounce; refresh on external changes.
 - [ ] **Lazy entry enrichment**: size/mtime for huge dirs after initial render.
-- [ ] **Google Drive folder support**: currently impossible to enter the Google Drive mount (`~/Library/CloudStorage/GoogleDrive-*`) — panel should navigate into it like any directory; handle File Provider placeholder files (size/date from metadata, download-on-open).
+- [ ] **Google Drive folder support**: ~~entering the mount~~ (fixed: dotted dir names dropped their extension) and ~~drive bar entry~~ (fixed: `~/Library/CloudStorage` is scanned) — still to do: handle File Provider placeholder files (size/date from metadata, download-on-open).
 - [ ] **Symlink handling**: show target, Cmd+Enter to follow vs open.
-- [ ] **Permission errors**: surface as inline banner, not `alert()`.
+- [ ] **Permission errors**: surface as inline banner, not `alert()`. (Done for navigation; mutation ops still use `alert()`.)
 - [ ] **Progress dialog** ETA + bytes/sec.
 - [ ] **Large-selection performance**: virtualize selection rendering past N entries.
 

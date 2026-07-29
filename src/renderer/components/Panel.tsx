@@ -40,6 +40,7 @@ export function Panel({ panel, isActive, onActivate, onRowMouseDown, onRowDouble
     >
       <PathBar path={panel.path} onCommit={onPathCommit} active={isActive} inputRef={pathBarRef} />
       <ColumnHeader sort={panel.sort} onSort={onSort} />
+      {panel.error && <div className="gc-panel-error" role="alert">{panel.error}</div>}
       <div className="gc-panel-body" ref={bodyRef}>
         {size.h > 0 && (
           <FileList

@@ -1,11 +1,11 @@
-import type { FileEntry } from '@shared/types';
+import type { FileEntry, OpError } from '@shared/types';
 import type { PanelState } from '@renderer/state/panelSlice';
 import { sortEntries } from './sort';
 
 type Api = {
   fs: {
     listDir: (path: string, opts: { showHidden: boolean }) =>
-      Promise<{ ok: true; value: FileEntry[] } | { ok: false; error: unknown }>;
+      Promise<{ ok: true; value: FileEntry[] } | { ok: false; error: OpError }>;
   };
   shell: { openPath: (path: string) => Promise<void> };
 };
@@ -33,11 +33,20 @@ function parentOf(path: string): string | null {
   return path.slice(0, idx);
 }
 
+function describeError(e: OpError): string {
+  switch (e.kind) {
+    case 'not-found':  return `Not found: ${e.path}`;
+    case 'permission': return `Permission denied: ${e.path}`;
+    case 'unknown':    return e.message;
+    default:           return e.kind;
+  }
+}
+
 async function loadInto(ctx: NavCtx, newPath: string, cursorOnName?: string): Promise<boolean> {
   ctx.setPanel({ loading: true, error: null });
   const r = await ctx.api.fs.listDir(newPath, { showHidden: ctx.panel.showHidden });
   if (!r.ok) {
-    ctx.setPanel({ loading: false, error: String((r as { error: unknown }).error) });
+    ctx.setPanel({ loading: false, error: describeError(r.error) });
     return false;
   }
   const sorted = sortEntries(r.value, ctx.panel.sort);

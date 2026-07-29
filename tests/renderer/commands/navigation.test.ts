@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { navigateInto, navigateUp, cursorMove } from '@renderer/commands/navigation';
+import { navigateInto, navigateUp, navigateTo, cursorMove } from '@renderer/commands/navigation';
 import type { FileEntry } from '@shared/types';
 import { initialPanelState } from '@renderer/state/panelSlice';
 
@@ -86,6 +86,35 @@ describe('navigateInto', () => {
     panel.cursor = 0; // '..'
     await navigateInto({ panel, setPanel, api });
     expect(api.fs.listDir).toHaveBeenCalledWith('/', { showHidden: false });
+  });
+});
+
+describe('failed navigation', () => {
+  it('reports a readable message instead of "[object Object]"', async () => {
+    const { panel, setPanel, api } = mkCtx();
+    api.fs.listDir.mockResolvedValue({
+      ok: false,
+      error: { kind: 'not-found', path: '/tmp/gone' },
+    });
+    const ok = await navigateTo({ panel, setPanel, api, path: '/tmp/gone' });
+    expect(ok).toBe(false);
+    expect(setPanel).toHaveBeenCalledWith({
+      loading: false,
+      error: 'Not found: /tmp/gone',
+    });
+  });
+
+  it('reports permission errors with the path', async () => {
+    const { panel, setPanel, api } = mkCtx();
+    api.fs.listDir.mockResolvedValue({
+      ok: false,
+      error: { kind: 'permission', path: '/tmp/secret' },
+    });
+    await navigateTo({ panel, setPanel, api, path: '/tmp/secret' });
+    expect(setPanel).toHaveBeenCalledWith({
+      loading: false,
+      error: 'Permission denied: /tmp/secret',
+    });
   });
 });
 
