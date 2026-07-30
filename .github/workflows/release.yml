@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   build:
-    name: Build macOS DMG
+    name: Build, sign and notarize macOS app
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
@@ -29,23 +29,26 @@ jobs:
       - name: Test
         run: npm test
 
-      - name: Build universal DMG
-        run: npm run dist:universal
+      # electron-builder publishes the DMG, the ZIP and latest-mac.yml. The
+      # ZIP and the manifest are what electron-updater actually reads; a
+      # DMG-only release cannot be auto-updated from.
+      - name: Build, sign, notarize and publish
+        run: npm run dist:universal -- --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+          # Developer ID Application cert (base64 .p12) + its password.
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          # Notarization credentials.
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: dmg
-          path: dist/*.dmg
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: dist/*.dmg
-          generate_release_notes: true
-          body: |
-            Unsigned build. The first time you open it, macOS will block the app.
-            Allow it in **System Settings → Privacy & Security** (scroll to the bottom).
+          name: mac-build
+          path: |
+            dist/*.dmg
+            dist/*.zip
+            dist/latest-mac.yml

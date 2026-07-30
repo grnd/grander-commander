@@ -57,6 +57,17 @@ const api: GCApi = {
     },
     popupFileContext: (args) => ipcRenderer.invoke('menu:popupFileContext', args),
   },
+  update: {
+    check: () => ipcRenderer.invoke('update:check'),
+    download: () => ipcRenderer.invoke('update:download'),
+    install: () => ipcRenderer.invoke('update:install'),
+    status: () => ipcRenderer.invoke('update:status'),
+    onStatus: (cb) => {
+      const listener = (_: unknown, s: unknown) => cb(s as never);
+      ipcRenderer.on('update:status', listener);
+      return () => ipcRenderer.removeListener('update:status', listener);
+    },
+  },
 };
 
 contextBridge.exposeInMainWorld('gc', api);

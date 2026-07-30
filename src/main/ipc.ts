@@ -10,6 +10,7 @@ import { duplicate } from './fs/duplicate';
 import { quickLook } from './shell/quickLook';
 import { openTerminal } from './shell/openTerminal';
 import { runCommand } from './shell/runCommand';
+import { checkForUpdates, downloadUpdate, quitAndInstall, getUpdateStatus } from './updater';
 import { spawnTerminal, writeTerminal, resizeTerminal, killTerminal, killAllForContents } from './shell/terminal';
 import { popupFileContext, type FileContextArgs } from './menu/fileContext';
 import { OpRunner } from './ops/runner';
@@ -55,6 +56,11 @@ export function registerIpc() {
   });
   ipcMain.handle('ops:cancel', (_e, id: OpId) => runner.cancel(id));
   ipcMain.handle('ops:answerConflict', (_e, id: OpId, a: ConflictAnswer) => runner.answerConflict(id, a));
+
+  ipcMain.handle('update:check', () => checkForUpdates());
+  ipcMain.handle('update:download', () => downloadUpdate());
+  ipcMain.handle('update:install', () => quitAndInstall());
+  ipcMain.handle('update:status', () => getUpdateStatus());
 }
 
 export { runner };

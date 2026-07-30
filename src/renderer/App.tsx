@@ -21,6 +21,7 @@ import {
   swapPanels, switchActive, sameDirToOther,
 } from './commands/panels';
 import { DriveBar } from './components/DriveBar';
+import { UpdateBanner } from './components/UpdateBanner';
 import { Panel } from './components/Panel';
 import { Splitter } from './components/Splitter';
 import type { SortCol } from '@shared/types';
@@ -512,6 +513,7 @@ export function App() {
 
   return (
     <div className="gc-app">
+      <UpdateBanner />
       <DriveBar volumes={state.volumes} currentPath={active.path} onPick={(p) => {
         const panel = useStore.getState().panels[state.activeSide];
         const setSide = (patch: Partial<typeof panel>) => setPanel(state.activeSide, patch);
