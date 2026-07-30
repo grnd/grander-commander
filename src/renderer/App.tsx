@@ -86,6 +86,10 @@ export function App() {
   }, []);
 
   const dispatch = useCallback(async (cmd: CommandName) => {
+    // Commands arrive from the native menu and the F-key bar as well as the key
+    // router, and those paths never consulted the modal state. Gating here
+    // covers every source — `trash` calls fs.trash with no confirmation step.
+    if (cmdOutputRef.current) return;
     const s = useStore.getState();
     const active = s.panels[s.activeSide];
     const setActive = (patch: Partial<typeof active>) => setPanel(s.activeSide, patch);
@@ -257,18 +261,19 @@ export function App() {
   // Global keyboard router
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // The command-output overlay owns the keyboard while it is open. This is
+      // checked before the INPUT guard below: letting Tab through moves focus
+      // to a control behind the backdrop, and once an input is focused that
+      // guard would skip this branch entirely. Swallow every key, so nothing
+      // reaches the panels and focus cannot escape the modal.
+      if (cmdOutputRef.current) {
+        e.preventDefault();
+        if (e.key === 'Escape' || e.key === 'Enter') setCmdOutput(null);
+        return;
+      }
       // Don't steal keys when an input is focused (PathBar / cmdline)
       const tag = (e.target as HTMLElement).tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA') return;
-      // Command-output overlay: Esc/Enter dismiss it, everything else is
-      // swallowed so panel shortcuts don't fire underneath the modal.
-      if (cmdOutputRef.current) {
-        if (e.key === 'Escape' || e.key === 'Enter') {
-          e.preventDefault();
-          setCmdOutput(null);
-        }
-        return;
-      }
       // Don't route panel shortcuts while a modal/picker owns the keyboard
       const s = useStore.getState();
       if (s.dialog || s.favoritePickerOpen) return;

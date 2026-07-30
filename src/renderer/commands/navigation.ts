@@ -1,11 +1,11 @@
-import type { FileEntry } from '@shared/types';
+import type { FileEntry, OpError } from '@shared/types';
 import type { PanelState } from '@renderer/state/panelSlice';
 import { sortEntries } from './sort';
 
 type Api = {
   fs: {
     listDir: (path: string, opts: { showHidden: boolean }) =>
-      Promise<{ ok: true; value: FileEntry[] } | { ok: false; error: unknown }>;
+      Promise<{ ok: true; value: FileEntry[] } | { ok: false; error: OpError }>;
   };
   shell: { openPath: (path: string) => Promise<void> };
 };
@@ -33,11 +33,20 @@ function parentOf(path: string): string | null {
   return path.slice(0, idx);
 }
 
+function describeError(e: OpError): string {
+  switch (e.kind) {
+    case 'not-found':  return `Not found: ${e.path}`;
+    case 'permission': return `Permission denied: ${e.path}`;
+    case 'unknown':    return e.message;
+    default:           return e.kind;
+  }
+}
+
 async function loadInto(ctx: NavCtx, newPath: string, cursorOnName?: string): Promise<boolean> {
   ctx.setPanel({ loading: true, error: null });
   const r = await ctx.api.fs.listDir(newPath, { showHidden: ctx.panel.showHidden });
   if (!r.ok) {
-    ctx.setPanel({ loading: false, error: String((r as { error: unknown }).error) });
+    ctx.setPanel({ loading: false, error: describeError(r.error) });
     return false;
   }
   const sorted = sortEntries(r.value, ctx.panel.sort);
@@ -79,14 +88,15 @@ export async function navigateInto(ctx: NavCtx) {
     if (parent) await loadInto(ctx, parent, leafOf(ctx.panel.path));
     return;
   }
+  // Directories are split into name+ext too, so always reassemble before
+  // building a path — "GoogleDrive-x@gmail.com" lists as name+ext "com".
+  const fullName = cur.ext ? `${cur.name}.${cur.ext}` : cur.name;
+  const full = ctx.panel.path === '/' ? `/${fullName}` : `${ctx.panel.path}/${fullName}`;
   if (cur.isDir) {
-    const joined = ctx.panel.path === '/' ? `/${cur.name}` : `${ctx.panel.path}/${cur.name}`;
-    await loadInto(ctx, joined);
+    await loadInto(ctx, full);
     return;
   }
   // App bundle or file → open with default app
-  const fullName = cur.ext ? `${cur.name}.${cur.ext}` : cur.name;
-  const full = ctx.panel.path === '/' ? `/${fullName}` : `${ctx.panel.path}/${fullName}`;
   await ctx.api.shell.openPath(full);
 }
 

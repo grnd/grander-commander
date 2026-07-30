@@ -1,4 +1,4 @@
-import { readdir, lstat } from 'node:fs/promises';
+import { readdir, lstat, stat as statFollow } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { FileEntry, ListDirOptions, OpError, Result } from '@shared/types';
 import { NOISE_FILENAMES } from '@shared/types';
@@ -30,7 +30,17 @@ export async function listDir(
     }
 
     const isSymlink = stat.isSymbolicLink();
-    const isRealDir = !isSymlink && stat.isDirectory();
+    // Follow symlinks so a link to a directory (e.g. ~/Google Drive -> the
+    // CloudStorage mount) is navigable. Following throws ELOOP on a cycle and
+    // ENOENT when dangling; either way the entry is simply not a directory.
+    let isRealDir = stat.isDirectory();
+    if (isSymlink) {
+      try {
+        isRealDir = (await statFollow(full)).isDirectory();
+      } catch {
+        isRealDir = false;
+      }
+    }
     const dotIdx = name.lastIndexOf('.');
     const hasExt = dotIdx > 0; // leading dot ("hidden") does not count as ext
     const rawName = hasExt ? name.slice(0, dotIdx) : name;

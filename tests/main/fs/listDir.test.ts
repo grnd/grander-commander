@@ -91,6 +91,40 @@ describe('listDir', () => {
     if (!r.ok) expect(r.error.kind).toBe('not-found');
   });
 
+  it('treats a symlink to a directory as a directory so it can be entered', async () => {
+    // ~/Google Drive is a symlink to ~/Library/CloudStorage/GoogleDrive-<account>.
+    // Reporting it as a non-directory routes Enter to "open with default app"
+    // instead of navigating, which is why the mount could not be entered.
+    mkdirSync(join(tmp, 'target-dir'));
+    symlinkSync(join(tmp, 'target-dir'), join(tmp, 'Google Drive'));
+    const r = await listDir(tmp, { showHidden: false });
+    if (!r.ok) throw new Error('expected ok');
+    const link = r.value.find((e) => e.name === 'Google Drive');
+    expect(link).toBeDefined();
+    expect(link!.isDir).toBe(true);
+    expect(link!.isSymlink).toBe(true);
+  });
+
+  it('does not treat a dangling symlink as a directory', async () => {
+    symlinkSync(join(tmp, 'gone'), join(tmp, 'broken'));
+    const r = await listDir(tmp, { showHidden: false });
+    if (!r.ok) throw new Error('expected ok');
+    const broken = r.value.find((e) => e.name === 'broken');
+    expect(broken).toBeDefined();
+    expect(broken!.isDir).toBe(false);
+    expect(broken!.isSymlink).toBe(true);
+  });
+
+  it('lists a self-referential symlink instead of throwing ELOOP', async () => {
+    // Following this link throws ELOOP; one cycle must not break the listing.
+    symlinkSync(join(tmp, 'loop'), join(tmp, 'loop'));
+    writeFileSync(join(tmp, 'sibling.txt'), 'x');
+    const r = await listDir(tmp, { showHidden: false });
+    if (!r.ok) throw new Error('expected ok');
+    expect(r.value.find((e) => e.name === 'loop')?.isDir).toBe(false);
+    expect(r.value.find((e) => e.name === 'sibling')).toBeDefined();
+  });
+
   it('drops entries whose stat fails (race) and keeps rest', async () => {
     writeFileSync(join(tmp, 'a.txt'), 'x');
     writeFileSync(join(tmp, 'b.txt'), 'x');
