@@ -26,6 +26,10 @@ export type GCApi = {
     /** `token` is the caller's handle for cancelSearch; any unique string. */
     search(token: string, query: SearchQuery): Promise<Result<SearchOutcome>>;
     cancelSearch(token: string): Promise<void>;
+    /** Watch `path` for the given side; replaces any previous watch on that side. */
+    watchDir(side: 'left' | 'right', path: string): Promise<void>;
+    unwatchDir(side: 'left' | 'right'): Promise<void>;
+    onDirChanged(cb: (ev: { side: 'left' | 'right'; path: string }) => void): () => void;
   };
   archive: {
     isArchive(path: string): Promise<boolean>;

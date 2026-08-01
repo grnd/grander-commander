@@ -24,6 +24,14 @@ const api: GCApi = {
     syncScan: (left, right, opts) => ipcRenderer.invoke('fs:syncScan', left, right, opts),
     search: (token, query) => ipcRenderer.invoke('fs:search', token, query),
     cancelSearch: (token) => ipcRenderer.invoke('fs:searchCancel', token),
+    watchDir: (side, path) => ipcRenderer.invoke('fs:watchDir', side, path),
+    unwatchDir: (side) => ipcRenderer.invoke('fs:unwatchDir', side),
+    onDirChanged: (cb) => {
+      const listener = (_: unknown, ev: unknown) =>
+        cb(ev as { side: 'left' | 'right'; path: string });
+      ipcRenderer.on('fs:dirChanged', listener);
+      return () => ipcRenderer.removeListener('fs:dirChanged', listener);
+    },
   },
   archive: {
     isArchive: (path) => ipcRenderer.invoke('archive:isArchive', path),

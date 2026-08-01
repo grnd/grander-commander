@@ -24,6 +24,7 @@ import { runCommand } from './shell/runCommand';
 import { startDrag } from './shell/dragOut';
 import { checkForUpdates, downloadUpdate, quitAndInstall, getUpdateStatus, openReleaseNotes } from './updater';
 import { spawnTerminal, writeTerminal, resizeTerminal, killTerminal, killAllForContents } from './shell/terminal';
+import { watchDir, unwatchDir, unwatchAllForContents, type Side } from './fs/watch';
 import { popupFileContext, type FileContextArgs } from './menu/fileContext';
 import { OpRunner } from './ops/runner';
 import type {
@@ -127,6 +128,11 @@ function expectStringArray(
 
 function expectBoolean(value: unknown, name: string): boolean {
   if (typeof value !== 'boolean') throw new TypeError(`${name} must be a boolean`);
+  return value;
+}
+
+function expectSide(value: unknown, name: string): Side {
+  if (value !== 'left' && value !== 'right') throw new TypeError(`${name} must be left or right`);
   return value;
 }
 
@@ -468,6 +474,17 @@ export function registerIpc() {
     expectArgs(args, 'fs:searchCancel', 1);
     return [expectString(args[0], 'token', { maxLength: 128 })];
   }, (_e, token) => { cancelSearch(token); });
+  handleValidated('fs:watchDir', (args): [Side, string] => {
+    expectArgs(args, 'fs:watchDir', 2);
+    return [expectSide(args[0], 'side'), expectString(args[1], 'path')];
+  }, (e, side, path) => {
+    watchDir(e.sender, side, path);
+    e.sender.once('destroyed', () => unwatchAllForContents(e.sender));
+  });
+  handleValidated('fs:unwatchDir', (args): [Side] => {
+    expectArgs(args, 'fs:unwatchDir', 1);
+    return [expectSide(args[0], 'side')];
+  }, (e, side) => unwatchDir(e.sender, side));
 
   handleValidated('archive:isArchive', (args): [string] => {
     expectArgs(args, 'archive:isArchive', 1);

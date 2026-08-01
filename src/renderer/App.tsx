@@ -30,6 +30,7 @@ import {
   cursorMove, cursorTo, navigateInto, navigateUp, navigateTo, openArchive, refreshPanel,
   revealPath, showSearchResults,
 } from './commands/navigation';
+import { silentRefresh } from './commands/refresh';
 import {
   toggleMark, selectAll, clearSelection, rangeSelect,
 } from './commands/selection';
@@ -622,6 +623,31 @@ export function App() {
     });
     return unsub;
   }, [dispatch, api]);
+
+  // Watch the current directory of each panel; re-watch when the path changes.
+  useEffect(() => {
+    void api.fs.watchDir('left', state.panels.left.path);
+    return () => { void api.fs.unwatchDir('left'); };
+  }, [api, state.panels.left.path]);
+  useEffect(() => {
+    void api.fs.watchDir('right', state.panels.right.path);
+    return () => { void api.fs.unwatchDir('right'); };
+  }, [api, state.panels.right.path]);
+
+  // On external filesystem change, silently reload the affected panel.
+  useEffect(() => {
+    const off = api.fs.onDirChanged(({ side, path }) => {
+      const panel = useStore.getState().panels[side];
+      if (panel.path !== path) return; // stale
+      void silentRefresh({
+        panel,
+        setPanel: (patch) => setPanel(side, patch),
+        api,
+        getPanel: () => useStore.getState().panels[side],
+      });
+    });
+    return off;
+  }, [api, setPanel]);
 
   // Cheatsheet: show while '?' is held
   useEffect(() => {

@@ -51,6 +51,9 @@ function mockApi() {
       trash: vi.fn().mockResolvedValue({ ok: true }),
       delete: vi.fn().mockResolvedValue({ ok: true }),
       duplicate: vi.fn(),
+      watchDir: vi.fn().mockResolvedValue(undefined),
+      unwatchDir: vi.fn().mockResolvedValue(undefined),
+      onDirChanged: vi.fn(() => () => {}),
     },
     volumes: { list: vi.fn().mockResolvedValue([{ name: 'Home', path: '/home/u', kind: 'home' }]) },
     ops: {
