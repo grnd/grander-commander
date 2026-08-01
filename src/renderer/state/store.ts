@@ -36,6 +36,44 @@ function saveBookmarks(b: Bookmarks): void {
   try { localStorage.setItem(BOOKMARKS_KEY, JSON.stringify(b)); } catch { /* ignore */ }
 }
 
+const COLUMN_WIDTHS_KEY = 'gc.columnWidths';
+
+export type ColumnKey = 'name' | 'ext' | 'size' | 'date';
+export type ColumnWidths = Record<ColumnKey, number>;
+export type SidedColumnWidths = { left: ColumnWidths; right: ColumnWidths };
+
+export const DEFAULT_COLUMN_WIDTHS: ColumnWidths = { name: 260, ext: 50, size: 90, date: 130 };
+export const COLUMN_WIDTH_MIN = 30;
+export const COLUMN_WIDTH_MAX = 800;
+
+function pickWidths(source: unknown): ColumnWidths {
+  const pick = (k: ColumnKey): number => {
+    const v = (source as Record<string, unknown> | null | undefined)?.[k];
+    return typeof v === 'number' && Number.isFinite(v)
+      ? Math.max(COLUMN_WIDTH_MIN, Math.min(COLUMN_WIDTH_MAX, v))
+      : DEFAULT_COLUMN_WIDTHS[k];
+  };
+  return { name: pick('name'), ext: pick('ext'), size: pick('size'), date: pick('date') };
+}
+
+function loadColumnWidths(): SidedColumnWidths {
+  try {
+    const raw = localStorage.getItem(COLUMN_WIDTHS_KEY);
+    if (!raw) return { left: { ...DEFAULT_COLUMN_WIDTHS }, right: { ...DEFAULT_COLUMN_WIDTHS } };
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object' && ('left' in parsed || 'right' in parsed)) {
+      return { left: pickWidths(parsed.left), right: pickWidths(parsed.right) };
+    }
+    // Migrate legacy flat schema: apply to both sides.
+    const flat = pickWidths(parsed);
+    return { left: { ...flat }, right: { ...flat } };
+  } catch { return { left: { ...DEFAULT_COLUMN_WIDTHS }, right: { ...DEFAULT_COLUMN_WIDTHS } }; }
+}
+
+function saveColumnWidths(w: SidedColumnWidths): void {
+  try { localStorage.setItem(COLUMN_WIDTHS_KEY, JSON.stringify(w)); } catch { /* ignore */ }
+}
+
 function loadFavorites(): Favorite[] {
   try {
     const raw = localStorage.getItem(FAVORITES_KEY);
@@ -85,6 +123,8 @@ export type AppState = {
   viewer: { path: string } | null;
   /** Ctrl+Q: the inactive panel mirrors the active panel's cursor as a preview. */
   quickView: boolean;
+  /** Per-side column widths in px; persisted across launches. */
+  columnWidths: SidedColumnWidths;
 
   setActive: (side: PanelSide) => void;
   replacePanel: (side: PanelSide, patch: Partial<PanelState>) => void;
@@ -105,6 +145,8 @@ export type AppState = {
   selectTab: (side: PanelSide, index: number) => void;
   setViewer: (v: { path: string } | null) => void;
   setQuickView: (open: boolean) => void;
+  setColumnWidth: (side: PanelSide, col: ColumnKey, width: number) => void;
+  resetColumnWidth: (side: PanelSide, col: ColumnKey) => void;
 };
 
 const initialPanels = {
@@ -129,6 +171,7 @@ export const useStore = create<AppState>((set) => ({
   terminalOpen: false,
   viewer: null,
   quickView: false,
+  columnWidths: loadColumnWidths(),
 
   setActive: (side) => set({ activeSide: side }),
   replacePanel: (side, patch) =>
@@ -224,4 +267,23 @@ export const useStore = create<AppState>((set) => ({
   }),
   setViewer: (viewer) => set({ viewer }),
   setQuickView: (quickView) => set({ quickView }),
+  setColumnWidth: (side, col, width) => set((s) => {
+    const clamped = Math.max(COLUMN_WIDTH_MIN, Math.min(COLUMN_WIDTH_MAX, Math.round(width)));
+    if (s.columnWidths[side][col] === clamped) return s;
+    const next: SidedColumnWidths = {
+      ...s.columnWidths,
+      [side]: { ...s.columnWidths[side], [col]: clamped },
+    };
+    saveColumnWidths(next);
+    return { columnWidths: next };
+  }),
+  resetColumnWidth: (side, col) => set((s) => {
+    if (s.columnWidths[side][col] === DEFAULT_COLUMN_WIDTHS[col]) return s;
+    const next: SidedColumnWidths = {
+      ...s.columnWidths,
+      [side]: { ...s.columnWidths[side], [col]: DEFAULT_COLUMN_WIDTHS[col] },
+    };
+    saveColumnWidths(next);
+    return { columnWidths: next };
+  }),
 }));

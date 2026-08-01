@@ -1095,6 +1095,15 @@ export function App() {
     );
   };
 
+  const cw = state.columnWidths;
+  const paneVars = (side: PanelSide, width: string): import('react').CSSProperties => ({
+    width,
+    ['--gc-col-name-width' as never]: `${cw[side].name}px`,
+    ['--gc-col-ext-width' as never]: `${cw[side].ext}px`,
+    ['--gc-col-size-width' as never]: `${cw[side].size}px`,
+    ['--gc-col-date-width' as never]: `${cw[side].date}px`,
+  });
+
   return (
     <div className="gc-app">
       <UpdateBanner />
@@ -1113,7 +1122,7 @@ export function App() {
         onReorder={(from, to) => useStore.getState().moveFavorite(from, to)}
       />
       <div className="gc-panel-row">
-        <div style={{ width: `${leftWidth}%` }}>{renderPane('left')}</div>
+        <div style={paneVars('left', `${leftWidth}%`)}>{renderPane('left')}</div>
         <Splitter
           onDrag={(pct) => {
             setPanel('left', { width: pct });
@@ -1124,7 +1133,7 @@ export function App() {
             setPanel('right', { width: 50 });
           }}
         />
-        <div style={{ width: `${100 - leftWidth}%` }}>{renderPane('right')}</div>
+        <div style={paneVars('right', `${100 - leftWidth}%`)}>{renderPane('right')}</div>
       </div>
       {/*
         Mounted from the first time it is opened and then only hidden, so

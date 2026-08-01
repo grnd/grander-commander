@@ -34,7 +34,7 @@ type Props = {
 };
 
 export function Panel({
-  panel, isActive, onActivate, onRowMouseDown, onRowDouble, onRowContextMenu,
+  side, panel, isActive, onActivate, onRowMouseDown, onRowDouble, onRowContextMenu,
   onPathCommit, onSort, pathBarRef, searchBuffer,
   tabs, activeTab = 0, onSelectTab, onCloseTab, onNewTab,
   onRowDragStart, onDragOverTarget, onDropOnTarget, onDragLeavePanel,
@@ -73,7 +73,7 @@ export function Panel({
         inputRef={pathBarRef}
         virtual={panel.source.kind !== 'fs'}
       />
-      <ColumnHeader sort={panel.sort} onSort={onSort} />
+      <ColumnHeader side={side} sort={panel.sort} onSort={onSort} />
       {panel.error && <div className="gc-panel-error" role="alert">{panel.error}</div>}
       <div
         className="gc-panel-body"

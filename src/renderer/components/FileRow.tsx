@@ -61,6 +61,7 @@ export function FileRow({
       <div className="gc-col gc-col-ext">{entry.ext}</div>
       <div className="gc-col gc-col-size">{formatSize(entry)}</div>
       <div className="gc-col gc-col-date">{formatDate(entry.mtime)}</div>
+      <div className="gc-col-filler" />
     </div>
   );
 }
