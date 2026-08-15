@@ -1,6 +1,7 @@
 // src/main/main.ts
 import { app, BrowserWindow, Menu } from 'electron';
 import { registerIpc } from './ipc';
+import { checkForUpdates, initUpdater } from './updater';
 import { join } from 'node:path';
 
 function buildMenu() {
@@ -11,6 +12,7 @@ function buildMenu() {
           label: 'GranderCommander',
           submenu: [
             { role: 'about' as const },
+            { label: 'Check for Updates…', click: () => void checkForUpdates() },
             { type: 'separator' as const },
             { role: 'hide' as const },
             { role: 'hideOthers' as const },
@@ -76,7 +78,11 @@ async function createWindow() {
 app.whenReady().then(async () => {
   buildMenu();
   registerIpc();
+  initUpdater();
   await createWindow();
+  // Check shortly after launch so the window exists to receive the result.
+  // autoDownload is off, so this costs one request and never installs silently.
+  setTimeout(() => void checkForUpdates(), 4000);
   app.on('activate', async () => {
     if (BrowserWindow.getAllWindows().length === 0) await createWindow();
   });

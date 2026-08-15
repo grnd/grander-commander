@@ -49,6 +49,11 @@ function mockApi() {
       onCommand: vi.fn((cb: (cmd: string) => void) => { menuCb = cb; return () => {}; }),
       popupFileContext: vi.fn(),
     },
+    update: {
+      check: vi.fn(), download: vi.fn(), install: vi.fn(),
+      status: vi.fn().mockResolvedValue({ kind: 'idle' }),
+      onStatus: vi.fn(() => () => {}),
+    },
   };
 }
 

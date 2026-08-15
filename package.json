@@ -1,7 +1,7 @@
 {
   "name": "grandercommander",
   "productName": "GranderCommander",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Total Commander for macOS",
   "main": "out/main/main.js",
   "type": "module",
@@ -20,7 +20,9 @@
   "build": {
     "appId": "com.grnd.grandercommander",
     "productName": "GranderCommander",
-    "directories": { "output": "dist" },
+    "directories": {
+      "output": "dist"
+    },
     "files": [
       "out/**/*",
       "package.json",
@@ -31,13 +33,26 @@
     ],
     "mac": {
       "target": [
-        { "target": "dmg", "arch": ["universal"] }
+        {
+          "target": "dmg",
+          "arch": [
+            "universal"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "universal"
+          ]
+        }
       ],
       "category": "public.app-category.utilities",
       "icon": "build/icon.icns",
-      "hardenedRuntime": false,
+      "hardenedRuntime": true,
       "gatekeeperAssess": false,
-      "identity": null,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "notarize": true,
       "extendInfo": {
         "NSDesktopFolderUsageDescription": "GranderCommander needs access to your Desktop folder to display and manage its files.",
         "NSDocumentsFolderUsageDescription": "GranderCommander needs access to your Documents folder to display and manage its files.",
@@ -46,11 +61,27 @@
         "NSAppleEventsUsageDescription": "GranderCommander uses AppleEvents to open items and reveal them in Finder."
       }
     },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "grnd",
+        "repo": "grander-commander",
+        "releaseType": "release"
+      }
+    ],
     "dmg": {
       "title": "GranderCommander ${version}",
       "contents": [
-        { "x": 140, "y": 180 },
-        { "x": 400, "y": 180, "type": "link", "path": "/Applications" }
+        {
+          "x": 140,
+          "y": 180
+        },
+        {
+          "x": 400,
+          "y": 180,
+          "type": "link",
+          "path": "/Applications"
+        }
       ]
     }
   },
@@ -79,6 +110,7 @@
   "dependencies": {
     "@xterm/addon-fit": "^0.10.0",
     "@xterm/xterm": "^5.5.0",
+    "electron-updater": "^6.8.9",
     "node-pty": "^1.0.0",
     "react": "^18.3.0",
     "react-dom": "^18.3.0",

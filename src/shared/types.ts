@@ -74,3 +74,13 @@ export type DialogState =
   | { kind: 'overwrite'; opId: OpId; srcPath: string; dstPath: string }
   | { kind: 'progress'; opId: OpId; title: string; filesDone: number; filesTotal: number; bytesDone: number; bytesTotal: number; currentFile: string }
   | { kind: 'favoriteEdit'; path: string; label: string };
+
+export type UpdateStatus =
+  | { kind: 'idle' }
+  | { kind: 'checking' }
+  | { kind: 'up-to-date'; checkedAt: number }
+  | { kind: 'available'; version: string }
+  | { kind: 'downloading'; percent: number }
+  | { kind: 'ready'; version: string }
+  | { kind: 'error'; message: string }
+  | { kind: 'unsupported'; reason: string };

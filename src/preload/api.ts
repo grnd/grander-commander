@@ -1,4 +1,4 @@
-import type { FileEntry, ListDirOptions, Result, Volume, FileOp, OpId, OpEvent, ConflictAnswer } from '@shared/types';
+import type { FileEntry, ListDirOptions, Result, Volume, FileOp, OpId, OpEvent, ConflictAnswer, UpdateStatus } from '@shared/types';
 
 export type GCApi = {
   fs: {
@@ -43,6 +43,13 @@ export type GCApi = {
       isDotDot: boolean;
       isAppBundle: boolean;
     }): Promise<void>;
+  };
+  update: {
+    check(): Promise<UpdateStatus>;
+    download(): Promise<void>;
+    install(): Promise<void>;
+    status(): Promise<UpdateStatus>;
+    onStatus(cb: (s: UpdateStatus) => void): () => void;
   };
 };
 

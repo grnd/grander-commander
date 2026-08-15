@@ -17,13 +17,12 @@ Rolling list of what's next. Grouped by milestone. Check off as we ship.
 
 ## M4 — Release
 
-- [ ] **Auto-update** via electron-updater on a private S3 bucket.
-- [ ] **Proper update mechanism**, like orca ([https://github.com/stablyai/orca](https://github.com/stablyai/orca)): electron-updater with a generic feed pointed at GitHub Releases (`/releases/latest/download`), re-pinned per check to a concrete tag URL to avoid redirect drift. Local reference: `/Users/grnd/projects/agent-orchestrators/orca/src/main/updater.ts`. Supersedes the S3 idea above — we already publish DMGs via the GitHub release workflow.
+- [x] **Proper update mechanism**, like orca: electron-updater with a generic feed pointed at GitHub Releases, re-pinned per check to a concrete tag URL to avoid redirect drift. Supersedes the S3 idea. **Not yet exercised against a real signed release** — needs the Apple secrets set in the repo and one tag pushed to confirm end to end.
+- [x] **Code signing + notarization** for `.dmg` (Developer ID) — configured (hardened runtime, entitlements, notarize) but requires `CSC_LINK`, `CSC_KEY_PASSWORD`, `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID` as repo secrets.
 - [ ] **Crash reporting** (Sentry or Crashpad).
 - [ ] **CI**: GitHub Actions — typecheck + lint + test on PRs; release job on tags.
 - [ ] **Icon + DMG background polish**: current icon is a dog-with-shield placeholder.
 - [ ] **App Store-ready build**? (Evaluate sandbox restrictions on fs access.)
-- [ ] **Code signing + notarization** for `.dmg` (Developer ID).
 
 ## Polish / UX
 

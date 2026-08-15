@@ -233,3 +233,24 @@ body {
   margin: 8px 0 0; white-space: pre-wrap;
 }
 .gc-cmd-stderr { color: #a00; }
+
+/* Update banner — sits above the drive bar, only when actionable. */
+.gc-update-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  background: var(--gc-accent, #1f4f8b);
+  color: #fff;
+  font-size: 12px;
+}
+.gc-update-banner button {
+  font: inherit;
+  padding: 1px 8px;
+  cursor: pointer;
+}
+.gc-update-banner .gc-update-dismiss {
+  background: transparent;
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+}
