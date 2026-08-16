@@ -14,6 +14,10 @@ jobs:
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Full history and tags: the release-notes fallback below diffs this
+          # tag against the previous one, which a depth-1 checkout cannot do.
+          fetch-depth: 0
 
       - name: Verify tag matches package version
         run: |
@@ -49,8 +53,12 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
       # electron-builder creates the release but leaves the body empty, so fill
-      # it in afterwards. GitHub picks the previous release as the baseline and
-      # lists merged PRs, which keeps release-chore commits out of the notes.
+      # it in afterwards.
+      #
+      # GitHub's generate-notes lists merged *pull requests*. A release merged
+      # straight to master has none, and v0.2.0 shipped with a body containing
+      # nothing but a Full Changelog link. So the commit log is the fallback,
+      # and the step fails outright rather than publishing empty notes again.
       - name: Add "What's Changed" release notes
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -59,8 +67,35 @@ jobs:
           TAG="${GITHUB_REF_NAME}"
           gh api "repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
             -f tag_name="$TAG" --jq .body > /tmp/notes.md
-          echo "--- generated notes ---"
+
+          if ! grep -qE '^[[:space:]]*[*-] ' /tmp/notes.md; then
+            echo "generate-notes listed no pull requests; falling back to the commit log"
+            PREV="$(git describe --tags --abbrev=0 "${TAG}^" 2>/dev/null || true)"
+            RANGE="${TAG}"
+            # An explicit if, not `[ ... ] && RANGE=...`: under `set -e` a false
+            # test as the last command of an && list exits the script, which
+            # would break the very first release (no previous tag to find).
+            if [ -n "$PREV" ]; then RANGE="${PREV}..${TAG}"; fi
+            {
+              echo "## What's Changed"
+              echo
+              git log --no-merges --pretty='- %s' "$RANGE"
+              if [ -n "$PREV" ]; then
+                echo
+                echo "**Full Changelog**: https://github.com/${GITHUB_REPOSITORY}/compare/${PREV}...${TAG}"
+              fi
+            } > /tmp/notes.md
+          fi
+
+          echo "--- release notes ---"
           cat /tmp/notes.md
+
+          # Never publish an empty body again, silently or otherwise.
+          if ! grep -qE '^[[:space:]]*[*-] ' /tmp/notes.md; then
+            echo "::error::release notes are empty — neither pull requests nor commits were found for $TAG"
+            exit 1
+          fi
+
           gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --notes-file /tmp/notes.md
 
       - name: Upload artifacts

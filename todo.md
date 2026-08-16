@@ -61,8 +61,8 @@ avoid code once decided.
 
 ## M4 — Release
 
-- [x] **Proper update mechanism**, like orca: electron-updater with a generic feed pointed at GitHub Releases, re-pinned per check to a concrete tag URL to avoid redirect drift. Supersedes the S3 idea. **Not yet exercised against a real signed release** — needs the Apple secrets set in the repo and one tag pushed to confirm end to end.
-- [x] **Code signing + notarization** for `.dmg` (Developer ID) — configured (hardened runtime, entitlements, notarize) but requires `CSC_LINK`, `CSC_KEY_PASSWORD`, `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID` as repo secrets.
+- [x] **Proper update mechanism**, like orca: electron-updater with a generic feed pointed at GitHub Releases, re-pinned per check to a concrete tag URL to avoid redirect drift. Supersedes the S3 idea. Exercised end to end since v0.1.4.
+- [x] **Code signing + notarization** for `.dmg` (Developer ID) — hardened runtime, entitlements, notarize. All five repo secrets (`CSC_LINK`, `CSC_KEY_PASSWORD`, `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID`) are set, and every release from v0.1.4 onward has been signed and notarized by CI.
 - [ ] **Crash reporting** (Sentry or Crashpad).
 - [ ] **CI**: GitHub Actions — typecheck + lint + test on PRs; release job on tags.
 - [x] **Icon + DMG background polish**: current icon is a dog-with-shield placeholder.
