@@ -1,7 +1,8 @@
-import type { FileEntry, OpError } from '@shared/types';
+import type { ArchiveEntry, FileEntry, OpError } from '@shared/types';
 import type { PanelState } from '@renderer/state/panelSlice';
 import { entryPath } from '@renderer/state/panelSlice';
 import { sortEntries } from './sort';
+import { archiveChildren, archiveLabel, innerJoin, innerParent, normaliseInner } from './archive';
 
 /** The synthetic parent row every non-root listing carries. */
 export function dotDotEntry(): FileEntry {
@@ -11,12 +12,17 @@ export function dotDotEntry(): FileEntry {
   };
 }
 
+type ApiResult<T> = { ok: true; value: T } | { ok: false; error: OpError };
+
 type Api = {
   fs: {
-    listDir: (path: string, opts: { showHidden: boolean }) =>
-      Promise<{ ok: true; value: FileEntry[] } | { ok: false; error: OpError }>;
+    listDir: (path: string, opts: { showHidden: boolean }) => Promise<ApiResult<FileEntry[]>>;
   };
   shell: { openPath: (path: string) => Promise<void> };
+  archive?: {
+    list: (archivePath: string) => Promise<ApiResult<ArchiveEntry[]>>;
+    extractToTemp: (archivePath: string, member: string) => Promise<ApiResult<string>>;
+  };
 };
 
 export type NavCtx = {
@@ -104,6 +110,30 @@ function exitOf(panel: PanelState): string | null {
 export async function navigateInto(ctx: NavCtx) {
   const cur = ctx.panel.entries[ctx.panel.cursor];
   if (!cur) return;
+
+  const source = ctx.panel.source;
+  if (source.kind === 'archive') {
+    const key = cur.ext ? `${cur.name}.${cur.ext}` : cur.name;
+    if (cur.name === '..') {
+      const inner = normaliseInner(source.innerPath);
+      // At the archive root, ".." leaves the archive entirely and lands on it
+      // in its own folder.
+      if (inner === '') { await revealPath(ctx, source.archivePath); return; }
+      await openArchive(ctx, source.archivePath, innerParent(inner));
+      return;
+    }
+    if (cur.isDir) {
+      await openArchive(ctx, source.archivePath, innerJoin(source.innerPath, key));
+      return;
+    }
+    // A file inside an archive has no path on disk; give it one, then open it.
+    const member = innerJoin(source.innerPath, key);
+    const extracted = await ctx.api.archive?.extractToTemp(source.archivePath, member);
+    if (extracted?.ok) await ctx.api.shell.openPath(extracted.value);
+    else if (extracted) ctx.setPanel({ error: describeError(extracted.error) });
+    return;
+  }
+
   if (cur.name === '..') {
     const exit = exitOf(ctx.panel);
     if (!exit) return;
@@ -120,11 +150,63 @@ export async function navigateInto(ctx: NavCtx) {
     await loadInto(ctx, full);
     return;
   }
+  // An archive opens as a listing rather than in whatever app claims .zip —
+  // travelling inside it without extracting is the whole point.
+  if (ctx.api.archive && isKnownArchive(full)) {
+    const opened = await openArchive(ctx, full, '');
+    if (opened) return;
+  }
   // App bundle or file → open with default app
   await ctx.api.shell.openPath(full);
 }
 
+const ARCHIVE_SUFFIXES = [
+  '.tar.gz', '.tar.bz2', '.tar.xz', '.tgz', '.tbz', '.tbz2', '.txz',
+  '.tar', '.zip', '.jar', '.7z',
+];
+
+/** Mirror of the main-side check, so Enter does not need a round trip first. */
+export function isKnownArchive(path: string): boolean {
+  const lower = path.toLowerCase();
+  return ARCHIVE_SUFFIXES.some((s) => lower.endsWith(s));
+}
+
+/**
+ * List an archive (or one folder inside it) into the panel. Returns false when
+ * the archive could not be read, so the caller can fall back to opening the
+ * file with its default app.
+ */
+export async function openArchive(ctx: NavCtx, archivePath: string, innerPath: string): Promise<boolean> {
+  if (!ctx.api.archive) return false;
+  ctx.setPanel({ loading: true, error: null });
+  const r = await ctx.api.archive.list(archivePath);
+  if (!r.ok) {
+    ctx.setPanel({ loading: false, error: describeError(r.error) });
+    return false;
+  }
+  const inner = normaliseInner(innerPath);
+  const children = archiveChildren(r.value, inner);
+  const sorted = sortEntries(children, ctx.panel.sort);
+  ctx.setPanel({
+    path: archiveLabel(archivePath, inner),
+    source: { kind: 'archive', archivePath, innerPath: inner },
+    entries: [dotDotEntry(), ...sorted],
+    cursor: sorted.length > 0 ? 1 : 0,
+    selection: new Set(),
+    loading: false,
+    error: null,
+  });
+  return true;
+}
+
 export async function navigateUp(ctx: NavCtx) {
+  const source = ctx.panel.source;
+  if (source.kind === 'archive') {
+    const inner = normaliseInner(source.innerPath);
+    if (inner === '') { await revealPath(ctx, source.archivePath); return; }
+    await openArchive(ctx, source.archivePath, innerParent(inner));
+    return;
+  }
   const exit = exitOf(ctx.panel);
   if (!exit) return;
   const cursorOn = ctx.panel.source.kind === 'fs' ? leafOf(ctx.panel.path) : undefined;

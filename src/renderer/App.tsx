@@ -13,9 +13,8 @@ import type { PanelSide } from './state/panelSlice';
 import { cursorPath, entryKey, entryPath, targetNames, targetPaths } from './state/panelSlice';
 import { applyRenamePlan, type RenamePreviewRow } from './commands/multirename';
 import { SYNC_LABELS, type SyncAction, type SyncPlan } from './commands/sync';
+import { archiveTargets } from './commands/archive';
 
-/** fs:trash validates at most 1024 paths per call; a mirror can plan more. */
-const TRASH_CHUNK = 1000;
 import { eventToCombo, lookup, allowedFromInput } from './keybindings';
 import type { CommandName } from './commands';
 import { sortEntries } from './commands/sort';
@@ -40,7 +39,23 @@ import {
 } from './commands/mutations';
 import { Dialogs } from './components/dialogs';
 import { opItemCount } from '@shared/types';
-import type { FileEntry, FileOp, OpEvent, OpId, ConflictAnswer, OpError, MenuCommand } from '@shared/types';
+import type {
+  ArchiveFormat, ArchiveOp, FileEntry, FileOp, OpEvent, OpId, ConflictAnswer, OpError, MenuCommand,
+} from '@shared/types';
+
+/**
+ * Commands that assume the panel's rows are files on disk. An archive listing
+ * has no such paths, so these are refused there rather than acting on a
+ * synthesised one. Copy is the exception: inside an archive it means extract.
+ */
+const BLOCKED_IN_ARCHIVE: ReadonlySet<string> = new Set([
+  'mkdir', 'rename', 'move', 'trash', 'deleteConfirm', 'deleteCursorConfirm',
+  'duplicate', 'multiRename', 'quickLook', 'viewFile', 'compareFiles',
+  'openTerminal', 'runShellCommand', 'addToFavorites', 'packArchive',
+]);
+
+/** fs:trash validates at most 1024 paths per call; a mirror can plan more. */
+const TRASH_CHUNK = 1000;
 
 function applySort(
   panel: PanelState,
@@ -102,6 +117,36 @@ export function App() {
   // fresh arrow on every App render would kill and respawn the pty session.
   const closeTerminal = useCallback(() => useStore.getState().setTerminalOpen(false), []);
 
+  /**
+   * Re-list a panel in place. Virtual panels are skipped: their `path` is a
+   * label, and listing it would replace search results or an archive listing
+   * with a "not found" error.
+   */
+  const refreshSide = useCallback(async (side: PanelSide) => {
+    const panel = useStore.getState().panels[side];
+    if (panel.source.kind !== 'fs') return false;
+    return navigateTo({
+      panel, setPanel: (patch) => setPanel(side, patch), api, path: panel.path, requestKey: side,
+    });
+  }, [api, setPanel]);
+
+  /**
+   * Run a pack/unpack. These are one external process with no progress to
+   * report, so the dialog is an honest indeterminate bar with a Cancel that
+   * kills the child.
+   */
+  const runArchive = useCallback(async (op: ArchiveOp, title: string, detail: string) => {
+    const token = `arc-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const setDialog = useStore.getState().setDialog;
+    setDialog({ kind: 'busy', title, detail, token });
+    const r = await api.archive.run(token, op);
+    // Only clear the dialog if this op still owns it.
+    const current = useStore.getState().dialog;
+    if (current?.kind === 'busy' && current.token === token) setDialog(null);
+    await Promise.all([refreshSide('left'), refreshSide('right')]);
+    if (!r.ok) alert(`${title} failed: ${describeOpError(r.error)}`);
+  }, [api, refreshSide]);
+
   // Initial volumes + initial paths
   useEffect(() => {
     (async () => {
@@ -127,6 +172,12 @@ export function App() {
 
     const navCtx = { panel: active, setPanel: setActive, api, requestKey: s.activeSide };
     const selCtx = { panel: active, setPanel: setActive };
+
+    if (active.source.kind === 'archive' && BLOCKED_IN_ARCHIVE.has(cmd)) return;
+    // A virtual panel's `path` is a label, so folder-level tools have nothing
+    // real to work with.
+    if (cmd === 'syncFolders'
+      && (s.panels.left.source.kind !== 'fs' || s.panels.right.source.kind !== 'fs')) return;
 
     // Bookmark commands are generated per slot (gotoBookmark1..9 /
     // setBookmark1..9), so they are matched rather than listed in the switch.
@@ -238,6 +289,19 @@ export function App() {
         openRenameDialog({ side: s.activeSide, panel: active, setDialog: useStore.getState().setDialog });
         return;
       case 'copy':
+        // Inside an archive, "copy to the other panel" is an extraction.
+        if (active.source.kind === 'archive') {
+          const members = archiveTargets(active);
+          if (members.length === 0) return;
+          const dest = s.panels[s.activeSide === 'left' ? 'right' : 'left'];
+          if (dest.source.kind !== 'fs') return;
+          void runArchive(
+            { kind: 'extract', archivePath: active.source.archivePath, members: members.map((m) => m.path), dest: dest.path },
+            'Extracting',
+            `${members.length} item(s) → ${dest.path}`,
+          );
+          return;
+        }
         openCopyDialog({
           activePath: active.path, active,
           inactive: s.panels[s.activeSide === 'left' ? 'right' : 'left'],
@@ -325,6 +389,18 @@ export function App() {
         st.closeTab(s.activeSide, st.activeTab[s.activeSide]);
         return reloadActiveTab(s.activeSide);
       }
+      case 'packArchive': {
+        const sources = targetPaths(active);
+        if (sources.length === 0 || active.source.kind !== 'fs') return;
+        const other = s.panels[s.activeSide === 'left' ? 'right' : 'left'];
+        const destDir = other.source.kind === 'fs' ? other.path : active.path;
+        const leaf = active.path.slice(active.path.lastIndexOf('/') + 1) || 'archive';
+        const defaultName = sources.length === 1
+          ? sources[0].slice(sources[0].lastIndexOf('/') + 1)
+          : leaf;
+        useStore.getState().setDialog({ kind: 'pack', sources, destDir, defaultName });
+        return;
+      }
       case 'openSearch':
         useStore.getState().setDialog({
           kind: 'search',
@@ -389,7 +465,7 @@ export function App() {
         // Invoked inline with command string from CommandLine; no-op from key dispatch.
         return;
     }
-  }, [api, setPanel]);
+  }, [api, setPanel, runArchive]);
 
   // Global keyboard router
   useEffect(() => {
@@ -604,12 +680,6 @@ export function App() {
     void navigateTo({ panel, setPanel: setSide, api, path, requestKey: side });
   };
 
-  const refreshSide = (side: PanelSide) => {
-    const panel = useStore.getState().panels[side];
-    const setSide = (p: Partial<typeof panel>) => setPanel(side, p);
-    return navigateTo({ panel, setPanel: setSide, api, path: panel.path, requestKey: side });
-  };
-
   const runOp = async (op: FileOp, title: string, side: PanelSide, otherSide: PanelSide) => {
     const setDialog = useStore.getState().setDialog;
     const id: OpId = await api.ops.start(op);
@@ -696,6 +766,16 @@ export function App() {
     onFavoriteRemoved: (path: string) => {
       useStore.getState().removeFavorite(path);
     },
+    onPack: (sources: string[], destDir: string, name: string, format: ArchiveFormat) => {
+      void runArchive(
+        { kind: 'create', format, archivePath: `${destDir === '/' ? '' : destDir}/${name}`, sources },
+        'Packing',
+        `${sources.length} item(s) → ${name}`,
+      );
+    },
+    onCancelArchive: (token: string) => {
+      void api.archive.cancel(token);
+    },
     onSearchResults: (side: PanelSide, label: string, roots: string[], entries: FileEntry[]) => {
       const panel = useStore.getState().panels[side];
       showSearchResults(
@@ -741,7 +821,11 @@ export function App() {
 
   // Ctrl+Q turns the *other* pane into a live preview of the active cursor, so
   // one side keeps browsing while the other renders whatever it lands on.
-  const quickViewTarget = state.quickView ? cursorPath(active) : null;
+  // Archive rows have no path on disk, so there is nothing for the viewer to
+  // read; search hits carry their real location and preview normally.
+  const quickViewTarget = state.quickView && active.source.kind !== 'archive'
+    ? cursorPath(active)
+    : null;
   const quickViewIsDir = active.entries[active.cursor]?.isDir ?? false;
 
   const renderPane = (side: PanelSide) => {

@@ -25,6 +25,13 @@ const api: GCApi = {
     search: (token, query) => ipcRenderer.invoke('fs:search', token, query),
     cancelSearch: (token) => ipcRenderer.invoke('fs:searchCancel', token),
   },
+  archive: {
+    isArchive: (path) => ipcRenderer.invoke('archive:isArchive', path),
+    list: (archivePath) => ipcRenderer.invoke('archive:list', archivePath),
+    run: (token, op) => ipcRenderer.invoke('archive:run', token, op),
+    cancel: (token) => ipcRenderer.invoke('archive:cancel', token),
+    extractToTemp: (archivePath, member) => ipcRenderer.invoke('archive:extractToTemp', archivePath, member),
+  },
   volumes: {
     list: () => ipcRenderer.invoke('volumes:list'),
   },

@@ -95,7 +95,9 @@ export type DialogState =
   | { kind: 'multiRename'; side: 'left' | 'right'; dir: string; names: string[]; existingNames: string[] }
   | { kind: 'compare'; left: string; right: string }
   | { kind: 'sync'; leftRoot: string; rightRoot: string }
-  | { kind: 'search'; side: 'left' | 'right'; root: string; otherRoot: string };
+  | { kind: 'search'; side: 'left' | 'right'; root: string; otherRoot: string }
+  | { kind: 'pack'; sources: string[]; destDir: string; defaultName: string }
+  | { kind: 'busy'; title: string; detail: string; token: string };
 
 // ---- M3: virtual panels ----
 
@@ -106,7 +108,25 @@ export type DialogState =
  */
 export type PanelSource =
   | { kind: 'fs' }
-  | { kind: 'search'; label: string; roots: string[] };
+  | { kind: 'search'; label: string; roots: string[] }
+  | { kind: 'archive'; archivePath: string; innerPath: string };
+
+// ---- M3: archives ----
+
+export type ArchiveFormat = 'zip' | 'tar' | 'tar.gz' | 'tar.bz2' | 'tar.xz' | '7z';
+
+export type ArchiveEntry = {
+  /** Full path inside the archive, '/'-separated, no leading or trailing slash. */
+  path: string;
+  isDir: boolean;
+  size: number;
+  /** Unix ms, 0 when the archive does not record one. */
+  mtime: number;
+};
+
+export type ArchiveOp =
+  | { kind: 'extract'; archivePath: string; members: string[]; dest: string }
+  | { kind: 'create'; format: ArchiveFormat; archivePath: string; sources: string[] };
 
 // ---- M3: search ----
 

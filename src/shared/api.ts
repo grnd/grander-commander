@@ -7,7 +7,7 @@
 import type {
   FileEntry, ListDirOptions, Result, Volume, FileOp, OpId, OpEvent, ConflictAnswer,
   UpdateStatus, MenuCommand, Completion, DiffResult, SyncEntry, SyncOptions,
-  SearchQuery, SearchOutcome,
+  SearchQuery, SearchOutcome, ArchiveEntry, ArchiveOp,
 } from './types';
 
 export type GCApi = {
@@ -26,6 +26,13 @@ export type GCApi = {
     /** `token` is the caller's handle for cancelSearch; any unique string. */
     search(token: string, query: SearchQuery): Promise<Result<SearchOutcome>>;
     cancelSearch(token: string): Promise<void>;
+  };
+  archive: {
+    isArchive(path: string): Promise<boolean>;
+    list(archivePath: string): Promise<Result<ArchiveEntry[]>>;
+    run(token: string, op: ArchiveOp): Promise<Result<void>>;
+    cancel(token: string): Promise<void>;
+    extractToTemp(archivePath: string, member: string): Promise<Result<string>>;
   };
   volumes: { list(): Promise<Volume[]> };
   ops: {

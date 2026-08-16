@@ -65,6 +65,16 @@ const SECTIONS: { title: string; rows: [string, string][] }[] = [
     ],
   },
   {
+    title: 'Archives',
+    rows: [
+      ['Enter on .zip / .tar.gz / .7z', 'Browse inside without extracting'],
+      ['F5 inside an archive', 'Extract selection to the other panel'],
+      ['Enter on a file inside', 'Extract to a temp copy and open'],
+      ['Backspace at the top', 'Leave the archive'],
+      ['Alt+F5 / Cmd+Shift+P', 'Pack selection into an archive'],
+    ],
+  },
+  {
     title: 'Tabs',
     rows: [
       ['Cmd+T', 'New tab in the active panel'],

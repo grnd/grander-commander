@@ -14,6 +14,10 @@ import { complete } from './fs/complete';
 import { compareFiles } from './fs/compare';
 import { syncScan } from './fs/syncScan';
 import { search, cancelSearch } from './fs/search';
+import {
+  cancelArchiveOp, extractToTemp, isArchivePath, listArchive, runArchiveOp,
+} from './archive';
+import { CREATABLE_FORMATS } from './archive/format';
 import { quickLook } from './shell/quickLook';
 import { openTerminal } from './shell/openTerminal';
 import { runCommand } from './shell/runCommand';
@@ -22,7 +26,8 @@ import { spawnTerminal, writeTerminal, resizeTerminal, killTerminal, killAllForC
 import { popupFileContext, type FileContextArgs } from './menu/fileContext';
 import { OpRunner } from './ops/runner';
 import type {
-  ConflictAnswer, FileOp, ListDirOptions, OpEvent, OpId, SearchQuery, SyncOptions,
+  ArchiveFormat, ArchiveOp, ConflictAnswer, FileOp, ListDirOptions, OpEvent, OpId,
+  SearchQuery, SyncOptions,
 } from '@shared/types';
 
 const runner = new OpRunner();
@@ -213,6 +218,31 @@ export function validateSearchQuery(value: unknown): SearchQuery {
     modifiedAfter: expectNullableInteger(value.modifiedAfter, 'query.modifiedAfter'),
     modifiedBefore: expectNullableInteger(value.modifiedBefore, 'query.modifiedBefore'),
   };
+}
+
+export function validateArchiveOp(value: unknown): ArchiveOp {
+  if (!isRecord(value)) throw new TypeError('op must be an object');
+  if (value.kind === 'extract') {
+    return {
+      kind: 'extract',
+      archivePath: expectString(value.archivePath, 'op.archivePath'),
+      members: expectStringArray(value.members, 'op.members', { maxItems: MAX_SYNC_PAIRS }),
+      dest: expectString(value.dest, 'op.dest'),
+    };
+  }
+  if (value.kind === 'create') {
+    const format = value.format;
+    if (typeof format !== 'string' || !(CREATABLE_FORMATS as string[]).includes(format)) {
+      throw new TypeError('op.format is not a supported archive format');
+    }
+    return {
+      kind: 'create',
+      format: format as ArchiveFormat,
+      archivePath: expectString(value.archivePath, 'op.archivePath'),
+      sources: expectStringArray(value.sources, 'op.sources'),
+    };
+  }
+  throw new TypeError('op.kind must be extract or create');
 }
 
 export function validateSyncOptions(value: unknown): SyncOptions {
@@ -428,6 +458,27 @@ export function registerIpc() {
     expectArgs(args, 'fs:searchCancel', 1);
     return [expectString(args[0], 'token', { maxLength: 128 })];
   }, (_e, token) => { cancelSearch(token); });
+
+  handleValidated('archive:isArchive', (args): [string] => {
+    expectArgs(args, 'archive:isArchive', 1);
+    return [expectString(args[0], 'path')];
+  }, (_e, path) => isArchivePath(path));
+  handleValidated('archive:list', (args): [string] => {
+    expectArgs(args, 'archive:list', 1);
+    return [expectString(args[0], 'archivePath')];
+  }, (_e, archivePath) => listArchive(archivePath));
+  handleValidated('archive:run', (args): [string, ArchiveOp] => {
+    expectArgs(args, 'archive:run', 2);
+    return [expectString(args[0], 'token', { maxLength: 128 }), validateArchiveOp(args[1])];
+  }, (_e, token, op) => runArchiveOp(token, op));
+  handleValidated('archive:cancel', (args): [string] => {
+    expectArgs(args, 'archive:cancel', 1);
+    return [expectString(args[0], 'token', { maxLength: 128 })];
+  }, (_e, token) => { cancelArchiveOp(token); });
+  handleValidated('archive:extractToTemp', (args): [string, string] => {
+    expectArgs(args, 'archive:extractToTemp', 2);
+    return [expectString(args[0], 'archivePath'), expectString(args[1], 'member')];
+  }, (_e, archivePath, member) => extractToTemp(archivePath, member));
   handleValidated('volumes:list', (args): [] => {
     expectArgs(args, 'volumes:list', 0);
     return [];

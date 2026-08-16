@@ -12,6 +12,9 @@ import { MultiRename } from './MultiRename';
 import { CompareView } from './CompareView';
 import { SyncView } from './SyncView';
 import { SearchDialog } from './SearchDialog';
+import { PackDialog } from './PackDialog';
+import { BusyDialog } from './BusyDialog';
+import type { ArchiveFormat } from '@shared/types';
 import type { RenamePreviewRow } from '@renderer/commands/multirename';
 import type { SyncAction, SyncPlan } from '@renderer/commands/sync';
 
@@ -33,6 +36,8 @@ type Handlers = {
     roots: string[],
     entries: import('@shared/types').FileEntry[],
   ) => void;
+  onPack: (sources: string[], destDir: string, name: string, format: ArchiveFormat) => void;
+  onCancelArchive: (token: string) => void;
 };
 
 export function Dialogs(h: Handlers) {
@@ -112,6 +117,22 @@ export function Dialogs(h: Handlers) {
             h.onSearchResults(dialog.side, label, roots, entries);
           }}
           onCancel={close} />
+      </DialogShell>;
+    case 'pack':
+      return <DialogShell title="Pack files" onClose={close}>
+        <PackDialog
+          sources={dialog.sources}
+          destDir={dialog.destDir}
+          defaultName={dialog.defaultName}
+          onSubmit={(name, format) => {
+            close();
+            h.onPack(dialog.sources, dialog.destDir, name, format);
+          }}
+          onCancel={close} />
+      </DialogShell>;
+    case 'busy':
+      return <DialogShell title={dialog.title} onClose={() => h.onCancelArchive(dialog.token)}>
+        <BusyDialog detail={dialog.detail} onCancel={() => h.onCancelArchive(dialog.token)} />
       </DialogShell>;
   }
 }

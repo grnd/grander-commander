@@ -25,4 +25,4 @@ export type CommandName =
   | 'toggleTerminal'
   | 'viewFile' | 'toggleQuickView'
   | 'multiRename' | 'compareFiles' | 'syncFolders'
-  | 'openSearch' | 'revealInPanel';
+  | 'openSearch' | 'revealInPanel' | 'packArchive';

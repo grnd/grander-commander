@@ -79,6 +79,8 @@ export const bindings: Binding[] = [
   { combo: 'Cmd+D', command: 'compareFiles' },
   { combo: 'Cmd+Y', command: 'syncFolders' },
   { combo: 'Cmd+F', command: 'openSearch' },
+  { combo: 'Alt+F5', command: 'packArchive' },
+  { combo: 'Cmd+Shift+P', command: 'packArchive' },
   { combo: 'Alt+F7', command: 'openSearch' },
   { combo: 'Cmd+Enter', command: 'revealInPanel' },
   { combo: 'Cmd+T', command: 'newTab' },
