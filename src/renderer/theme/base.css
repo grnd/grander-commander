@@ -377,3 +377,22 @@ body {
   background: var(--gc-status-active-bg, #0a5fcf); color: var(--gc-status-active-fg, #fff);
   font-size: 9px; font-weight: 700; border-radius: 2px; padding: 0 2px;
 }
+
+/* ---- M3: command-line completion ---- */
+.gc-cmdline-wrap { position: relative; }
+.gc-cmdline-suggest {
+  position: absolute; bottom: 100%; left: 6px; right: 6px;
+  margin: 0 0 2px; padding: 2px 0; list-style: none;
+  max-height: 40vh; overflow: auto; z-index: 900;
+  background: var(--gc-panel); border: 1px solid var(--gc-border);
+  box-shadow: 0 -3px 14px rgba(0,0,0,0.25);
+  font-family: Menlo, monospace; font-size: 11px;
+}
+.gc-cmdline-suggest li { padding: 1px 8px; white-space: nowrap; }
+.gc-cmdline-suggest li.is-cursor {
+  background: var(--gc-status-active-bg, #0a5fcf); color: var(--gc-status-active-fg, #fff);
+}
+.gc-suggest-kind { display: inline-block; width: 1em; opacity: 0.6; }
+.gc-suggest-kind.is-dir { color: var(--gc-status-active-bg, #0a5fcf); font-weight: 700; opacity: 1; }
+.gc-cmdline-suggest li.is-cursor .gc-suggest-kind { opacity: 1; color: inherit; }
+.gc-suggest-more { opacity: 0.6; font-style: italic; }

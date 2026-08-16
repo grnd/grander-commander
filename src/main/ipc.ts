@@ -10,6 +10,7 @@ import { trashPaths } from './fs/trash';
 import { deletePaths } from './fs/delete';
 import { duplicate } from './fs/duplicate';
 import { readChunk, MAX_CHUNK_BYTES } from './fs/readChunk';
+import { complete } from './fs/complete';
 import { quickLook } from './shell/quickLook';
 import { openTerminal } from './shell/openTerminal';
 import { runCommand } from './shell/runCommand';
@@ -332,6 +333,18 @@ export function registerIpc() {
       expectInteger(args[2], 'length', { min: 0, max: MAX_CHUNK_BYTES }),
     ];
   }, (_e, path, offset, length) => readChunk(path, offset, length));
+  handleValidated('fs:complete', (args): [string, string, 'command' | 'path'] => {
+    expectArgs(args, 'fs:complete', 3);
+    const kind = args[2];
+    if (kind !== 'command' && kind !== 'path') {
+      throw new TypeError('kind must be command or path');
+    }
+    return [
+      expectString(args[0], 'prefix', { allowEmpty: true }),
+      expectString(args[1], 'cwd'),
+      kind,
+    ];
+  }, (_e, prefix, cwd, kind) => complete(prefix, cwd, kind));
   handleValidated('volumes:list', (args): [] => {
     expectArgs(args, 'volumes:list', 0);
     return [];

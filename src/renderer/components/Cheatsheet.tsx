@@ -81,6 +81,8 @@ const SECTIONS: { title: string; rows: [string, string][] }[] = [
     rows: [
       ['Cmd+S', 'Open external terminal at current dir'],
       ['Ctrl+`', 'Toggle embedded bash terminal'],
+      ['Tab (command line)', 'Complete path / executable'],
+      ['Tab again / Shift+Tab', 'Cycle candidates'],
     ],
   },
   {

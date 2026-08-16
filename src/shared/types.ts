@@ -80,6 +80,11 @@ export type DialogState =
   | { kind: 'favoriteEdit'; path: string; label: string }
   | { kind: 'multiRename'; side: 'left' | 'right'; dir: string; names: string[]; existingNames: string[] };
 
+// ---- M3: command-line completion ----
+
+export type CompletionKind = 'dir' | 'file' | 'exec';
+export type Completion = { value: string; kind: CompletionKind };
+
 export type UpdateStatus =
   | { kind: 'idle' }
   | { kind: 'checking' }

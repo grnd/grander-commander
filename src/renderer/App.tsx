@@ -717,7 +717,8 @@ export function App() {
         />
       )}
       <CommandLine
-        cwd={(() => {
+        cwd={active.path}
+        label={(() => {
           const home = state.volumes.find((v) => v.kind === 'home')?.path;
           if (home && (active.path === home || active.path.startsWith(home + '/'))) {
             return '~' + active.path.slice(home.length);

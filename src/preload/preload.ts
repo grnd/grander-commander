@@ -19,6 +19,7 @@ const api: GCApi = {
     delete: (paths) => ipcRenderer.invoke('fs:delete', paths),
     duplicate: (path) => ipcRenderer.invoke('fs:duplicate', path),
     readChunk: (path, offset, length) => ipcRenderer.invoke('fs:readChunk', path, offset, length),
+    complete: (prefix, cwd, kind) => ipcRenderer.invoke('fs:complete', prefix, cwd, kind),
   },
   volumes: {
     list: () => ipcRenderer.invoke('volumes:list'),
