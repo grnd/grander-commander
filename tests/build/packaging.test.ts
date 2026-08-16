@@ -15,12 +15,25 @@ const pkg = JSON.parse(readFileSync(resolve('package.json'), 'utf8'));
 const RUNTIME_MAIN_DEPS = ['electron-updater', 'node-pty'];
 
 describe('electron-builder packaging config', () => {
-  it('does not exclude node_modules from the package', () => {
+  it('does not blanket-exclude node_modules from the package', () => {
+    // Targeted exclusions are fine and sometimes necessary (node-pty's
+    // prebuilds/ breaks the universal merge). What must never come back is a
+    // wildcard that removes whole packages.
     const files: string[] = pkg.build.files;
-    const excludesNodeModules = files.some(
-      (f) => f.startsWith('!') && f.includes('node_modules'),
+    const blanket = files.filter((f) =>
+      /^!node_modules\/(\*|\*\*)/.test(f),
     );
-    expect(excludesNodeModules).toBe(false);
+    expect(blanket).toEqual([]);
+  });
+
+  it('keeps each externalized dependency-s own files', () => {
+    const files: string[] = pkg.build.files;
+    for (const dep of RUNTIME_MAIN_DEPS) {
+      const kills = files.filter(
+        (f) => f.startsWith('!') && new RegExp(`^!node_modules/${dep}/(\\*|\\*\\*)`).test(f),
+      );
+      expect(kills, `${dep} must not be excluded wholesale`).toEqual([]);
+    }
   });
 
   it('declares every externalized main-process import as a runtime dependency', () => {
