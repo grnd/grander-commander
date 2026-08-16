@@ -30,6 +30,17 @@ const SECTIONS: { title: string; rows: [string, string][] }[] = [
     ],
   },
   {
+    title: 'Drag and drop',
+    rows: [
+      ['Drag to other panel', 'Copy there'],
+      ['Drag to Finder', 'Copy there'],
+      ['Shift+drag', 'Move instead of copy'],
+      ['Drop on a folder row', 'Into that folder'],
+      ['Drop from Finder', 'Copy in (Shift to move)'],
+      ['Drag inside an archive', 'Extract to where you drop'],
+    ],
+  },
+  {
     title: 'Sorting & view',
     rows: [
       ['Click column header', 'Toggle sort direction'],
@@ -47,6 +58,11 @@ const SECTIONS: { title: string; rows: [string, string][] }[] = [
       ['F8 / Cmd+Delete', 'Move to Trash'],
       ['Shift+F8 / Cmd+Shift+Delete', 'Delete permanently'],
       ['Cmd+Backspace', 'Delete cursor item (confirm)'],
+      ['Ctrl+M / Cmd+Shift+M', 'Multi-rename selected files'],
+      ['Cmd+D', 'Compare two files by content'],
+      ['Cmd+Y', 'Synchronize the two panel folders'],
+      ['Cmd+F / Alt+F7', 'Find files (name, content, size, date)'],
+      ['Cmd+Enter', 'Reveal cursor item in its folder'],
     ],
   },
   {
@@ -60,10 +76,51 @@ const SECTIONS: { title: string; rows: [string, string][] }[] = [
     ],
   },
   {
+    title: 'Archives',
+    rows: [
+      ['Enter on .zip / .tar.gz / .7z', 'Browse inside without extracting'],
+      ['F5 inside an archive', 'Extract selection to the other panel'],
+      ['Enter on a file inside', 'Extract to a temp copy and open'],
+      ['Backspace at the top', 'Leave the archive'],
+      ['Alt+F5 / Cmd+Shift+P', 'Pack selection into an archive'],
+    ],
+  },
+  {
+    title: 'Tabs',
+    rows: [
+      ['Cmd+T', 'New tab in the active panel'],
+      ['Cmd+W', 'Close the current tab'],
+      ['Cmd+1 … Cmd+9', 'Select tab by number'],
+      ['Middle-click tab', 'Close it'],
+    ],
+  },
+  {
+    title: 'Bookmarks',
+    rows: [
+      ['Ctrl+1 … Ctrl+9', 'Jump to bookmarked folder'],
+      ['Ctrl+Shift+1 … 9', 'Set bookmark to current folder'],
+      ['Right-click bookmark', 'Clear that slot'],
+    ],
+  },
+  {
+    title: 'Viewer',
+    rows: [
+      ['F3', 'Internal viewer (text / hex / image)'],
+      ['Ctrl+Q', 'Quick view in the other panel'],
+      ['↑ ↓ / PgUp / PgDn / Space', 'Scroll; turns the page at the edges'],
+      ['Home / End', 'Top / bottom of the page'],
+      ['Cmd+Home / Cmd+End', 'First / last page of the file'],
+      ['Escape / F3', 'Close the viewer'],
+    ],
+  },
+  {
     title: 'Shell',
     rows: [
       ['Cmd+S', 'Open external terminal at current dir'],
       ['Ctrl+`', 'Toggle embedded bash terminal'],
+      ['Tab (command line)', 'Complete path / executable'],
+      ['Tab again / Shift+Tab', 'Cycle candidates'],
+      ['cd <folder>', 'Moves the panel, not a subshell'],
     ],
   },
   {

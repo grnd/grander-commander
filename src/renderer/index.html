@@ -4,7 +4,12 @@
   <head>
     <meta charset="UTF-8" />
     <title>Grander Commander</title>
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline';" />
+    <!--
+      img-src must allow blob: — the internal viewer renders images by wrapping
+      the bytes it read over IPC in a Blob, and default-src 'self' blocks that.
+      No remote scheme is listed: nothing here should ever load off the network.
+    -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:;" />
   </head>
   <body>
     <div id="root"></div>

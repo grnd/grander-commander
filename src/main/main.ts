@@ -45,6 +45,26 @@ export function buildMenuTemplate(): MenuItemConstructorOptions[] {
       ],
     },
     {
+      // macOS routes Cmd-key combinations through the menu bar before the web
+      // page, so a text field cannot paste unless a menu item claims Cmd+V.
+      // Without this submenu the rename and search boxes silently ignore it.
+      //
+      // Cut, Copy and Select All appear but deliberately do NOT register their
+      // accelerators: Cmd+X, Cmd+C and Cmd+A belong to the panels, for moving,
+      // copying and selecting files. A focused text field applies those three
+      // itself — see commands/textEditing.
+      label: 'Edit',
+      submenu: [
+        { role: 'undo' as const },
+        { role: 'redo' as const },
+        { type: 'separator' as const },
+        { role: 'cut' as const, registerAccelerator: false },
+        { role: 'copy' as const, registerAccelerator: false },
+        { role: 'paste' as const },
+        { role: 'selectAll' as const, registerAccelerator: false },
+      ],
+    },
+    {
       label: 'Show',
       submenu: [
         { label: 'Toggle Hidden Files', accelerator: 'Ctrl+H',

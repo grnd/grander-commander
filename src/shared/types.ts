@@ -10,6 +10,12 @@ export type FileEntry = {
   size: number;
   mtime: number;          // unix ms
   mode: number;
+  /**
+   * Absolute path, set only when the row does not live at
+   * `panel.path + name` — search results, which are gathered from many
+   * directories at once. Every path-building helper prefers it when present.
+   */
+  srcPath?: string;
 };
 
 export type Volume = {
@@ -52,7 +58,15 @@ export type OpId = string;
 
 export type FileOp =
   | { kind: 'copy'; sources: string[]; dst: string }   // dst is destination DIR
-  | { kind: 'move'; sources: string[]; dst: string };
+  | { kind: 'move'; sources: string[]; dst: string }
+  // Folder sync needs a destination *path* per item so relative subtrees are
+  // preserved, which the sources+dst-dir shape cannot express.
+  | { kind: 'syncCopy'; pairs: { src: string; dst: string }[]; overwrite: boolean };
+
+/** How many items an op will process — its sources, or its sync pairs. */
+export function opItemCount(op: FileOp): number {
+  return op.kind === 'syncCopy' ? op.pairs.length : op.sources.length;
+}
 
 export type ConflictAnswer =
   | { action: 'overwrite'; applyToAll: boolean }
@@ -77,7 +91,144 @@ export type DialogState =
   | { kind: 'deleteConfirm'; paths: string[] }
   | { kind: 'overwrite'; opId: OpId; srcPath: string; dstPath: string }
   | { kind: 'progress'; opId: OpId; title: string; filesDone: number; filesTotal: number; bytesDone: number; bytesTotal: number; currentFile: string }
-  | { kind: 'favoriteEdit'; path: string; label: string };
+  | { kind: 'favoriteEdit'; path: string; label: string }
+  | { kind: 'multiRename'; side: 'left' | 'right'; dir: string; names: string[]; existingNames: string[] }
+  | { kind: 'compare'; left: string; right: string }
+  | { kind: 'sync'; leftRoot: string; rightRoot: string }
+  | { kind: 'search'; side: 'left' | 'right'; root: string; otherRoot: string }
+  | { kind: 'pack'; sources: string[]; destDir: string; defaultName: string }
+  | { kind: 'busy'; title: string; detail: string; token: string };
+
+// ---- M3: virtual panels ----
+
+/**
+ * Where a panel's rows come from. A virtual panel still renders like any other
+ * listing, but its rows are not `readdir` of `panel.path`, so navigation and
+ * path-building take a different route.
+ */
+export type PanelSource =
+  | { kind: 'fs' }
+  | { kind: 'search'; label: string; roots: string[] }
+  | { kind: 'archive'; archivePath: string; innerPath: string };
+
+// ---- M3: archives ----
+
+export type ArchiveFormat = 'zip' | 'tar' | 'tar.gz' | 'tar.bz2' | 'tar.xz' | '7z';
+
+export type ArchiveEntry = {
+  /** Full path inside the archive, '/'-separated, no leading or trailing slash. */
+  path: string;
+  isDir: boolean;
+  size: number;
+  /** Unix ms, 0 when the archive does not record one. */
+  mtime: number;
+};
+
+export type ArchiveMember = { path: string; isDir: boolean };
+
+export type ArchiveOp =
+  | {
+      kind: 'extract';
+      archivePath: string;
+      /** Empty means the whole archive. */
+      members: ArchiveMember[];
+      dest: string;
+      /**
+       * Inner folder the user is browsing. Members are lifted out of it on the
+       * way to `dest`, so extracting `hello.txt` from inside `payload/` puts
+       * `hello.txt` in the destination, not `payload/hello.txt`.
+       */
+      stripPrefix: string;
+    }
+  | { kind: 'create'; format: ArchiveFormat; archivePath: string; sources: string[] };
+
+// ---- M3: search ----
+
+export type SearchQuery = {
+  roots: string[];
+  /** Glob by default (`*.ts`, `foo?.txt`); a regex when `nameIsRegex`. */
+  namePattern: string;
+  nameIsRegex: boolean;
+  caseSensitive: boolean;
+  /** Empty means "do not read file contents at all". */
+  contentPattern: string;
+  contentIsRegex: boolean;
+  showHidden: boolean;
+  minSize: number | null;
+  maxSize: number | null;
+  modifiedAfter: number | null;
+  modifiedBefore: number | null;
+};
+
+export type SearchOutcome = {
+  entries: FileEntry[];
+  scanned: number;
+  /** The result cap or the time budget stopped the walk early. */
+  truncated: boolean;
+  cancelled: boolean;
+};
+
+// ---- M3: folder sync ----
+
+export type SyncStatus = 'left-only' | 'right-only' | 'differ' | 'same';
+
+export type SyncEntry = {
+  /** Path relative to both roots, using '/' separators. */
+  relPath: string;
+  isDir: boolean;
+  status: SyncStatus;
+  leftSize: number | null;
+  rightSize: number | null;
+  leftMtime: number | null;
+  rightMtime: number | null;
+  /** Which side has the newer mtime; only meaningful for `differ`. */
+  newer: 'left' | 'right' | null;
+  /**
+   * The path is a folder on one side and a file on the other. Such a
+   * destination cannot be overwritten in place, so mirroring has to remove it
+   * before copying.
+   */
+  typeConflict: boolean;
+};
+
+export type SyncOptions = {
+  showHidden: boolean;
+  /** Hash files of equal size instead of trusting their timestamps. */
+  byContent: boolean;
+  recursive: boolean;
+};
+
+// ---- M3: file compare ----
+
+export type DiffRowKind = 'same' | 'add' | 'del' | 'change';
+
+export type DiffRow = {
+  /** 1-based line numbers; null on the side that has no line here. */
+  leftNo: number | null;
+  rightNo: number | null;
+  left: string | null;
+  right: string | null;
+  kind: DiffRowKind;
+};
+
+export type DiffResult = {
+  left: string;
+  right: string;
+  identical: boolean;
+  /** Binary content gets a bytes-match verdict instead of a line diff. */
+  binary: boolean;
+  /** Set when the row list was capped; stats still cover the whole file. */
+  truncated: boolean;
+  leftSize: number;
+  rightSize: number;
+  rows: DiffRow[];
+  stats: { added: number; removed: number; changed: number };
+};
+
+// ---- M3: command-line completion ----
+
+export type CompletionKind = 'dir' | 'file' | 'exec';
+export type Completion = { value: string; kind: CompletionKind };
 
 export type UpdateStatus =
   | { kind: 'idle' }

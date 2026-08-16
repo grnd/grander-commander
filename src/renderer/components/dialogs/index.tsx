@@ -8,6 +8,15 @@ import { MoveDialog } from './MoveDialog';
 import { OverwritePrompt } from './OverwritePrompt';
 import { ProgressDialog } from './ProgressDialog';
 import { EditFavoritePrompt } from './EditFavoritePrompt';
+import { MultiRename } from './MultiRename';
+import { CompareView } from './CompareView';
+import { SyncView } from './SyncView';
+import { SearchDialog } from './SearchDialog';
+import { PackDialog } from './PackDialog';
+import { BusyDialog } from './BusyDialog';
+import type { ArchiveFormat } from '@shared/types';
+import type { RenamePreviewRow } from '@renderer/commands/multirename';
+import type { SyncAction, SyncPlan } from '@renderer/commands/sync';
 
 type Handlers = {
   onMkdir: (side: 'left' | 'right', name: string) => void;
@@ -19,6 +28,16 @@ type Handlers = {
   onCancelOp: (opId: string) => void;
   onFavoriteSaved: (path: string, label: string) => void;
   onFavoriteRemoved: (path: string) => void;
+  onMultiRename: (side: 'left' | 'right', dir: string, rows: RenamePreviewRow[]) => void;
+  onSyncRun: (action: SyncAction, plan: SyncPlan) => void;
+  onSearchResults: (
+    side: 'left' | 'right',
+    label: string,
+    roots: string[],
+    entries: import('@shared/types').FileEntry[],
+  ) => void;
+  onPack: (sources: string[], destDir: string, name: string, format: ArchiveFormat) => void;
+  onCancelArchive: (token: string) => void;
 };
 
 export function Dialogs(h: Handlers) {
@@ -67,6 +86,53 @@ export function Dialogs(h: Handlers) {
           onSave={(label) => { h.onFavoriteSaved(dialog.path, label); close(); }}
           onRemove={() => { h.onFavoriteRemoved(dialog.path); close(); }}
           onCancel={close} />
+      </DialogShell>;
+    case 'multiRename':
+      return <DialogShell title={`Multi-rename — ${dialog.names.length} item(s)`} onClose={close} size="wide">
+        <MultiRename
+          names={dialog.names}
+          existingNames={dialog.existingNames}
+          onApply={(rows) => { h.onMultiRename(dialog.side, dialog.dir, rows); close(); }}
+          onCancel={close} />
+      </DialogShell>;
+    case 'compare':
+      return <DialogShell title="Compare by content" onClose={close} size="wide">
+        <CompareView left={dialog.left} right={dialog.right} onClose={close} />
+      </DialogShell>;
+    case 'sync':
+      return <DialogShell title="Synchronize folders" onClose={close} size="wide">
+        <SyncView
+          leftRoot={dialog.leftRoot}
+          rightRoot={dialog.rightRoot}
+          onRun={(action, plan) => { close(); h.onSyncRun(action, plan); }}
+          onClose={close} />
+      </DialogShell>;
+    case 'search':
+      return <DialogShell title="Find files" onClose={close}>
+        <SearchDialog
+          root={dialog.root}
+          otherRoot={dialog.otherRoot}
+          onResults={(label, roots, entries) => {
+            close();
+            h.onSearchResults(dialog.side, label, roots, entries);
+          }}
+          onCancel={close} />
+      </DialogShell>;
+    case 'pack':
+      return <DialogShell title="Pack files" onClose={close}>
+        <PackDialog
+          sources={dialog.sources}
+          destDir={dialog.destDir}
+          defaultName={dialog.defaultName}
+          onSubmit={(name, format) => {
+            close();
+            h.onPack(dialog.sources, dialog.destDir, name, format);
+          }}
+          onCancel={close} />
+      </DialogShell>;
+    case 'busy':
+      return <DialogShell title={dialog.title} onClose={() => h.onCancelArchive(dialog.token)}>
+        <BusyDialog detail={dialog.detail} onCancel={() => h.onCancelArchive(dialog.token)} />
       </DialogShell>;
   }
 }

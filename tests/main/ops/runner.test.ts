@@ -232,3 +232,74 @@ describe('OpRunner move', () => {
     expect(last.kind).toBe('error');
   });
 });
+
+describe('OpRunner syncCopy', () => {
+  it('copies each pair to its own destination path, creating parents', async () => {
+    mkdirSync(join(tmp, 'src', 'deep'), { recursive: true });
+    writeFileSync(join(tmp, 'src', 'deep', 'a.txt'), 'hello');
+    const runner = new OpRunner();
+    const id = runner.start({
+      kind: 'syncCopy',
+      overwrite: true,
+      pairs: [{ src: join(tmp, 'src/deep/a.txt'), dst: join(tmp, 'dst/deep/a.txt') }],
+    });
+    const events = collect(runner, id);
+    await runner.await(id);
+
+    expect(readFileSync(join(tmp, 'dst/deep/a.txt'), 'utf8')).toBe('hello');
+    expect(events.at(-1)).toMatchObject({ kind: 'complete', filesDone: 1 });
+  });
+
+  it('overwrites without prompting, since the user already approved the diff', async () => {
+    mkdirSync(join(tmp, 'src'));
+    mkdirSync(join(tmp, 'dst'));
+    writeFileSync(join(tmp, 'src', 'a.txt'), 'new');
+    writeFileSync(join(tmp, 'dst', 'a.txt'), 'old');
+    const runner = new OpRunner();
+    const id = runner.start({
+      kind: 'syncCopy',
+      overwrite: true,
+      pairs: [{ src: join(tmp, 'src/a.txt'), dst: join(tmp, 'dst/a.txt') }],
+    });
+    const events = collect(runner, id);
+    await runner.await(id);
+
+    expect(events.some((e) => e.kind === 'conflict')).toBe(false);
+    expect(readFileSync(join(tmp, 'dst/a.txt'), 'utf8')).toBe('new');
+  });
+
+  it('reports the pair count as the total, not a source list length', async () => {
+    mkdirSync(join(tmp, 'src'));
+    writeFileSync(join(tmp, 'src', 'a'), 'a');
+    writeFileSync(join(tmp, 'src', 'b'), 'b');
+    const runner = new OpRunner();
+    const id = runner.start({
+      kind: 'syncCopy',
+      overwrite: true,
+      pairs: [
+        { src: join(tmp, 'src/a'), dst: join(tmp, 'dst/a') },
+        { src: join(tmp, 'src/b'), dst: join(tmp, 'dst/sub/b') },
+      ],
+    });
+    const events = collect(runner, id);
+    await runner.await(id);
+
+    expect(events.at(-1)).toMatchObject({ kind: 'complete', filesDone: 2 });
+    expect(existsSync(join(tmp, 'dst/sub/b'))).toBe(true);
+  });
+
+  it('does not trash the source — syncCopy is a copy', async () => {
+    mkdirSync(join(tmp, 'src'));
+    writeFileSync(join(tmp, 'src', 'a'), 'a');
+    const runner = new OpRunner();
+    const id = runner.start({
+      kind: 'syncCopy',
+      overwrite: true,
+      pairs: [{ src: join(tmp, 'src/a'), dst: join(tmp, 'dst/a') }],
+    });
+    await runner.await(id);
+
+    expect(trashPathsMock).not.toHaveBeenCalled();
+    expect(existsSync(join(tmp, 'src/a'))).toBe(true);
+  });
+});

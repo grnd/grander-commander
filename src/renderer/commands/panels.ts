@@ -1,4 +1,5 @@
 import type { PanelState, PanelSide } from '@renderer/state/panelSlice';
+import { workingDir } from '@renderer/state/panelSlice';
 import { sortEntries } from './sort';
 
 type StoreLike = {
@@ -28,10 +29,13 @@ export async function sameDirToOther(ctx: StoreLike & { api: Api }) {
   const active = panels[activeSide];
   const otherSide: PanelSide = activeSide === 'left' ? 'right' : 'left';
   const other = panels[otherSide];
-  const r = await ctx.api.fs.listDir(active.path, { showHidden: other.showHidden });
+  // A virtual panel's `path` is a label; the folder it stands for is what the
+  // other panel should follow it to.
+  const target = workingDir(active);
+  const r = await ctx.api.fs.listDir(target, { showHidden: other.showHidden });
   if (!r.ok) return;
   const sorted = sortEntries(r.value, other.sort);
-  const entries = active.path === '/' ? sorted : [
+  const entries = target === '/' ? sorted : [
     { name: '..', ext: '', isDir: true, isSymlink: false, isAppBundle: false,
       isHidden: false, size: 0, mtime: 0, mode: 0 },
     ...sorted,
@@ -39,7 +43,14 @@ export async function sameDirToOther(ctx: StoreLike & { api: Api }) {
   ctx.set({
     panels: {
       ...panels,
-      [otherSide]: { ...other, path: active.path, entries, cursor: 0, selection: new Set() },
+      [otherSide]: {
+        ...other,
+        path: target,
+        source: { kind: 'fs' },
+        entries,
+        cursor: 0,
+        selection: new Set(),
+      },
     },
   });
 }

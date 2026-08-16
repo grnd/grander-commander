@@ -9,14 +9,27 @@ import { rename } from './fs/rename';
 import { trashPaths } from './fs/trash';
 import { deletePaths } from './fs/delete';
 import { duplicate } from './fs/duplicate';
+import { readChunk, MAX_CHUNK_BYTES } from './fs/readChunk';
+import { complete } from './fs/complete';
+import { compareFiles } from './fs/compare';
+import { syncScan } from './fs/syncScan';
+import { search, cancelSearch } from './fs/search';
+import {
+  cancelArchiveOp, extractToTemp, isArchivePath, listArchive, runArchiveOp,
+} from './archive';
+import { CREATABLE_FORMATS } from './archive/format';
 import { quickLook } from './shell/quickLook';
 import { openTerminal } from './shell/openTerminal';
 import { runCommand } from './shell/runCommand';
+import { startDrag } from './shell/dragOut';
 import { checkForUpdates, downloadUpdate, quitAndInstall, getUpdateStatus, openReleaseNotes } from './updater';
 import { spawnTerminal, writeTerminal, resizeTerminal, killTerminal, killAllForContents } from './shell/terminal';
 import { popupFileContext, type FileContextArgs } from './menu/fileContext';
 import { OpRunner } from './ops/runner';
-import type { ConflictAnswer, FileOp, ListDirOptions, OpEvent, OpId } from '@shared/types';
+import type {
+  ArchiveFormat, ArchiveOp, ConflictAnswer, FileOp, ListDirOptions, OpEvent, OpId,
+  SearchQuery, SyncOptions,
+} from '@shared/types';
 
 const runner = new OpRunner();
 type OpBridge = {
@@ -30,6 +43,9 @@ type OpBridge = {
 const MAX_PATH_LENGTH = 4096;
 const MAX_BASENAME_LENGTH = 255;
 const MAX_PATHS_PER_REQUEST = 1024;
+// A folder sync legitimately plans thousands of items in one go, unlike the
+// hand-made selections every other channel carries.
+const MAX_SYNC_PAIRS = 50_000;
 const MAX_COMMAND_LENGTH = 8000;
 const MAX_TERMINAL_DATA_LENGTH = 64_000;
 const MAX_TERMINAL_DIMENSION = 1000;
@@ -154,11 +170,97 @@ export function validateFileContextArgs(value: unknown): FileContextArgs {
 export function validateFileOpPayload(value: unknown): FileOp {
   if (!isRecord(value)) throw new TypeError('op must be an object');
   const kind = value.kind;
-  if (kind !== 'copy' && kind !== 'move') throw new TypeError('op.kind must be copy or move');
+  if (kind === 'syncCopy') {
+    if (!Array.isArray(value.pairs)) throw new TypeError('op.pairs must be an array');
+    if (value.pairs.length > MAX_SYNC_PAIRS) throw new RangeError('op.pairs has too many items');
+    return {
+      kind,
+      pairs: value.pairs.map((pair, index) => {
+        if (!isRecord(pair)) throw new TypeError(`op.pairs[${index}] must be an object`);
+        return {
+          src: expectString(pair.src, `op.pairs[${index}].src`),
+          dst: expectString(pair.dst, `op.pairs[${index}].dst`),
+        };
+      }),
+      overwrite: expectBoolean(value.overwrite, 'op.overwrite'),
+    };
+  }
+  if (kind !== 'copy' && kind !== 'move') {
+    throw new TypeError('op.kind must be copy, move or syncCopy');
+  }
   return {
     kind,
     sources: expectStringArray(value.sources, 'op.sources'),
     dst: expectString(value.dst, 'op.dst'),
+  };
+}
+
+function expectNullableInteger(value: unknown, name: string): number | null {
+  if (value === null || value === undefined) return null;
+  return expectInteger(value, name, { min: 0, max: Number.MAX_SAFE_INTEGER });
+}
+
+export function validateSearchQuery(value: unknown): SearchQuery {
+  if (!isRecord(value)) throw new TypeError('query must be an object');
+  return {
+    roots: expectStringArray(value.roots, 'query.roots', { maxItems: 16 }),
+    namePattern: expectString(value.namePattern, 'query.namePattern', {
+      allowEmpty: true, maxLength: MAX_BASENAME_LENGTH * 4,
+    }),
+    nameIsRegex: expectBoolean(value.nameIsRegex, 'query.nameIsRegex'),
+    caseSensitive: expectBoolean(value.caseSensitive, 'query.caseSensitive'),
+    contentPattern: expectString(value.contentPattern, 'query.contentPattern', {
+      allowEmpty: true, maxLength: MAX_COMMAND_LENGTH,
+    }),
+    contentIsRegex: expectBoolean(value.contentIsRegex, 'query.contentIsRegex'),
+    showHidden: expectBoolean(value.showHidden, 'query.showHidden'),
+    minSize: expectNullableInteger(value.minSize, 'query.minSize'),
+    maxSize: expectNullableInteger(value.maxSize, 'query.maxSize'),
+    modifiedAfter: expectNullableInteger(value.modifiedAfter, 'query.modifiedAfter'),
+    modifiedBefore: expectNullableInteger(value.modifiedBefore, 'query.modifiedBefore'),
+  };
+}
+
+export function validateArchiveOp(value: unknown): ArchiveOp {
+  if (!isRecord(value)) throw new TypeError('op must be an object');
+  if (value.kind === 'extract') {
+    if (!Array.isArray(value.members)) throw new TypeError('op.members must be an array');
+    if (value.members.length > MAX_SYNC_PAIRS) throw new RangeError('op.members has too many items');
+    return {
+      kind: 'extract',
+      archivePath: expectString(value.archivePath, 'op.archivePath'),
+      members: value.members.map((member, index) => {
+        if (!isRecord(member)) throw new TypeError(`op.members[${index}] must be an object`);
+        return {
+          path: expectString(member.path, `op.members[${index}].path`),
+          isDir: expectBoolean(member.isDir, `op.members[${index}].isDir`),
+        };
+      }),
+      dest: expectString(value.dest, 'op.dest'),
+      stripPrefix: expectString(value.stripPrefix, 'op.stripPrefix', { allowEmpty: true }),
+    };
+  }
+  if (value.kind === 'create') {
+    const format = value.format;
+    if (typeof format !== 'string' || !(CREATABLE_FORMATS as string[]).includes(format)) {
+      throw new TypeError('op.format is not a supported archive format');
+    }
+    return {
+      kind: 'create',
+      format: format as ArchiveFormat,
+      archivePath: expectString(value.archivePath, 'op.archivePath'),
+      sources: expectStringArray(value.sources, 'op.sources'),
+    };
+  }
+  throw new TypeError('op.kind must be extract or create');
+}
+
+export function validateSyncOptions(value: unknown): SyncOptions {
+  if (!isRecord(value)) throw new TypeError('opts must be an object');
+  return {
+    showHidden: expectBoolean(value.showHidden, 'opts.showHidden'),
+    byContent: expectBoolean(value.byContent, 'opts.byContent'),
+    recursive: expectBoolean(value.recursive, 'opts.recursive'),
   };
 }
 
@@ -323,6 +425,70 @@ export function registerIpc() {
     expectArgs(args, 'fs:duplicate', 1);
     return [expectString(args[0], 'path')];
   }, (_e, path) => duplicate(path));
+  handleValidated('fs:readChunk', (args): [string, number, number] => {
+    expectArgs(args, 'fs:readChunk', 3);
+    return [
+      expectString(args[0], 'path'),
+      expectInteger(args[1], 'offset', { min: 0, max: Number.MAX_SAFE_INTEGER }),
+      expectInteger(args[2], 'length', { min: 0, max: MAX_CHUNK_BYTES }),
+    ];
+  }, (_e, path, offset, length) => readChunk(path, offset, length));
+  handleValidated('fs:complete', (args): [string, string, 'command' | 'path'] => {
+    expectArgs(args, 'fs:complete', 3);
+    const kind = args[2];
+    if (kind !== 'command' && kind !== 'path') {
+      throw new TypeError('kind must be command or path');
+    }
+    return [
+      expectString(args[0], 'prefix', { allowEmpty: true }),
+      expectString(args[1], 'cwd'),
+      kind,
+    ];
+  }, (_e, prefix, cwd, kind) => complete(prefix, cwd, kind));
+  handleValidated('fs:compare', (args): [string, string] => {
+    expectArgs(args, 'fs:compare', 2);
+    return [expectString(args[0], 'left'), expectString(args[1], 'right')];
+  }, (_e, left, right) => compareFiles(left, right));
+  handleValidated('fs:syncScan', (args): [string, string, SyncOptions] => {
+    expectArgs(args, 'fs:syncScan', 3);
+    return [
+      expectString(args[0], 'left'),
+      expectString(args[1], 'right'),
+      validateSyncOptions(args[2]),
+    ];
+  }, (_e, left, right, opts) => syncScan(left, right, opts));
+  handleValidated('fs:search', (args): [string, SearchQuery] => {
+    expectArgs(args, 'fs:search', 2);
+    return [
+      expectString(args[0], 'token', { maxLength: 128 }),
+      validateSearchQuery(args[1]),
+    ];
+  }, (_e, token, query) => search(token, query));
+  handleValidated('fs:searchCancel', (args): [string] => {
+    expectArgs(args, 'fs:searchCancel', 1);
+    return [expectString(args[0], 'token', { maxLength: 128 })];
+  }, (_e, token) => { cancelSearch(token); });
+
+  handleValidated('archive:isArchive', (args): [string] => {
+    expectArgs(args, 'archive:isArchive', 1);
+    return [expectString(args[0], 'path')];
+  }, (_e, path) => isArchivePath(path));
+  handleValidated('archive:list', (args): [string] => {
+    expectArgs(args, 'archive:list', 1);
+    return [expectString(args[0], 'archivePath')];
+  }, (_e, archivePath) => listArchive(archivePath));
+  handleValidated('archive:run', (args): [string, ArchiveOp] => {
+    expectArgs(args, 'archive:run', 2);
+    return [expectString(args[0], 'token', { maxLength: 128 }), validateArchiveOp(args[1])];
+  }, (_e, token, op) => runArchiveOp(token, op));
+  handleValidated('archive:cancel', (args): [string] => {
+    expectArgs(args, 'archive:cancel', 1);
+    return [expectString(args[0], 'token', { maxLength: 128 })];
+  }, (_e, token) => { cancelArchiveOp(token); });
+  handleValidated('archive:extractToTemp', (args): [string, string] => {
+    expectArgs(args, 'archive:extractToTemp', 2);
+    return [expectString(args[0], 'archivePath'), expectString(args[1], 'member')];
+  }, (_e, archivePath, member) => extractToTemp(archivePath, member));
   handleValidated('volumes:list', (args): [] => {
     expectArgs(args, 'volumes:list', 0);
     return [];
@@ -339,6 +505,10 @@ export function registerIpc() {
     expectArgs(args, 'shell:openTerminal', 1);
     return [expectString(args[0], 'path')];
   }, (_e, path) => openTerminal(path));
+  handleValidated('shell:startDrag', (args): [string[]] => {
+    expectArgs(args, 'shell:startDrag', 1);
+    return [expectStringArray(args[0], 'paths')];
+  }, (e, paths) => startDrag(e.sender, paths));
   handleValidated('shell:runCommand', (args): [string, string] => {
     expectArgs(args, 'shell:runCommand', 2);
     return [

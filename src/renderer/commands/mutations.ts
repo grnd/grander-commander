@@ -1,20 +1,8 @@
 import type { DialogState, FileEntry } from '@shared/types';
 import type { PanelSide, PanelState } from '@renderer/state/panelSlice';
-import { entryKey } from '@renderer/state/panelSlice';
+import { entryKey, targetPaths } from '@renderer/state/panelSlice';
 
-const pathOf = (panel: PanelState, name: string) =>
-  panel.path === '/' ? `/${name}` : `${panel.path}/${name}`;
-
-function selectionPaths(panel: PanelState): string[] {
-  const keys = panel.selection.size > 0
-    ? [...panel.selection]
-    : (() => {
-        const cur = panel.entries[panel.cursor];
-        if (!cur || cur.name === '..') return [];
-        return [entryKey(cur)];
-      })();
-  return keys.map((k) => pathOf(panel, k));
-}
+const selectionPaths = targetPaths;
 
 export function selectionForContextTarget(panel: PanelState, entry: FileEntry): Set<string> {
   if (entry.name === '..') return new Set();

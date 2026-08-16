@@ -1,63 +1,11 @@
-import type {
-  FileEntry, ListDirOptions, Result, Volume, FileOp, OpId, OpEvent, ConflictAnswer, UpdateStatus, MenuCommand,
-} from '@shared/types';
-
-export type GCApi = {
-  fs: {
-    listDir(path: string, opts: ListDirOptions): Promise<Result<FileEntry[]>>;
-    stat(path: string): Promise<Result<FileEntry>>;
-    mkdir(parent: string, name: string): Promise<Result<void>>;
-    rename(from: string, to: string): Promise<Result<void>>;
-    trash(paths: string[]): Promise<Result<void>>;
-    delete(paths: string[]): Promise<Result<void>>;
-    duplicate(path: string): Promise<Result<string>>;
-  };
-  volumes: {
-    list(): Promise<Volume[]>;
-  };
-  ops: {
-    start(op: FileOp): Promise<OpId>;
-    cancel(id: OpId): Promise<void>;
-    answerConflict(id: OpId, a: ConflictAnswer): Promise<void>;
-    subscribe(id: OpId, cb: (ev: OpEvent) => void): () => void;
-  };
-  shell: {
-    openPath(path: string): Promise<void>;
-    quickLook(path: string): Promise<void>;
-    openTerminal(path: string): Promise<void>;
-    runCommand(cmd: string, cwd: string): Promise<{ stdout: string; stderr: string; exitCode: number }>;
-  };
-  terminal: {
-    spawn(cwd: string, cols: number, rows: number): Promise<string>;
-    write(id: string, data: string): Promise<void>;
-    resize(id: string, cols: number, rows: number): Promise<void>;
-    kill(id: string): Promise<void>;
-    onData(id: string, cb: (data: string) => void): () => void;
-    onExit(id: string, cb: (info: { exitCode: number; signal?: number }) => void): () => void;
-  };
-  menu: {
-    onCommand(cb: (cmd: MenuCommand) => void): () => void;
-    popupFileContext(args: {
-      x: number;
-      y: number;
-      fullPath: string;
-      isDir: boolean;
-      isDotDot: boolean;
-      isAppBundle: boolean;
-    }): Promise<void>;
-  };
-  update: {
-    check(): Promise<UpdateStatus>;
-    download(): Promise<void>;
-    install(): Promise<void>;
-    status(): Promise<UpdateStatus>;
-    releaseNotes(): Promise<void>;
-    onStatus(cb: (s: UpdateStatus) => void): () => void;
-  };
-};
+// src/preload/api.ts
+//
+// GCApi is defined once in @shared/api so the renderer's ambient window.gc
+// declaration and the preload implementation cannot drift apart.
+export type { GCApi } from '@shared/api';
 
 declare global {
   interface Window {
-    gc: GCApi;
+    gc: import('@shared/api').GCApi;
   }
 }

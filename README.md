@@ -60,9 +60,27 @@ Two panels, keyboard-first navigation, quick search (`Alt+letter`), copy/move wi
 prompts, trash, Quick Look, favorites, a command line at the bottom, F-keys, and native
 context menus with Reveal in Finder / Open With.
 
+Power-user tools:
+
+| | |
+|---|---|
+| `F3` / `Ctrl+Q` | Internal viewer (text / hex / image), and quick preview in the other pane |
+| `Cmd+F` | Find by name, content, size and date — results open as a browsable panel |
+| `Cmd+D` | Compare two files side by side |
+| `Cmd+Y` | Synchronise the two panel folders, with copy-missing and mirror |
+| `Ctrl+M` | Multi-rename with regex, counters and a live preview |
+| `Cmd+T` / `Cmd+W` / `Cmd+1..9` | Per-panel tabs |
+| `Ctrl+1..9` | Numbered folder bookmarks (`Ctrl+Shift+N` to set) |
+| `Enter` on an archive | Browse `.zip` / `.tar.gz` / `.7z` in place; `F5` extracts, `Alt+F5` packs |
+| `Tab` in the command line | Complete paths and executables |
+| drag a row | Copy to the other panel; `Shift` moves, `Alt` drags out to Finder |
+
 An embedded terminal (`` Ctrl+` ``) opens a real shell in the active panel's directory.
 Cloud folders under `~/Library/CloudStorage` (Google Drive, Dropbox, OneDrive) appear in the
 drive bar and are navigable, including via symlinks like `~/Google Drive`.
+
+Archives use the tools macOS already ships. `.7z` additionally needs a 7-Zip binary on
+`PATH` (`brew install sevenzip`); without one, the app says so instead of failing quietly.
 
 See [`todo.md`](./todo.md) for what's next.
 

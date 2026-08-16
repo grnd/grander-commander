@@ -18,6 +18,19 @@ const api: GCApi = {
     trash: (paths) => ipcRenderer.invoke('fs:trash', paths),
     delete: (paths) => ipcRenderer.invoke('fs:delete', paths),
     duplicate: (path) => ipcRenderer.invoke('fs:duplicate', path),
+    readChunk: (path, offset, length) => ipcRenderer.invoke('fs:readChunk', path, offset, length),
+    complete: (prefix, cwd, kind) => ipcRenderer.invoke('fs:complete', prefix, cwd, kind),
+    compare: (left, right) => ipcRenderer.invoke('fs:compare', left, right),
+    syncScan: (left, right, opts) => ipcRenderer.invoke('fs:syncScan', left, right, opts),
+    search: (token, query) => ipcRenderer.invoke('fs:search', token, query),
+    cancelSearch: (token) => ipcRenderer.invoke('fs:searchCancel', token),
+  },
+  archive: {
+    isArchive: (path) => ipcRenderer.invoke('archive:isArchive', path),
+    list: (archivePath) => ipcRenderer.invoke('archive:list', archivePath),
+    run: (token, op) => ipcRenderer.invoke('archive:run', token, op),
+    cancel: (token) => ipcRenderer.invoke('archive:cancel', token),
+    extractToTemp: (archivePath, member) => ipcRenderer.invoke('archive:extractToTemp', archivePath, member),
   },
   volumes: {
     list: () => ipcRenderer.invoke('volumes:list'),
@@ -50,6 +63,7 @@ const api: GCApi = {
     quickLook: (path) => ipcRenderer.invoke('shell:quickLook', path),
     openTerminal: (path) => ipcRenderer.invoke('shell:openTerminal', path),
     runCommand: (cmd, cwd) => ipcRenderer.invoke('shell:runCommand', cmd, cwd),
+    startDrag: (paths) => ipcRenderer.invoke('shell:startDrag', paths),
   },
   terminal: {
     spawn: (cwd, cols, rows) => ipcRenderer.invoke('term:spawn', cwd, cols, rows),

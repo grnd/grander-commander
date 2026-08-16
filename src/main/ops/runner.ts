@@ -1,11 +1,25 @@
 // src/main/ops/runner.ts
 import { mkdir as nodeMkdir, readdir, rename, stat } from 'node:fs/promises';
-import { basename, join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { copyFile } from '../fs/copyFile';
 import { trashPaths } from '../fs/trash';
 import type { FileOp, OpEvent, ConflictAnswer, OpId } from '@shared/types';
 import type { RunningOp, Subscriber } from './types';
+
+function isMove(op: FileOp): boolean {
+  return op.kind === 'move';
+}
+
+/**
+ * Flatten any op into (source, destination path) pairs. copy/move name the
+ * destination directory and derive each basename; syncCopy carries full
+ * destination paths so relative subtrees survive.
+ */
+export function plannedPairs(op: FileOp): { src: string; dst: string }[] {
+  if (op.kind === 'syncCopy') return op.pairs;
+  return op.sources.map((src) => ({ src, dst: join(op.dst, basename(src)) }));
+}
 
 export class OpRunner {
   private ops = new Map<OpId, RunningOp>();
@@ -13,15 +27,18 @@ export class OpRunner {
 
   start(op: FileOp): OpId {
     const id = randomUUID();
+    const pairs = plannedPairs(op);
     const running: RunningOp = {
       id,
       op,
       controller: new AbortController(),
       subscribers: new Set(),
       pendingConflict: null,
-      overwriteAll: null,
+      // A sync plan was built from a diff the user already reviewed, so
+      // overwriting is the intent — prompting per file would be noise.
+      overwriteAll: op.kind === 'syncCopy' && op.overwrite ? 'overwrite' : null,
       filesDone: 0,
-      filesTotal: op.sources.length,
+      filesTotal: pairs.length,
       bytesDone: 0,
       bytesTotal: 0,
     };
@@ -93,15 +110,14 @@ export class OpRunner {
 
   private async run(r: RunningOp): Promise<void> {
     try {
-      for (const src of r.op.sources) r.bytesTotal += await this.sizeOf(src);
+      const pairs = plannedPairs(r.op);
+      for (const { src } of pairs) r.bytesTotal += await this.sizeOf(src);
 
-      for (const src of r.op.sources) {
+      for (const { src, dst } of pairs) {
         if (r.controller.signal.aborted) {
           this.emit(r, { kind: 'cancelled', filesDone: r.filesDone, bytesDone: r.bytesDone });
           return;
         }
-        const name = basename(src);
-        const dst = join(r.op.dst, name);
         const didSkip = await this.processOne(r, src, dst);
         r.filesDone += didSkip ? 0 : 1;
       }
@@ -128,6 +144,7 @@ export class OpRunner {
   /** Returns true if the file was SKIPPED (not counted). */
   private async processOne(r: RunningOp, src: string, initialDst: string): Promise<boolean> {
     let dst = initialDst;
+    const dstDir = dirname(initialDst);
     let overwriteThis = false;
 
     let dstExists = false;
@@ -162,7 +179,7 @@ export class OpRunner {
             });
             throw new Error('rename answer invalid');
           }
-          dst = join(r.op.dst, answer.newName);
+          dst = join(dstDir, answer.newName);
           let renamedDstExists = true;
           try {
             await stat(dst);
@@ -181,7 +198,7 @@ export class OpRunner {
       }
     }
 
-    if (r.op.kind === 'move' && !overwriteThis) {
+    if (isMove(r.op) && !overwriteThis) {
       try {
         await rename(src, dst);
         return false;
@@ -193,7 +210,7 @@ export class OpRunner {
     }
 
     try {
-      await nodeMkdir(r.op.dst, { recursive: true });
+      await nodeMkdir(dstDir, { recursive: true });
     } catch {
       /* ignore */
     }
@@ -223,7 +240,7 @@ export class OpRunner {
     const sz = await this.sizeOf(src);
     r.bytesDone += sz;
 
-    if (r.op.kind === 'move') {
+    if (isMove(r.op)) {
       const trashRes = await trashPaths([src]);
       if (!trashRes.ok) {
         this.emit(r, { kind: 'error', error: trashRes.error, path: src });
