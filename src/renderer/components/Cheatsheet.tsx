@@ -63,6 +63,15 @@ const SECTIONS: { title: string; rows: [string, string][] }[] = [
     ],
   },
   {
+    title: 'Tabs',
+    rows: [
+      ['Cmd+T', 'New tab in the active panel'],
+      ['Cmd+W', 'Close the current tab'],
+      ['Cmd+1 … Cmd+9', 'Select tab by number'],
+      ['Middle-click tab', 'Close it'],
+    ],
+  },
+  {
     title: 'Bookmarks',
     rows: [
       ['Ctrl+1 … Ctrl+9', 'Jump to bookmarked folder'],

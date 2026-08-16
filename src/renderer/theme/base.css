@@ -485,3 +485,27 @@ body {
 }
 .gc-sync-actions { flex-wrap: wrap; }
 .gc-sync-actions button.is-confirming { background: #b00020; color: #fff; font-weight: 700; }
+
+/* ---- M3: per-panel tabs ---- */
+.gc-tabbar {
+  display: flex; align-items: stretch; gap: 1px;
+  background: var(--gc-chrome); border-bottom: 1px solid var(--gc-border);
+  overflow-x: auto;
+}
+.gc-tab {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 1px 4px 1px 8px; max-width: 160px;
+  background: var(--gc-btn); border: 1px solid var(--gc-border); border-bottom: none;
+  font-size: 10px; cursor: pointer; white-space: nowrap;
+}
+.gc-tab.is-active { background: var(--gc-panel); font-weight: 700; }
+.gc-tab-label { overflow: hidden; text-overflow: ellipsis; }
+.gc-tab-close {
+  background: transparent; border: none; color: inherit; cursor: pointer;
+  font-size: 9px; line-height: 1; padding: 1px 2px; opacity: 0.55;
+}
+.gc-tab-close:hover { opacity: 1; color: #b00020; }
+.gc-tab-new {
+  background: transparent; border: none; color: var(--gc-fg);
+  cursor: pointer; font-size: 12px; line-height: 1; padding: 0 6px;
+}

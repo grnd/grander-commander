@@ -130,6 +130,27 @@ export function App() {
 
     // Bookmark commands are generated per slot (gotoBookmark1..9 /
     // setBookmark1..9), so they are matched rather than listed in the switch.
+    // Switching or closing a tab swaps a whole panel view in; the incoming one
+    // may have been loaded minutes ago, so it is re-listed on arrival.
+    const reloadActiveTab = async (side: PanelSide) => {
+      const panel = useStore.getState().panels[side];
+      await navigateTo({
+        panel,
+        setPanel: (patch) => setPanel(side, patch),
+        api,
+        path: panel.path,
+        requestKey: side,
+      });
+    };
+
+    const tabSelect = /^selectTab([1-9])$/.exec(cmd);
+    if (tabSelect) {
+      const index = Number(tabSelect[1]) - 1;
+      if (index >= useStore.getState().tabs[s.activeSide].length) return;
+      useStore.getState().selectTab(s.activeSide, index);
+      return reloadActiveTab(s.activeSide);
+    }
+
     const bookmark = /^(goto|set)Bookmark([1-9])$/.exec(cmd);
     if (bookmark) {
       const slot = Number(bookmark[2]);
@@ -295,6 +316,15 @@ export function App() {
       case 'toggleQuickView':
         useStore.getState().setQuickView(!useStore.getState().quickView);
         return;
+      case 'newTab':
+        useStore.getState().newTab(s.activeSide);
+        return reloadActiveTab(s.activeSide);
+      case 'closeTab': {
+        const st = useStore.getState();
+        if (st.tabs[s.activeSide].length <= 1) return;
+        st.closeTab(s.activeSide, st.activeTab[s.activeSide]);
+        return reloadActiveTab(s.activeSide);
+      }
       case 'syncFolders':
         useStore.getState().setDialog({
           kind: 'sync', leftRoot: s.panels.left.path, rightRoot: s.panels.right.path,
@@ -729,6 +759,27 @@ export function App() {
         onSort={onSort(side)}
         pathBarRef={side === 'left' ? leftPathRef : rightPathRef}
         searchBuffer={state.quickSearch && state.quickSearch.side === side ? state.quickSearch.buffer : null}
+        tabs={state.tabs[side].map((t, i) => ({
+          id: t.id,
+          // The active tab's stored copy is stale by design — its live path
+          // lives in `panels`.
+          path: i === state.activeTab[side] ? panel.path : t.path,
+        }))}
+        activeTab={state.activeTab[side]}
+        onSelectTab={(i) => {
+          useStore.setState({ activeSide: side });
+          useStore.getState().selectTab(side, i);
+          void refreshSide(side);
+        }}
+        onCloseTab={(i) => {
+          useStore.getState().closeTab(side, i);
+          void refreshSide(side);
+        }}
+        onNewTab={() => {
+          useStore.setState({ activeSide: side });
+          useStore.getState().newTab(side);
+          void refreshSide(side);
+        }}
       />
     );
   };

@@ -16,6 +16,11 @@ const bookmarkBindings: Binding[] = BOOKMARK_SLOTS.flatMap((n): Binding[] => [
   { combo: `Ctrl+Shift+${n}`, command: `setBookmark${n}` },
 ]);
 
+/** Cmd+N selects the Nth tab of the active panel. */
+const tabBindings: Binding[] = BOOKMARK_SLOTS.map((n): Binding => (
+  { combo: `Cmd+${n}`, command: `selectTab${n}` }
+));
+
 export const bindings: Binding[] = [
   { combo: 'ArrowUp', command: 'cursorUp' },
   { combo: 'ArrowDown', command: 'cursorDown' },
@@ -73,7 +78,10 @@ export const bindings: Binding[] = [
   { combo: 'Cmd+Shift+M', command: 'multiRename' },
   { combo: 'Cmd+D', command: 'compareFiles' },
   { combo: 'Cmd+Y', command: 'syncFolders' },
+  { combo: 'Cmd+T', command: 'newTab' },
+  { combo: 'Cmd+W', command: 'closeTab' },
   ...bookmarkBindings,
+  ...tabBindings,
 ];
 
 // Convert a KeyboardEvent to its canonical combo string.

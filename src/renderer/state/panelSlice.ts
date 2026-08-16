@@ -3,7 +3,11 @@ import type { FileEntry, SortCol, SortDir } from '@shared/types';
 
 export type PanelSide = 'left' | 'right';
 
+let tabSeq = 0;
+
 export type PanelState = {
+  /** Stable identity for the tab strip's React keys. */
+  id: string;
   path: string;
   entries: FileEntry[];     // sorted per `sort`
   sort: { col: SortCol; dir: SortDir };
@@ -18,6 +22,7 @@ export type PanelState = {
 
 export function initialPanelState(path: string): PanelState {
   return {
+    id: `tab-${++tabSeq}`,
     path,
     entries: [],
     sort: { col: 'name', dir: 'asc' },

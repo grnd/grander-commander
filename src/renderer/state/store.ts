@@ -59,8 +59,16 @@ function saveFavorites(fav: Favorite[]): void {
   try { localStorage.setItem(FAVORITES_KEY, JSON.stringify(fav)); } catch { /* ignore */ }
 }
 
+/**
+ * Tabs are stored as whole panel views. `panels[side]` is the live one and the
+ * only copy that mutates; `tabs[side][activeTab[side]]` is its stale twin,
+ * refreshed at the moment the user switches away. Keeping `panels` as the live
+ * view means every existing reader of the active panel is unchanged by tabs.
+ */
 export type AppState = {
   panels: { left: PanelState; right: PanelState };
+  tabs: { left: PanelState[]; right: PanelState[] };
+  activeTab: { left: number; right: number };
   activeSide: PanelSide;
   theme: 'light' | 'dark' | 'system';
   effectiveTheme: 'light' | 'dark';
@@ -91,15 +99,23 @@ export type AppState = {
   setTerminalOpen: (open: boolean) => void;
   /** `slot` is 1-based. Passing null clears it. */
   setBookmark: (slot: number, path: string | null) => void;
+  /** Opens a tab beside the current one, showing the same folder, and focuses it. */
+  newTab: (side: PanelSide) => void;
+  closeTab: (side: PanelSide, index: number) => void;
+  selectTab: (side: PanelSide, index: number) => void;
   setViewer: (v: { path: string } | null) => void;
   setQuickView: (open: boolean) => void;
 };
 
+const initialPanels = {
+  left: initialPanelState(DEFAULT_LEFT),
+  right: initialPanelState(DEFAULT_RIGHT),
+};
+
 export const useStore = create<AppState>((set) => ({
-  panels: {
-    left: initialPanelState(DEFAULT_LEFT),
-    right: initialPanelState(DEFAULT_RIGHT),
-  },
+  panels: initialPanels,
+  tabs: { left: [initialPanels.left], right: [initialPanels.right] },
+  activeTab: { left: 0, right: 0 },
   activeSide: 'left',
   theme: 'light',
   effectiveTheme: 'light',
@@ -159,6 +175,52 @@ export const useStore = create<AppState>((set) => ({
     next[slot - 1] = path;
     saveBookmarks(next);
     return { bookmarks: next };
+  }),
+  newTab: (side) => set((s) => {
+    const live = s.panels[side];
+    const tabs = s.tabs[side].slice();
+    tabs[s.activeTab[side]] = live;
+    const index = s.activeTab[side] + 1;
+    // Entries are left empty on purpose: the caller navigates the fresh tab,
+    // which is what fills them.
+    const fresh: PanelState = {
+      ...initialPanelState(live.path),
+      width: live.width,
+      showHidden: live.showHidden,
+      sort: live.sort,
+    };
+    tabs.splice(index, 0, fresh);
+    return {
+      tabs: { ...s.tabs, [side]: tabs },
+      activeTab: { ...s.activeTab, [side]: index },
+      panels: { ...s.panels, [side]: fresh },
+    };
+  }),
+  closeTab: (side, index) => set((s) => {
+    const tabs = s.tabs[side].slice();
+    if (tabs.length <= 1) return s;               // a side always has one tab
+    if (index < 0 || index >= tabs.length) return s;
+    tabs[s.activeTab[side]] = s.panels[side];
+    tabs.splice(index, 1);
+    const active = s.activeTab[side];
+    const nextActive = index < active ? active - 1 : Math.min(active, tabs.length - 1);
+    return {
+      tabs: { ...s.tabs, [side]: tabs },
+      activeTab: { ...s.activeTab, [side]: nextActive },
+      // The splitter position belongs to the side, not to the tab that happened
+      // to be showing when it was dragged.
+      panels: { ...s.panels, [side]: { ...tabs[nextActive], width: s.panels[side].width } },
+    };
+  }),
+  selectTab: (side, index) => set((s) => {
+    if (index < 0 || index >= s.tabs[side].length || index === s.activeTab[side]) return s;
+    const tabs = s.tabs[side].slice();
+    tabs[s.activeTab[side]] = s.panels[side];
+    return {
+      tabs: { ...s.tabs, [side]: tabs },
+      activeTab: { ...s.activeTab, [side]: index },
+      panels: { ...s.panels, [side]: { ...tabs[index], width: s.panels[side].width } },
+    };
   }),
   setViewer: (viewer) => set({ viewer }),
   setQuickView: (quickView) => set({ quickView }),
