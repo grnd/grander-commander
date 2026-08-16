@@ -21,6 +21,7 @@ import { CREATABLE_FORMATS } from './archive/format';
 import { quickLook } from './shell/quickLook';
 import { openTerminal } from './shell/openTerminal';
 import { runCommand } from './shell/runCommand';
+import { startDrag } from './shell/dragOut';
 import { checkForUpdates, downloadUpdate, quitAndInstall, getUpdateStatus, openReleaseNotes } from './updater';
 import { spawnTerminal, writeTerminal, resizeTerminal, killTerminal, killAllForContents } from './shell/terminal';
 import { popupFileContext, type FileContextArgs } from './menu/fileContext';
@@ -495,6 +496,10 @@ export function registerIpc() {
     expectArgs(args, 'shell:openTerminal', 1);
     return [expectString(args[0], 'path')];
   }, (_e, path) => openTerminal(path));
+  handleValidated('shell:startDrag', (args): [string[]] => {
+    expectArgs(args, 'shell:startDrag', 1);
+    return [expectStringArray(args[0], 'paths')];
+  }, (e, paths) => startDrag(e.sender, paths));
   handleValidated('shell:runCommand', (args): [string, string] => {
     expectArgs(args, 'shell:runCommand', 2);
     return [

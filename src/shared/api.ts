@@ -46,6 +46,8 @@ export type GCApi = {
     quickLook(path: string): Promise<void>;
     openTerminal(path: string): Promise<void>;
     runCommand(cmd: string, cwd: string): Promise<{ stdout: string; stderr: string; exitCode: number }>;
+    /** Hands `paths` to the OS drag session so they can be dropped into Finder. */
+    startDrag(paths: string[]): Promise<void>;
   };
   terminal: {
     spawn(cwd: string, cols: number, rows: number): Promise<string>;

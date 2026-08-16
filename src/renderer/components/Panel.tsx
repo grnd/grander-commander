@@ -24,12 +24,21 @@ type Props = {
   onSelectTab?: (index: number) => void;
   onCloseTab?: (index: number) => void;
   onNewTab?: () => void;
+  onRowDragStart?: (index: number, e: React.DragEvent) => void;
+  /** `index` is null when the pointer is over the panel but not over a row. */
+  onDragOverTarget?: (index: number | null, e: React.DragEvent) => void;
+  onDropOnTarget?: (index: number | null, e: React.DragEvent) => void;
+  onDragLeavePanel?: () => void;
+  dropTargetIndex?: number | null;
+  isDropActive?: boolean;
 };
 
 export function Panel({
   panel, isActive, onActivate, onRowMouseDown, onRowDouble, onRowContextMenu,
   onPathCommit, onSort, pathBarRef, searchBuffer,
   tabs, activeTab = 0, onSelectTab, onCloseTab, onNewTab,
+  onRowDragStart, onDragOverTarget, onDropOnTarget, onDragLeavePanel,
+  dropTargetIndex = null, isDropActive = false,
 }: Props) {
   const bodyRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 0, h: 0 });
@@ -45,7 +54,7 @@ export function Panel({
 
   return (
     <div
-      className={`gc-panel${isActive ? ' is-active' : ''}`}
+      className={`gc-panel${isActive ? ' is-active' : ''}${isDropActive ? ' is-drop-active' : ''}`}
       onMouseDown={onActivate}
     >
       {tabs && (
@@ -66,7 +75,18 @@ export function Panel({
       />
       <ColumnHeader sort={panel.sort} onSort={onSort} />
       {panel.error && <div className="gc-panel-error" role="alert">{panel.error}</div>}
-      <div className="gc-panel-body" ref={bodyRef}>
+      <div
+        className="gc-panel-body"
+        ref={bodyRef}
+        // Empty space below the rows still drops into the panel's own folder.
+        onDragOver={onDragOverTarget ? (e) => onDragOverTarget(null, e) : undefined}
+        onDrop={onDropOnTarget ? (e) => onDropOnTarget(null, e) : undefined}
+        onDragLeave={onDragLeavePanel ? (e) => {
+          // Moving between rows fires dragleave on the body; only a pointer
+          // that has actually left the panel should clear the highlight.
+          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) onDragLeavePanel();
+        } : undefined}
+      >
         {size.h > 0 && (
           <FileList
             entries={panel.entries}
@@ -77,6 +97,10 @@ export function Panel({
             onRowMouseDown={onRowMouseDown}
             onRowDouble={onRowDouble}
             onRowContextMenu={onRowContextMenu}
+            onRowDragStart={onRowDragStart}
+            onRowDragOver={onDragOverTarget}
+            onRowDrop={onDropOnTarget}
+            dropTargetIndex={dropTargetIndex}
           />
         )}
       </div>

@@ -14,6 +14,9 @@ import { cursorPath, entryKey, entryPath, targetNames, targetPaths } from './sta
 import { applyRenamePlan, type RenamePreviewRow } from './commands/multirename';
 import { SYNC_LABELS, type SyncAction, type SyncPlan } from './commands/sync';
 import { archiveTargets } from './commands/archive';
+import {
+  GC_PATHS, decodePaths, dragPaths, dropTarget, encodePaths, externalPaths, resolveDrop,
+} from './commands/dnd';
 
 import { eventToCombo, lookup, allowedFromInput } from './keybindings';
 import type { CommandName } from './commands';
@@ -101,6 +104,8 @@ export function App() {
   const cmdRef = useRef<HTMLInputElement>(null);
   const qsTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [cheatVisible, setCheatVisible] = useState(false);
+  // Which panel, and which folder row inside it, a drag in flight is over.
+  const [dropHint, setDropHint] = useState<{ side: PanelSide; index: number | null } | null>(null);
   const [cmdOutput, setCmdOutput] = useState<{ cmd: string; stdout: string; stderr: string; exitCode: number } | null>(null);
   // Mirrors cmdOutput for the global key router, which is registered once and
   // can't see this component state directly.
@@ -660,6 +665,60 @@ export function App() {
     });
   };
 
+  /**
+   * Start a drag. A plain drag is an ordinary HTML5 one, which is what makes a
+   * drop on the other panel work. Alt hands the files to the OS instead so they
+   * can land in Finder — Electron's native drag takes the gesture over
+   * completely, so the two cannot share one drag.
+   */
+  const onRowDragStart = (side: PanelSide) => (index: number, ev: React.DragEvent) => {
+    const panel = useStore.getState().panels[side];
+    if (panel.source.kind === 'archive') { ev.preventDefault(); return; }
+    const paths = dragPaths(panel, index);
+    if (paths.length === 0) { ev.preventDefault(); return; }
+
+    if (ev.altKey) {
+      ev.preventDefault();
+      void api.shell.startDrag(paths);
+      return;
+    }
+    ev.dataTransfer.setData(GC_PATHS, encodePaths(paths));
+    ev.dataTransfer.setData('text/plain', paths.join('\n'));
+    ev.dataTransfer.effectAllowed = 'copyMove';
+  };
+
+  const onDragOverTarget = (side: PanelSide) => (index: number | null, ev: React.DragEvent) => {
+    const panel = useStore.getState().panels[side];
+    if (panel.source.kind !== 'fs') return;
+    ev.preventDefault();
+    ev.dataTransfer.dropEffect = ev.shiftKey ? 'move' : 'copy';
+    const overFolder = index !== null
+      && panel.entries[index]?.isDir
+      && panel.entries[index]?.name !== '..';
+    setDropHint({ side, index: overFolder ? index : null });
+  };
+
+  const onDropOnTarget = (side: PanelSide) => (index: number | null, ev: React.DragEvent) => {
+    ev.preventDefault();
+    setDropHint(null);
+    const panel = useStore.getState().panels[side];
+    const internal = decodePaths(ev.dataTransfer.getData(GC_PATHS));
+    const sources = internal.length > 0 ? internal : externalPaths(ev.dataTransfer.files);
+    const dest = dropTarget(panel, index);
+    const intent = resolveDrop(sources, dest, { shiftKey: ev.shiftKey });
+    if (!intent) return;
+
+    // Files arriving from Finder are always copied: moving them out from under
+    // another app on a plain drag is not a decision to make for the user.
+    const kind = internal.length > 0 ? intent.kind : 'copy';
+    const other: PanelSide = side === 'left' ? 'right' : 'left';
+    void runOp(
+      { kind, sources: intent.sources, dst: intent.dest },
+      `${kind === 'copy' ? 'Copying' : 'Moving'} ${intent.sources.length} item(s)…`,
+      side, other,
+    );
+  };
+
   const onPathCommit = (side: PanelSide) => async (p: string): Promise<boolean> => {
     const panel = useStore.getState().panels[side];
     const setSide = (patch: Partial<typeof panel>) => setPanel(side, patch);
@@ -886,6 +945,12 @@ export function App() {
           useStore.getState().newTab(side);
           void refreshSide(side);
         }}
+        onRowDragStart={onRowDragStart(side)}
+        onDragOverTarget={onDragOverTarget(side)}
+        onDropOnTarget={onDropOnTarget(side)}
+        onDragLeavePanel={() => setDropHint((h) => (h?.side === side ? null : h))}
+        dropTargetIndex={dropHint?.side === side ? dropHint.index : null}
+        isDropActive={dropHint?.side === side}
       />
     );
   };

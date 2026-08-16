@@ -30,6 +30,16 @@ const SECTIONS: { title: string; rows: [string, string][] }[] = [
     ],
   },
   {
+    title: 'Drag and drop',
+    rows: [
+      ['Drag to other panel', 'Copy there'],
+      ['Shift+drag', 'Move instead of copy'],
+      ['Drop on a folder row', 'Into that folder'],
+      ['Alt+drag', 'Drag out to Finder'],
+      ['Drop from Finder', 'Copy in'],
+    ],
+  },
+  {
     title: 'Sorting & view',
     rows: [
       ['Click column header', 'Toggle sort direction'],

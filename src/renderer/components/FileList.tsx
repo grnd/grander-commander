@@ -16,9 +16,18 @@ type Props = {
   onRowMouseDown: (index: number, e: React.MouseEvent) => void;
   onRowDouble: (index: number, e: React.MouseEvent) => void;
   onRowContextMenu?: (index: number, e: React.MouseEvent) => void;
+  onRowDragStart?: (index: number, e: React.DragEvent) => void;
+  onRowDragOver?: (index: number, e: React.DragEvent) => void;
+  onRowDragLeave?: (index: number, e: React.DragEvent) => void;
+  onRowDrop?: (index: number, e: React.DragEvent) => void;
+  dropTargetIndex?: number | null;
 };
 
-export function FileList({ entries, cursor, selection, width, height, onRowMouseDown, onRowDouble, onRowContextMenu }: Props) {
+export function FileList({
+  entries, cursor, selection, width, height,
+  onRowMouseDown, onRowDouble, onRowContextMenu,
+  onRowDragStart, onRowDragOver, onRowDragLeave, onRowDrop, dropTargetIndex,
+}: Props) {
   const listRef = useRef<List>(null);
 
   useEffect(() => {
@@ -47,6 +56,11 @@ export function FileList({ entries, cursor, selection, width, height, onRowMouse
             onMouseDown={(ev) => onRowMouseDown(index, ev)}
             onDoubleClick={(ev) => onRowDouble(index, ev)}
             onContextMenu={onRowContextMenu ? (ev) => onRowContextMenu(index, ev) : undefined}
+            onDragStart={onRowDragStart ? (ev) => onRowDragStart(index, ev) : undefined}
+            onDragOver={onRowDragOver ? (ev) => onRowDragOver(index, ev) : undefined}
+            onDragLeave={onRowDragLeave ? (ev) => onRowDragLeave(index, ev) : undefined}
+            onDrop={onRowDrop ? (ev) => onRowDrop(index, ev) : undefined}
+            isDropTarget={dropTargetIndex === index}
           />
         );
       }}

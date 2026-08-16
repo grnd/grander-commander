@@ -63,6 +63,7 @@ const api: GCApi = {
     quickLook: (path) => ipcRenderer.invoke('shell:quickLook', path),
     openTerminal: (path) => ipcRenderer.invoke('shell:openTerminal', path),
     runCommand: (cmd, cwd) => ipcRenderer.invoke('shell:runCommand', cmd, cwd),
+    startDrag: (paths) => ipcRenderer.invoke('shell:startDrag', paths),
   },
   terminal: {
     spawn: (cwd, cols, rows) => ipcRenderer.invoke('term:spawn', cwd, cols, rows),

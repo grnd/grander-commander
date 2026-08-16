@@ -8,6 +8,12 @@ type Props = {
   onDoubleClick: (e: React.MouseEvent) => void;
   onContextMenu?: (e: React.MouseEvent) => void;
   style?: React.CSSProperties;
+  onDragStart?: (e: React.DragEvent) => void;
+  onDragOver?: (e: React.DragEvent) => void;
+  onDragLeave?: (e: React.DragEvent) => void;
+  onDrop?: (e: React.DragEvent) => void;
+  /** Highlights this folder as the destination of the drag in flight. */
+  isDropTarget?: boolean;
 };
 
 function formatSize(e: FileEntry): string {
@@ -26,15 +32,31 @@ function formatDate(mtime: number): string {
   return `${mm}/${dd}/${yy} ${hh}:${mi}`;
 }
 
-export function FileRow({ entry, isCursor, isSelected, onMouseDown, onDoubleClick, onContextMenu, style }: Props) {
+export function FileRow({
+  entry, isCursor, isSelected, onMouseDown, onDoubleClick, onContextMenu, style,
+  onDragStart, onDragOver, onDragLeave, onDrop, isDropTarget,
+}: Props) {
   const cls = ['gc-file-row'];
   if (isCursor) cls.push('is-cursor');
   if (isSelected) cls.push('is-selected');
   if (entry.isDir) cls.push('is-dir');
   if (entry.isSymlink) cls.push('is-symlink');
+  if (isDropTarget) cls.push('is-drop-target');
 
   return (
-    <div className={cls.join(' ')} style={style} onMouseDown={onMouseDown} onDoubleClick={onDoubleClick} onContextMenu={onContextMenu}>
+    <div
+      className={cls.join(' ')}
+      style={style}
+      onMouseDown={onMouseDown}
+      onDoubleClick={onDoubleClick}
+      onContextMenu={onContextMenu}
+      // ".." is not a thing to pick up; it is a place to drop into.
+      draggable={Boolean(onDragStart) && entry.name !== '..'}
+      onDragStart={onDragStart}
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
+    >
       <div className="gc-col gc-col-name">{entry.name}</div>
       <div className="gc-col gc-col-ext">{entry.ext}</div>
       <div className="gc-col gc-col-size">{formatSize(entry)}</div>
