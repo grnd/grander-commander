@@ -124,8 +124,22 @@ export type ArchiveEntry = {
   mtime: number;
 };
 
+export type ArchiveMember = { path: string; isDir: boolean };
+
 export type ArchiveOp =
-  | { kind: 'extract'; archivePath: string; members: string[]; dest: string }
+  | {
+      kind: 'extract';
+      archivePath: string;
+      /** Empty means the whole archive. */
+      members: ArchiveMember[];
+      dest: string;
+      /**
+       * Inner folder the user is browsing. Members are lifted out of it on the
+       * way to `dest`, so extracting `hello.txt` from inside `payload/` puts
+       * `hello.txt` in the destination, not `payload/hello.txt`.
+       */
+      stripPrefix: string;
+    }
   | { kind: 'create'; format: ArchiveFormat; archivePath: string; sources: string[] };
 
 // ---- M3: search ----

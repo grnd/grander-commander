@@ -52,7 +52,7 @@ describe('archive round trip', () => {
 
       const dest = join(root, `out-${format}`);
       await mkdir(dest);
-      const r = await runArchiveOp('t', { kind: 'extract', archivePath, members: [], dest });
+      const r = await runArchiveOp('t', { kind: 'extract', archivePath, members: [], dest, stripPrefix: '' });
       expect(r.ok).toBe(true);
       expect(await readFile(join(dest, 'src', 'a.txt'), 'utf8')).toBe('hello');
       expect(await readFile(join(dest, 'src', 'sub', 'b.txt'), 'utf8')).toBe('deep');
@@ -77,8 +77,9 @@ describe('archive round trip', () => {
     const r = await runArchiveOp('t', {
       kind: 'extract',
       archivePath,
-      members: memberArgs('zip', [{ path: 'src/sub', isDir: true }]),
+      members: [{ path: 'src/sub', isDir: true }],
       dest,
+      stripPrefix: '',
     });
     expect(r.ok).toBe(true);
     expect(existsSync(join(dest, 'src', 'sub', 'b.txt'))).toBe(true);
@@ -92,8 +93,9 @@ describe('archive round trip', () => {
     const r = await runArchiveOp('t', {
       kind: 'extract',
       archivePath,
-      members: memberArgs('tar.gz', [{ path: 'src/sub', isDir: true }]),
+      members: [{ path: 'src/sub', isDir: true }],
       dest,
+      stripPrefix: '',
     });
     expect(r.ok).toBe(true);
     expect(existsSync(join(dest, 'src', 'sub', 'b.txt'))).toBe(true);
@@ -181,8 +183,133 @@ describe('7-Zip', () => {
     expect(await paths(archivePath)).toEqual(['src', 'src/a.txt', 'src/sub', 'src/sub/b.txt']);
     const dest = join(root, 'out-7z');
     await mkdir(dest);
-    const r = await runArchiveOp('t', { kind: 'extract', archivePath, members: [], dest });
+    const r = await runArchiveOp('t', { kind: 'extract', archivePath, members: [], dest, stripPrefix: '' });
     expect(r.ok).toBe(true);
     expect(await readFile(join(dest, 'src', 'a.txt'), 'utf8')).toBe('hello');
+  });
+});
+
+describe('memberArgs', () => {
+  // unzip matches against the *stored* names, where a folder is "sub/". Passing
+  // the bare path matches nothing at all.
+  it('expands a folder into the entry and its contents for zip', () => {
+    expect(memberArgs('zip', [{ path: 'src/sub', isDir: true }])).toEqual(['src/sub/', 'src/sub/*']);
+  });
+
+  it('leaves a zip file member alone', () => {
+    expect(memberArgs('zip', [{ path: 'src/a.txt', isDir: false }])).toEqual(['src/a.txt']);
+  });
+
+  it('passes paths straight through for tar and 7z, which expand folders themselves', () => {
+    const members = [{ path: 'src/sub', isDir: true }];
+    expect(memberArgs('tar.gz', members)).toEqual(['src/sub']);
+    expect(memberArgs('7z', members)).toEqual(['src/sub']);
+  });
+});
+
+// The bug this fixes: browsing inside `src/` and copying `a.txt` used to
+// recreate `src/a.txt` at the destination, because every tool preserves the
+// member's full inner path.
+describe('extracting relative to the folder being browsed', () => {
+  for (const [format, name] of FORMATS) {
+    it(`lifts a file out of its inner folder (${format})`, async () => {
+      const archivePath = await pack(format, name);
+      const dest = join(root, `strip-file-${format}`);
+      await mkdir(dest);
+
+      const r = await runArchiveOp('t', {
+        kind: 'extract',
+        archivePath,
+        members: [{ path: 'src/a.txt', isDir: false }],
+        dest,
+        stripPrefix: 'src',
+      });
+      expect(r.ok, JSON.stringify(r)).toBe(true);
+      expect(await readFile(join(dest, 'a.txt'), 'utf8')).toBe('hello');
+      expect(existsSync(join(dest, 'src'))).toBe(false);
+    });
+
+    it(`lifts a folder out with its subtree intact (${format})`, async () => {
+      const archivePath = await pack(format, name);
+      const dest = join(root, `strip-dir-${format}`);
+      await mkdir(dest);
+
+      const r = await runArchiveOp('t', {
+        kind: 'extract',
+        archivePath,
+        members: [{ path: 'src/sub', isDir: true }],
+        dest,
+        stripPrefix: 'src',
+      });
+      expect(r.ok, JSON.stringify(r)).toBe(true);
+      expect(await readFile(join(dest, 'sub', 'b.txt'), 'utf8')).toBe('deep');
+      expect(existsSync(join(dest, 'src'))).toBe(false);
+    });
+  }
+
+  it('extracts several members at once', async () => {
+    const archivePath = await pack('zip', 't.zip');
+    const dest = join(root, 'strip-many');
+    await mkdir(dest);
+
+    const r = await runArchiveOp('t', {
+      kind: 'extract',
+      archivePath,
+      members: [{ path: 'src/a.txt', isDir: false }, { path: 'src/sub', isDir: true }],
+      dest,
+      stripPrefix: 'src',
+    });
+    expect(r.ok).toBe(true);
+    expect(existsSync(join(dest, 'a.txt'))).toBe(true);
+    expect(existsSync(join(dest, 'sub', 'b.txt'))).toBe(true);
+  });
+
+  it('refuses rather than clobbering an existing name', async () => {
+    const archivePath = await pack('zip', 't.zip');
+    const dest = join(root, 'strip-clash');
+    await mkdir(dest);
+    await writeFile(join(dest, 'a.txt'), 'do not lose me');
+
+    const r = await runArchiveOp('t', {
+      kind: 'extract',
+      archivePath,
+      members: [{ path: 'src/a.txt', isDir: false }],
+      dest,
+      stripPrefix: 'src',
+    });
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.error.kind).toBe('exists');
+    expect(await readFile(join(dest, 'a.txt'), 'utf8')).toBe('do not lose me');
+  });
+
+  it('leaves no staging directory behind', async () => {
+    const archivePath = await pack('zip', 't.zip');
+    const dest = join(root, 'strip-clean');
+    await mkdir(dest);
+    await runArchiveOp('t', {
+      kind: 'extract',
+      archivePath,
+      members: [{ path: 'src/a.txt', isDir: false }],
+      dest,
+      stripPrefix: 'src',
+    });
+    const { readdir } = await import('node:fs/promises');
+    expect(await readdir(dest)).toEqual(['a.txt']);
+  });
+
+  it('keeps the inner path when browsing at the archive root', async () => {
+    const archivePath = await pack('zip', 't.zip');
+    const dest = join(root, 'strip-root');
+    await mkdir(dest);
+    const r = await runArchiveOp('t', {
+      kind: 'extract',
+      archivePath,
+      members: [{ path: 'src', isDir: true }],
+      dest,
+      stripPrefix: '',
+    });
+    expect(r.ok).toBe(true);
+    expect(existsSync(join(dest, 'src', 'a.txt'))).toBe(true);
   });
 });

@@ -1,8 +1,9 @@
 // src/main/archive/index.ts
-import { mkdtemp, stat } from 'node:fs/promises';
+import { mkdtemp, rename, rm, stat } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
-import type { ArchiveEntry, ArchiveFormat, ArchiveOp, Result } from '@shared/types';
+import type { ArchiveEntry, ArchiveFormat, ArchiveMember, ArchiveOp, Result } from '@shared/types';
 import { detectFormat, tarCompressionFlag, toolFor } from './format';
 import { parseSevenZipListing, parseTarListing, parseZipListing } from './parse';
 import { exec, sevenZipBinary } from './exec';
@@ -68,10 +69,48 @@ export async function listArchive(archivePath: string): Promise<Result<ArchiveEn
  */
 export function memberArgs(
   format: ArchiveFormat,
-  members: { path: string; isDir: boolean }[],
+  members: readonly ArchiveMember[],
 ): string[] {
   if (toolFor(format) !== 'zip') return members.map((m) => m.path);
   return members.flatMap((m) => (m.isDir ? [`${m.path}/`, `${m.path}/*`] : [m.path]));
+}
+
+/** Run the format's extractor for `memberPatterns` (empty = everything). */
+async function runExtract(
+  format: ArchiveFormat,
+  archivePath: string,
+  memberPatterns: string[],
+  dest: string,
+  signal: AbortSignal,
+): Promise<Result<void>> {
+  const tool = toolFor(format);
+
+  if (tool === 'zip') {
+    const args = ['-o', archivePath, ...memberPatterns, '-d', dest];
+    const r = await exec('/usr/bin/unzip', args, { signal });
+    // 11 is "nothing matched", which for a selection means the members were
+    // named wrongly — a real failure, unlike unzip's warning code 1.
+    if (r.code !== 0 && r.code !== 1) return failed(r.stderr || r.stdout, r.code);
+    return { ok: true, value: undefined };
+  }
+
+  if (tool === 'tar') {
+    const flag = tarCompressionFlag(format);
+    const args = ['-xf', archivePath, '-C', dest];
+    if (flag) args.splice(0, 0, flag);
+    if (memberPatterns.length > 0) args.push('--', ...memberPatterns);
+    const r = await exec('/usr/bin/tar', args, { signal });
+    if (r.code !== 0) return failed(r.stderr, r.code);
+    return { ok: true, value: undefined };
+  }
+
+  const bin = await sevenZipBinary();
+  if (!bin) return { ok: false, error: NO_SEVEN_ZIP };
+  const args = ['x', archivePath, `-o${dest}`, '-y'];
+  if (memberPatterns.length > 0) args.push('--', ...memberPatterns);
+  const r = await exec(bin, args, { signal });
+  if (r.code !== 0) return failed(r.stderr, r.code);
+  return { ok: true, value: undefined };
 }
 
 async function extract(
@@ -82,34 +121,45 @@ async function extract(
   if (!format) {
     return { ok: false, error: { kind: 'name-invalid', reason: 'unsupported archive' } };
   }
-  const tool = toolFor(format);
 
-  if (tool === 'zip') {
-    const args = ['-o', op.archivePath, ...op.members, '-d', op.dest];
-    const r = await exec('/usr/bin/unzip', args, { signal });
-    // 11 is "nothing matched", which for a selection means the members were
-    // named wrongly — a real failure, unlike unzip's warning code 1.
-    if (r.code !== 0 && r.code !== 1) return failed(r.stderr || r.stdout, r.code);
-    return { ok: true, value: undefined };
+  const strip = op.stripPrefix.replace(/^\/+/, '').replace(/\/+$/, '');
+  // Whole-archive extraction, or members already at the archive root: the
+  // paths the tool writes are the paths the user expects.
+  if (op.members.length === 0 || strip === '') {
+    return runExtract(format, op.archivePath, memberArgs(format, op.members), op.dest, signal);
   }
 
-  if (tool === 'tar') {
-    const flag = tarCompressionFlag(format);
-    const args = ['-xf', op.archivePath, '-C', op.dest];
-    if (flag) args.splice(0, 0, flag);
-    if (op.members.length > 0) args.push('--', ...op.members);
-    const r = await exec('/usr/bin/tar', args, { signal });
-    if (r.code !== 0) return failed(r.stderr, r.code);
-    return { ok: true, value: undefined };
+  // Otherwise every tool would recreate the member's full inner path under the
+  // destination. Extract into a staging directory *inside* the destination —
+  // same volume, so lifting the members out is a rename, not a copy — then
+  // move each one up to where the user actually asked for it.
+  let staging: string;
+  try {
+    staging = await mkdtemp(join(op.dest, '.gc-extract-'));
+  } catch (err) {
+    return { ok: false, error: mapFsError(err, op.dest) };
   }
 
-  const bin = await sevenZipBinary();
-  if (!bin) return { ok: false, error: NO_SEVEN_ZIP };
-  const args = ['x', op.archivePath, `-o${op.dest}`, '-y'];
-  if (op.members.length > 0) args.push('--', ...op.members);
-  const r = await exec(bin, args, { signal });
-  if (r.code !== 0) return failed(r.stderr, r.code);
-  return { ok: true, value: undefined };
+  try {
+    const r = await runExtract(format, op.archivePath, memberArgs(format, op.members), staging, signal);
+    if (!r.ok) return r;
+
+    for (const member of op.members) {
+      const from = join(staging, member.path);
+      const to = join(op.dest, basename(member.path));
+      // Refuse rather than clobber: extraction has no conflict prompt, and
+      // silently replacing a folder is not something to guess at.
+      if (existsSync(to)) return { ok: false, error: { kind: 'exists', path: to } };
+      try {
+        await rename(from, to);
+      } catch (err) {
+        return { ok: false, error: mapFsError(err, from) };
+      }
+    }
+    return { ok: true, value: undefined };
+  } finally {
+    await rm(staging, { recursive: true, force: true }).catch(() => {});
+  }
 }
 
 async function create(
@@ -177,11 +227,14 @@ export async function extractToTemp(
     return { ok: false, error: mapFsError(err, tmpdir()) };
   }
   const token = `temp-${Date.now()}`;
+  // No stripping here: the caller wants the member at its inner path so it can
+  // be found again below.
   const r = await runArchiveOp(token, {
     kind: 'extract',
     archivePath,
-    members: memberArgs(format, [{ path: member, isDir: false }]),
+    members: [{ path: member, isDir: false }],
     dest,
+    stripPrefix: '',
   });
   if (!r.ok) return r;
 

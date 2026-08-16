@@ -110,6 +110,9 @@ export function App() {
   const leftPathRef = useRef<HTMLInputElement>(null);
   const rightPathRef = useRef<HTMLInputElement>(null);
   const lastClickRef = useRef<{ side: PanelSide; index: number; time: number } | null>(null);
+  // Set when a plain click landed on an already-marked row; the selection is
+  // cleared on mouseup instead, so a drag starting from that row keeps it.
+  const pendingClearRef = useRef<PanelSide | null>(null);
   const DBL_CLICK_MS = 450;
   const cmdRef = useRef<HTMLInputElement>(null);
   const qsTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -323,7 +326,15 @@ export function App() {
           const dest = s.panels[s.activeSide === 'left' ? 'right' : 'left'];
           if (dest.source.kind !== 'fs') return;
           void runArchive(
-            { kind: 'extract', archivePath: active.source.archivePath, members: members.map((m) => m.path), dest: dest.path },
+            {
+              kind: 'extract',
+              archivePath: active.source.archivePath,
+              members,
+              dest: dest.path,
+              // Lift the members out of the folder being browsed, so what lands
+              // in the other panel is what the user can see selected.
+              stripPrefix: active.source.innerPath,
+            },
             'Extracting',
             `${members.length} item(s) → ${dest.path}`,
           );
@@ -657,12 +668,33 @@ export function App() {
 
     if (ev.shiftKey) {
       rangeSelect({ panel, setPanel: setSide, toIndex: index });
-    } else if (ev.metaKey) {
+      return;
+    }
+    if (ev.metaKey) {
       setSide({ cursor: index });
       toggleMark({ panel: { ...panel, cursor: index }, setPanel: setSide });
-    } else {
-      setSide({ cursor: index, selection: new Set() });
+      return;
     }
+
+    const entry = panel.entries[index];
+    const grabbedMarked = Boolean(entry) && panel.selection.has(entryKey(entry));
+    if (!grabbedMarked) {
+      setSide({ cursor: index, selection: new Set() });
+      return;
+    }
+
+    // Pressing on a row that is already marked must not clear the selection
+    // yet: mousedown fires before dragstart, so clearing here is what made a
+    // multi-file drag carry a single file. Defer the clear to mouseup, and
+    // cancel it if a drag actually starts.
+    setSide({ cursor: index });
+    pendingClearRef.current = side;
+    const onUp = () => {
+      const pendingSide = pendingClearRef.current;
+      pendingClearRef.current = null;
+      if (pendingSide) setPanel(pendingSide, { selection: new Set() });
+    };
+    document.addEventListener('mouseup', onUp, { once: true });
   };
 
   // Double-click navigation is handled via onRowMouseDown timing above, so
@@ -697,6 +729,8 @@ export function App() {
    * completely, so the two cannot share one drag.
    */
   const onRowDragStart = (side: PanelSide) => (index: number, ev: React.DragEvent) => {
+    // The click that began this drag was on a marked row; keep the marks.
+    pendingClearRef.current = null;
     const panel = useStore.getState().panels[side];
     if (panel.source.kind === 'archive') { ev.preventDefault(); return; }
     const paths = dragPaths(panel, index);
@@ -861,6 +895,9 @@ export function App() {
       void api.archive.cancel(token);
     },
     onSearchResults: (side: PanelSide, label: string, roots: string[], entries: FileEntry[]) => {
+      // Results open in their own tab so the folder you searched from is still
+      // one Cmd+1 away.
+      useStore.getState().newTab(side);
       const panel = useStore.getState().panels[side];
       showSearchResults(
         { panel, setPanel: (patch) => setPanel(side, patch) },

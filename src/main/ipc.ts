@@ -224,11 +224,20 @@ export function validateSearchQuery(value: unknown): SearchQuery {
 export function validateArchiveOp(value: unknown): ArchiveOp {
   if (!isRecord(value)) throw new TypeError('op must be an object');
   if (value.kind === 'extract') {
+    if (!Array.isArray(value.members)) throw new TypeError('op.members must be an array');
+    if (value.members.length > MAX_SYNC_PAIRS) throw new RangeError('op.members has too many items');
     return {
       kind: 'extract',
       archivePath: expectString(value.archivePath, 'op.archivePath'),
-      members: expectStringArray(value.members, 'op.members', { maxItems: MAX_SYNC_PAIRS }),
+      members: value.members.map((member, index) => {
+        if (!isRecord(member)) throw new TypeError(`op.members[${index}] must be an object`);
+        return {
+          path: expectString(member.path, `op.members[${index}].path`),
+          isDir: expectBoolean(member.isDir, `op.members[${index}].isDir`),
+        };
+      }),
       dest: expectString(value.dest, 'op.dest'),
+      stripPrefix: expectString(value.stripPrefix, 'op.stripPrefix', { allowEmpty: true }),
     };
   }
   if (value.kind === 'create') {
