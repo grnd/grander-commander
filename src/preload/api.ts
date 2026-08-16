@@ -1,4 +1,6 @@
-import type { FileEntry, ListDirOptions, Result, Volume, FileOp, OpId, OpEvent, ConflictAnswer, UpdateStatus } from '@shared/types';
+import type {
+  FileEntry, ListDirOptions, Result, Volume, FileOp, OpId, OpEvent, ConflictAnswer, UpdateStatus, MenuCommand,
+} from '@shared/types';
 
 export type GCApi = {
   fs: {
@@ -34,7 +36,7 @@ export type GCApi = {
     onExit(id: string, cb: (info: { exitCode: number; signal?: number }) => void): () => void;
   };
   menu: {
-    onCommand(cb: (cmd: string) => void): () => void;
+    onCommand(cb: (cmd: MenuCommand) => void): () => void;
     popupFileContext(args: {
       x: number;
       y: number;

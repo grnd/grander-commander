@@ -1,4 +1,4 @@
-import type { DialogState } from '@shared/types';
+import type { DialogState, FileEntry } from '@shared/types';
 import type { PanelSide, PanelState } from '@renderer/state/panelSlice';
 import { entryKey } from '@renderer/state/panelSlice';
 
@@ -16,8 +16,15 @@ function selectionPaths(panel: PanelState): string[] {
   return keys.map((k) => pathOf(panel, k));
 }
 
+export function selectionForContextTarget(panel: PanelState, entry: FileEntry): Set<string> {
+  if (entry.name === '..') return new Set();
+  const key = entryKey(entry);
+  return panel.selection.has(key) ? new Set(panel.selection) : new Set([key]);
+}
+
 type SetDialog = (d: DialogState | null) => void;
-type Api = { fs: { trash: (p: string[]) => Promise<{ ok: true } | { ok: false; error: unknown }> } };
+type TrashResult = { ok: true } | { ok: false; error: unknown };
+type Api = { fs: { trash: (p: string[]) => Promise<TrashResult> } };
 
 export function openMkdirDialog(ctx: { side: PanelSide; setDialog: SetDialog }) {
   ctx.setDialog({ kind: 'mkdir', side: ctx.side });
@@ -42,11 +49,12 @@ export function openMoveDialog(ctx: { active: PanelState; inactive: PanelState; 
   ctx.setDialog({ kind: 'move', sources, dstDefault: ctx.inactive.path });
 }
 
-export async function requestTrash(ctx: { panel: PanelState; api: Api; afterDone: () => void }) {
+export async function requestTrash(ctx: { panel: PanelState; api: Api; afterDone: () => void }): Promise<TrashResult | null> {
   const paths = selectionPaths(ctx.panel);
-  if (paths.length === 0) return;
-  await ctx.api.fs.trash(paths);
-  ctx.afterDone();
+  if (paths.length === 0) return null;
+  const result = await ctx.api.fs.trash(paths);
+  if (result.ok) ctx.afterDone();
+  return result;
 }
 
 export function requestDeleteConfirm(ctx: { panel: PanelState; setDialog: SetDialog }) {

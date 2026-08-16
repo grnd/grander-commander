@@ -1,4 +1,5 @@
 import { BrowserWindow, Menu, shell, type MenuItemConstructorOptions } from 'electron';
+import type { MenuCommand } from '@shared/types';
 import { openDefault, openWithChooser } from '../shell/openWith';
 
 export type FileContextArgs = {
@@ -12,7 +13,7 @@ export type FileContextArgs = {
 
 export function popupFileContext(win: BrowserWindow, args: FileContextArgs): void {
   const { x, y, fullPath, isDir, isDotDot, isAppBundle } = args;
-  const send = (cmd: string) => win.webContents.send('menu:command', cmd);
+  const send = (cmd: MenuCommand) => win.webContents.send('menu:command', cmd);
   const canOpenWith = !isDotDot && !isDir; // apps can open files (and .app bundles)
 
   const items: MenuItemConstructorOptions[] = [
@@ -31,7 +32,10 @@ export function popupFileContext(win: BrowserWindow, args: FileContextArgs): voi
     { type: 'separator' },
     { label: 'Copy Full Path', click: () => send('copyPath'), enabled: !isDotDot },
     ...(isDir && !isDotDot
-      ? [{ label: 'Add to Favorites', click: () => send('addToFavorites') } as MenuItemConstructorOptions]
+      ? [{
+          label: 'Add to Favorites',
+          click: () => send({ command: 'addToFavorites', targetPath: fullPath }),
+        } as MenuItemConstructorOptions]
       : []),
   ];
 

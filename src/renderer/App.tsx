@@ -28,10 +28,10 @@ import type { SortCol } from '@shared/types';
 import type { PanelState } from './state/panelSlice';
 import {
   openMkdirDialog, openRenameDialog, openCopyDialog, openMoveDialog,
-  requestTrash, requestDeleteConfirm,
+  requestTrash, requestDeleteConfirm, selectionForContextTarget,
 } from './commands/mutations';
 import { Dialogs } from './components/dialogs';
-import type { FileOp, OpEvent, OpId, ConflictAnswer } from '@shared/types';
+import type { FileOp, OpEvent, OpId, ConflictAnswer, OpError, MenuCommand } from '@shared/types';
 
 function applySort(
   panel: PanelState,
@@ -44,6 +44,21 @@ function applySort(
   const sorted = sortEntries(body, { col, dir });
   const entries = dotDot ? [dotDot, ...sorted] : sorted;
   setPanel({ sort: { col, dir }, entries });
+}
+
+function describeOpError(error: unknown): string {
+  if (!error || typeof error !== 'object' || !('kind' in error)) return 'Unknown error';
+  const opError = error as OpError;
+  switch (opError.kind) {
+    case 'permission': return `Permission denied: ${opError.path}`;
+    case 'not-found': return `Not found: ${opError.path}`;
+    case 'disk-full': return 'Disk full';
+    case 'cross-device': return `Cross-device move: ${opError.src} -> ${opError.dst}`;
+    case 'exists': return `Already exists: ${opError.path}`;
+    case 'name-invalid': return `Invalid name: ${opError.reason}`;
+    case 'unknown': return opError.message;
+    default: return 'Unknown error';
+  }
 }
 
 export function App() {
@@ -79,9 +94,9 @@ export function App() {
       useStore.setState({ volumes: vols });
       const home = vols.find((v) => v.kind === 'home')?.path ?? '/';
       // Load both panels
-      await navigateTo({ panel: state.panels.left, setPanel: (p) => setPanel('left', p), api, path: home });
+      await navigateTo({ panel: state.panels.left, setPanel: (p) => setPanel('left', p), api, path: home, requestKey: 'left' });
       const docs = `${home}/Documents`;
-      await navigateTo({ panel: state.panels.right, setPanel: (p) => setPanel('right', p), api, path: docs });
+      await navigateTo({ panel: state.panels.right, setPanel: (p) => setPanel('right', p), api, path: docs, requestKey: 'right' });
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -95,7 +110,7 @@ export function App() {
     const active = s.panels[s.activeSide];
     const setActive = (patch: Partial<typeof active>) => setPanel(s.activeSide, patch);
 
-    const navCtx = { panel: active, setPanel: setActive, api };
+    const navCtx = { panel: active, setPanel: setActive, api, requestKey: s.activeSide };
     const selCtx = { panel: active, setPanel: setActive };
 
     switch (cmd) {
@@ -125,7 +140,7 @@ export function App() {
       });
       case 'sameDirFromOther': {
         const other = s.panels[s.activeSide === 'left' ? 'right' : 'left'];
-        return navigateTo({ panel: active, setPanel: setActive, api, path: other.path });
+        return navigateTo({ panel: active, setPanel: setActive, api, path: other.path, requestKey: s.activeSide });
       }
       case 'markAndDown': {
         await toggleMark(selCtx);
@@ -144,9 +159,11 @@ export function App() {
       case 'toggleHidden': {
         const newShow = !active.showHidden;
         setActive({ showHidden: newShow });
-        return navigateTo({ panel: { ...active, showHidden: newShow }, setPanel: setActive, api, path: active.path });
+        return navigateTo({
+          panel: { ...active, showHidden: newShow }, setPanel: setActive, api, path: active.path, requestKey: s.activeSide,
+        });
       }
-      case 'refresh':         return navigateTo({ panel: active, setPanel: setActive, api, path: active.path });
+      case 'refresh':         return navigateTo({ panel: active, setPanel: setActive, api, path: active.path, requestKey: s.activeSide });
       case 'focusPathBar': {
         const el = (s.activeSide === 'left' ? leftPathRef : rightPathRef).current;
         if (el) { el.focus(); el.select(); }
@@ -189,8 +206,10 @@ export function App() {
           panel: active, api,
           afterDone: () => {
             const setSide = (p: Partial<typeof active>) => setPanel(s.activeSide, p);
-            navigateTo({ panel: active, setPanel: setSide, api, path: active.path });
+            void navigateTo({ panel: active, setPanel: setSide, api, path: active.path, requestKey: s.activeSide });
           },
+        }).then((result) => {
+          if (result && !result.ok) alert(`Move to Trash failed: ${describeOpError(result.error)}`);
         });
         return;
       case 'deleteConfirm':
@@ -216,7 +235,7 @@ export function App() {
             const side = useStore.getState().activeSide;
             const panel = useStore.getState().panels[side];
             const setSide = (p: Partial<typeof panel>) => setPanel(side, p);
-            await navigateTo({ panel, setPanel: setSide, api, path: panel.path });
+            await navigateTo({ panel, setPanel: setSide, api, path: panel.path, requestKey: side });
           })();
         })();
         return;
@@ -345,8 +364,16 @@ export function App() {
   }, [dispatch, setPanel]);
 
   useEffect(() => {
-    const unsub = api.menu.onCommand((cmd) => {
-      void dispatch(cmd as import('./commands').CommandName);
+    const unsub = api.menu.onCommand((message: MenuCommand) => {
+      if (typeof message !== 'string') {
+        if (message.command === 'addToFavorites' && message.targetPath) {
+          useStore.getState().addFavorite(message.targetPath);
+          return;
+        }
+        void dispatch(message.command as import('./commands').CommandName);
+        return;
+      }
+      void dispatch(message as import('./commands').CommandName);
     });
     return unsub;
   }, [dispatch, api]);
@@ -392,7 +419,7 @@ export function App() {
 
     if (isDouble) {
       lastClickRef.current = null;
-      navigateInto({ panel: { ...panel, cursor: index }, setPanel: setSide, api });
+      navigateInto({ panel: { ...panel, cursor: index }, setPanel: setSide, api, requestKey: side });
       return;
     }
     lastClickRef.current = { side, index, time: now };
@@ -415,12 +442,12 @@ export function App() {
   const onRowContextMenu = (side: PanelSide) => (index: number, ev: React.MouseEvent) => {
     ev.preventDefault();
     useStore.setState({ activeSide: side });
-    // Move cursor onto the right-clicked row without altering existing selection
-    setPanel(side, { cursor: index });
     const panel = useStore.getState().panels[side];
     const entry = panel.entries[index];
     if (!entry) return;
     const isDotDot = entry.name === '..';
+    const nextSelection = selectionForContextTarget(panel, entry);
+    setPanel(side, { cursor: index, selection: nextSelection });
     const name = entry.ext ? `${entry.name}.${entry.ext}` : entry.name;
     const fullPath = panel.path === '/' ? `/${name}` : `${panel.path}/${name}`;
     void api.menu.popupFileContext({
@@ -436,7 +463,7 @@ export function App() {
   const onPathCommit = (side: PanelSide) => async (p: string): Promise<boolean> => {
     const panel = useStore.getState().panels[side];
     const setSide = (patch: Partial<typeof panel>) => setPanel(side, patch);
-    return navigateTo({ panel, setPanel: setSide, api, path: p });
+    return navigateTo({ panel, setPanel: setSide, api, path: p, requestKey: side });
   };
 
   const onSort = (side: PanelSide) => (col: SortCol) => {
@@ -447,7 +474,7 @@ export function App() {
   const refreshSide = (side: PanelSide) => {
     const panel = useStore.getState().panels[side];
     const setSide = (p: Partial<typeof panel>) => setPanel(side, p);
-    return navigateTo({ panel, setPanel: setSide, api, path: panel.path });
+    return navigateTo({ panel, setPanel: setSide, api, path: panel.path, requestKey: side });
   };
 
   const runOp = async (op: FileOp, title: string, side: PanelSide, otherSide: PanelSide) => {
@@ -457,7 +484,18 @@ export function App() {
       kind: 'progress', opId: id, title,
       filesDone: 0, filesTotal: op.sources.length, bytesDone: 0, bytesTotal: 0, currentFile: '',
     });
-    const unsub = api.ops.subscribe(id, async (ev: OpEvent) => {
+    let settled = false;
+    const subscription: { unsubscribe: null | (() => void) } = { unsubscribe: null };
+    const closeAndRefresh = async () => {
+      if (settled) return;
+      settled = true;
+      setDialog(null);
+      const unsubscribe = subscription.unsubscribe;
+      subscription.unsubscribe = null;
+      unsubscribe?.();
+      await Promise.all([refreshSide(side), refreshSide(otherSide)]);
+    };
+    subscription.unsubscribe = api.ops.subscribe(id, async (ev: OpEvent) => {
       if (ev.kind === 'progress') {
         setDialog({
           kind: 'progress', opId: id, title,
@@ -467,13 +505,17 @@ export function App() {
       } else if (ev.kind === 'conflict') {
         setDialog({ kind: 'overwrite', opId: id, srcPath: ev.srcPath, dstPath: ev.dstPath });
       } else if (ev.kind === 'error') {
-        setDialog(null);
+        await closeAndRefresh();
+        alert(`${op.kind === 'copy' ? 'Copy' : 'Move'} failed: ${describeOpError(ev.error)}`);
       } else if (ev.kind === 'complete' || ev.kind === 'cancelled') {
-        setDialog(null);
-        unsub();
-        await Promise.all([refreshSide(side), refreshSide(otherSide)]);
+        await closeAndRefresh();
       }
     });
+    if (settled) {
+      const unsubscribe = subscription.unsubscribe;
+      subscription.unsubscribe = null;
+      unsubscribe?.();
+    }
   };
 
   const dialogHandlers = {
@@ -529,14 +571,14 @@ export function App() {
       <DriveBar volumes={state.volumes} currentPath={active.path} onPick={(p) => {
         const panel = useStore.getState().panels[state.activeSide];
         const setSide = (patch: Partial<typeof panel>) => setPanel(state.activeSide, patch);
-        navigateTo({ panel, setPanel: setSide, api, path: p });
+        void navigateTo({ panel, setPanel: setSide, api, path: p, requestKey: state.activeSide });
       }} />
       <FavoritesBar
         favorites={state.favorites}
         onPick={(p) => {
           const panel = useStore.getState().panels[state.activeSide];
           const setSide = (patch: Partial<typeof panel>) => setPanel(state.activeSide, patch);
-          void navigateTo({ panel, setPanel: setSide, api, path: p });
+          void navigateTo({ panel, setPanel: setSide, api, path: p, requestKey: state.activeSide });
         }}
         onEdit={(f) => useStore.getState().setDialog({
           kind: 'favoriteEdit', path: f.path, label: f.label ?? '',
@@ -631,7 +673,7 @@ export function App() {
             const side = useStore.getState().activeSide;
             const panel = useStore.getState().panels[side];
             const setSide = (patch: Partial<typeof panel>) => setPanel(side, patch);
-            void navigateTo({ panel, setPanel: setSide, api, path: p });
+            void navigateTo({ panel, setPanel: setSide, api, path: p, requestKey: side });
           }}
           onCancel={() => useStore.getState().setFavoritePickerOpen(false)}
         />

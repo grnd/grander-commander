@@ -1,6 +1,6 @@
 // src/main/ops/runner.ts
-import { stat, rename, unlink, mkdir as nodeMkdir } from 'node:fs/promises';
-import { join, basename } from 'node:path';
+import { mkdir as nodeMkdir, readdir, rename, stat } from 'node:fs/promises';
+import { basename, join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { copyFile } from '../fs/copyFile';
 import { trashPaths } from '../fs/trash';
@@ -26,7 +26,7 @@ export class OpRunner {
       bytesTotal: 0,
     };
     this.ops.set(id, running);
-    this.runningPromise.set(id, this.run(running));
+    this.runningPromise.set(id, Promise.resolve().then(() => this.run(running)));
     return id;
   }
 
@@ -71,10 +71,24 @@ export class OpRunner {
   private async sizeOf(path: string): Promise<number> {
     try {
       const s = await stat(path);
+      if (s.isDirectory()) {
+        const entries = await readdir(path);
+        let total = 0;
+        for (const entry of entries) total += await this.sizeOf(join(path, entry));
+        return total;
+      }
       return s.size;
     } catch {
       return 0;
     }
+  }
+
+  private isValidBasename(name: string): boolean {
+    return !!name
+      && name === basename(name)
+      && name !== '.'
+      && name !== '..'
+      && !name.includes('\0');
   }
 
   private async run(r: RunningOp): Promise<void> {
@@ -98,13 +112,16 @@ export class OpRunner {
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      if (msg === 'cancelled' || msg === 'copyFile failed') {
+      if (msg === 'cancelled' || msg === 'copyFile failed' || msg === 'trashPaths failed' || msg === 'rename answer invalid') {
         // already emitted cancelled/error inside processOne
         return;
       }
       this.emit(r, { kind: 'error', error: { kind: 'unknown', message: msg }, path: '' });
     } finally {
-      setTimeout(() => this.ops.delete(r.id), 5_000);
+      setTimeout(() => {
+        this.ops.delete(r.id);
+        this.runningPromise.delete(r.id);
+      }, 5_000);
     }
   }
 
@@ -137,22 +154,35 @@ export class OpRunner {
         }
         if (answer.action === 'skip') return true;
         if (answer.action === 'rename') {
+          if (!this.isValidBasename(answer.newName)) {
+            this.emit(r, {
+              kind: 'error',
+              error: { kind: 'name-invalid', reason: 'rename target must be a basename' },
+              path: initialDst,
+            });
+            throw new Error('rename answer invalid');
+          }
           dst = join(r.op.dst, answer.newName);
+          let renamedDstExists = true;
+          try {
+            await stat(dst);
+          } catch (err) {
+            const e = err as NodeJS.ErrnoException;
+            if (e.code && e.code !== 'ENOENT') throw err;
+            renamedDstExists = false;
+          }
+          if (renamedDstExists) {
+            this.emit(r, { kind: 'error', error: { kind: 'exists', path: dst }, path: dst });
+            throw new Error('rename answer invalid');
+          }
           overwriteThis = false;
         }
         if (answer.action === 'overwrite') overwriteThis = true;
       }
     }
 
-    if (r.op.kind === 'move') {
+    if (r.op.kind === 'move' && !overwriteThis) {
       try {
-        if (overwriteThis) {
-          try {
-            await unlink(dst);
-          } catch {
-            /* ignore */
-          }
-        }
         await rename(src, dst);
         return false;
       } catch (err) {
@@ -190,11 +220,15 @@ export class OpRunner {
       }
       throw new Error('copyFile failed');
     }
-    const sz = await this.sizeOf(dst);
+    const sz = await this.sizeOf(src);
     r.bytesDone += sz;
 
     if (r.op.kind === 'move') {
-      await trashPaths([src]);
+      const trashRes = await trashPaths([src]);
+      if (!trashRes.ok) {
+        this.emit(r, { kind: 'error', error: trashRes.error, path: src });
+        throw new Error('trashPaths failed');
+      }
     }
     return false;
   }

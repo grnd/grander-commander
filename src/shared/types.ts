@@ -42,6 +42,10 @@ export type ListDirOptions = { showHidden: boolean };
 // Noise files that are ALWAYS hidden regardless of showHidden setting
 export const NOISE_FILENAMES = new Set(['.DS_Store', 'Icon\r']);
 
+export type MenuCommand =
+  | string
+  | { command: string; targetPath?: string };
+
 // ---- M2: mutation ops ----
 
 export type OpId = string;

@@ -14,7 +14,10 @@ export type NavCtx = {
   panel: PanelState;
   setPanel: (patch: Partial<PanelState>) => void;
   api: Api;
+  requestKey?: string;
 };
+
+const latestNavRequest = new Map<string, number>();
 
 export async function cursorMove(ctx: Omit<NavCtx, 'api'> & { delta: number }) {
   const next = Math.max(0, Math.min(ctx.panel.entries.length - 1, ctx.panel.cursor + ctx.delta));
@@ -43,8 +46,12 @@ function describeError(e: OpError): string {
 }
 
 async function loadInto(ctx: NavCtx, newPath: string, cursorOnName?: string): Promise<boolean> {
+  const requestKey = ctx.requestKey ?? '__default__';
+  const requestId = (latestNavRequest.get(requestKey) ?? 0) + 1;
+  latestNavRequest.set(requestKey, requestId);
   ctx.setPanel({ loading: true, error: null });
   const r = await ctx.api.fs.listDir(newPath, { showHidden: ctx.panel.showHidden });
+  if (latestNavRequest.get(requestKey) !== requestId) return false;
   if (!r.ok) {
     ctx.setPanel({ loading: false, error: describeError(r.error) });
     return false;
