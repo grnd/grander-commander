@@ -13,7 +13,7 @@ export function buildMenuTemplate(): MenuItemConstructorOptions[] {
   return [
     ...(isMac
       ? [{
-          label: 'GranderCommander',
+          label: 'Grander Commander',
           submenu: [
             { role: 'about' as const },
             { label: 'Check for Updates…', click: () => void checkForUpdates() },
@@ -85,7 +85,7 @@ async function createWindow() {
     height: 800,
     minWidth: 800,
     minHeight: 500,
-    title: 'GranderCommander',
+    title: 'Grander Commander',
     webPreferences: {
       preload: join(__dirname, '../preload/preload.mjs'),
       contextIsolation: true,

@@ -25,6 +25,9 @@ export function UpdateBanner() {
       return (
         <div className="gc-update-banner" role="status">
           <span>Version {status.version} is available.</span>
+          <button className="gc-update-link" onClick={() => void window.gc.update.releaseNotes()}>
+            What&apos;s new
+          </button>
           <button onClick={() => void window.gc.update.download()}>Download</button>
           <button className="gc-update-dismiss" onClick={() => setDismissed(status.version)}>
             Later
@@ -41,6 +44,9 @@ export function UpdateBanner() {
       return (
         <div className="gc-update-banner" role="status">
           <span>Version {status.version} is ready to install.</span>
+          <button className="gc-update-link" onClick={() => void window.gc.update.releaseNotes()}>
+            What&apos;s new
+          </button>
           <button onClick={() => void window.gc.update.install()}>Restart &amp; Install</button>
           <button className="gc-update-dismiss" onClick={() => setDismissed(status.version)}>
             Later

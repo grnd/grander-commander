@@ -254,3 +254,12 @@ body {
   color: #fff;
   border: 1px solid rgba(255, 255, 255, 0.5);
 }
+
+/* "What's new" reads as a link, not a third competing button. */
+.gc-update-banner .gc-update-link {
+  background: transparent;
+  border: none;
+  color: #fff;
+  text-decoration: underline;
+  padding: 1px 2px;
+}

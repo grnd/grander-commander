@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, shell } from 'electron';
 // electron-updater is CommonJS while the main bundle is ESM, so `autoUpdater`
 // is not available as a named export — it has to come off the default export.
 // Importing it the obvious way fails at load with a SyntaxError.
@@ -6,7 +6,7 @@ import electronUpdater, { type AppUpdater } from 'electron-updater';
 import type { UpdateStatus } from '@shared/types';
 
 const { autoUpdater } = electronUpdater as unknown as { autoUpdater: AppUpdater };
-import { DEFAULT_REPO, latestFeedUrl, tagFeedUrl, tagFromLatestRedirect } from './feed';
+import { DEFAULT_REPO, latestFeedUrl, releaseNotesUrl, tagFeedUrl, tagFromLatestRedirect } from './feed';
 
 let initialized = false;
 let current: UpdateStatus = { kind: 'idle' };
@@ -44,7 +44,7 @@ async function resolveLatestTag(repo: string): Promise<string | null> {
 
 function wireHandlers(): void {
   autoUpdater.on('update-available', (info) => {
-    broadcast({ kind: 'available', version: info.version });
+    broadcast({ kind: 'available', version: info.version, releaseUrl: releaseNotesUrl(info.version) });
   });
   autoUpdater.on('update-not-available', () => {
     broadcast({ kind: 'up-to-date', checkedAt: Date.now() });
@@ -53,7 +53,7 @@ function wireHandlers(): void {
     broadcast({ kind: 'downloading', percent: Math.round(p.percent) });
   });
   autoUpdater.on('update-downloaded', (info) => {
-    broadcast({ kind: 'ready', version: info.version });
+    broadcast({ kind: 'ready', version: info.version, releaseUrl: releaseNotesUrl(info.version) });
   });
   autoUpdater.on('error', (err) => {
     broadcast({ kind: 'error', message: err?.message ?? String(err) });
@@ -114,4 +114,15 @@ export async function downloadUpdate(): Promise<void> {
 export function quitAndInstall(): void {
   if (!app.isPackaged) return;
   autoUpdater.quitAndInstall();
+}
+
+/**
+ * Opens the release page for whatever update is currently on offer. The URL is
+ * held here rather than passed in from the renderer, so a compromised renderer
+ * cannot hand an arbitrary URL to shell.openExternal.
+ */
+export function openReleaseNotes(): void {
+  const url =
+    current.kind === 'available' || current.kind === 'ready' ? current.releaseUrl : null;
+  if (url) void shell.openExternal(url);
 }

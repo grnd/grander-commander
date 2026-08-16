@@ -82,6 +82,7 @@ const api: GCApi = {
     download: () => ipcRenderer.invoke('update:download'),
     install: () => ipcRenderer.invoke('update:install'),
     status: () => ipcRenderer.invoke('update:status'),
+    releaseNotes: () => ipcRenderer.invoke('update:releaseNotes'),
     onStatus: (cb) => {
       const listener = (_: unknown, s: unknown) => cb(s as never);
       ipcRenderer.on('update:status', listener);

@@ -8,7 +8,7 @@ let emit: ((s: UpdateStatus) => void) | null = null;
 function mockUpdateApi(initial: UpdateStatus = { kind: 'idle' }) {
   emit = null;
   const api = {
-    check: vi.fn(), download: vi.fn(), install: vi.fn(),
+    check: vi.fn(), download: vi.fn(), install: vi.fn(), releaseNotes: vi.fn(),
     status: vi.fn().mockResolvedValue(initial),
     onStatus: vi.fn((cb: (s: UpdateStatus) => void) => { emit = cb; return () => {}; }),
   };
@@ -44,7 +44,7 @@ describe('UpdateBanner', () => {
     const api = mockUpdateApi();
     render(<UpdateBanner />);
     await waitFor(() => expect(emit).toBeTypeOf('function'));
-    emit!({ kind: 'available', version: '0.2.0' });
+    emit!({ kind: 'available', version: '0.2.0', releaseUrl: 'https://x/tag/v0.2.0' });
     await screen.findByText(/0\.2\.0 is available/);
     fireEvent.click(screen.getByRole('button', { name: 'Download' }));
     expect(api.download).toHaveBeenCalledOnce();
@@ -54,7 +54,7 @@ describe('UpdateBanner', () => {
     const api = mockUpdateApi();
     render(<UpdateBanner />);
     await waitFor(() => expect(emit).toBeTypeOf('function'));
-    emit!({ kind: 'ready', version: '0.2.0' });
+    emit!({ kind: 'ready', version: '0.2.0', releaseUrl: 'https://x/tag/v0.2.0' });
     await screen.findByText(/ready to install/);
     fireEvent.click(screen.getByRole('button', { name: /Restart/ }));
     expect(api.install).toHaveBeenCalledOnce();
@@ -64,15 +64,26 @@ describe('UpdateBanner', () => {
     render(<UpdateBanner />);
     await waitFor(() => expect(emit).toBeTypeOf('function'));
 
-    emit!({ kind: 'available', version: '0.2.0' });
+    emit!({ kind: 'available', version: '0.2.0', releaseUrl: 'https://x/tag/v0.2.0' });
     await screen.findByText(/0\.2\.0 is available/);
     fireEvent.click(screen.getByRole('button', { name: 'Later' }));
     await waitFor(() => expect(screen.queryByText(/0\.2\.0 is available/)).toBeNull());
 
     // Dismissing 0.2.0 must not suppress 0.3.0 — otherwise one "Later" click
     // silently opts the user out of every future update.
-    emit!({ kind: 'available', version: '0.3.0' });
+    emit!({ kind: 'available', version: '0.3.0', releaseUrl: 'https://x/tag/v0.3.0' });
     await screen.findByText(/0\.3\.0 is available/);
+  });
+
+  it('offers release notes for an available update', async () => {
+    const api = mockUpdateApi();
+    render(<UpdateBanner />);
+    await waitFor(() => expect(emit).toBeTypeOf('function'));
+    emit!({ kind: 'available', version: '0.2.0', releaseUrl: 'https://x/tag/v0.2.0' });
+    await screen.findByText(/0\.2\.0 is available/);
+    fireEvent.click(screen.getByRole('button', { name: /What's new/ }));
+    // Main holds the URL; the renderer never passes one to openExternal.
+    expect(api.releaseNotes).toHaveBeenCalledOnce();
   });
 });
 

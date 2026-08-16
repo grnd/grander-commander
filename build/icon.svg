@@ -1,87 +1,68 @@
-<svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
   <defs>
+    <!-- Deep blue, echoing Total Commander's classic panel chrome. -->
     <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#2d5ca8"/>
-      <stop offset="0.6" stop-color="#163a77"/>
-      <stop offset="1" stop-color="#0a1e4a"/>
+      <stop offset="0" stop-color="#2C6BB5"/>
+      <stop offset="1" stop-color="#14315C"/>
     </linearGradient>
-    <linearGradient id="accent" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#ffd166"/>
-      <stop offset="1" stop-color="#f08a1c"/>
+    <linearGradient id="paneActive" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#E8EEF6"/>
     </linearGradient>
-    <linearGradient id="panel" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#fafafa"/>
-      <stop offset="1" stop-color="#e4e4e4"/>
+    <linearGradient id="paneIdle" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#D3DEEC"/>
+      <stop offset="1" stop-color="#B6C6DC"/>
     </linearGradient>
-    <filter id="sh" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#000" flood-opacity="0.3"/>
+    <!-- Big Sur icons sit on a rounded square with a soft top light. -->
+    <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.20"/>
+      <stop offset="0.5" stop-color="#FFFFFF" stop-opacity="0.03"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="drop" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#08182F" flood-opacity="0.28"/>
     </filter>
   </defs>
 
-  <!-- Rounded-square base (macOS squircle-ish) -->
-  <rect x="64" y="64" width="896" height="896" rx="200" ry="200" fill="url(#bg)"/>
+  <!-- macOS squircle: 1024 grid, art inset to the standard 824 safe area. -->
+  <g transform="translate(100,100)">
+    <rect width="824" height="824" rx="185" ry="185" fill="url(#bg)"/>
+    <rect width="824" height="824" rx="185" ry="185" fill="url(#sheen)"/>
 
-  <!-- Inner window chrome (subtle top highlight) -->
-  <rect x="64" y="64" width="896" height="240" rx="200" ry="200" fill="#fff" opacity="0.06"/>
+    <g filter="url(#drop)">
+      <!-- Left pane: active, brighter, with a selected row. -->
+      <rect x="86" y="150" width="308" height="524" rx="26" fill="url(#paneActive)"/>
+      <rect x="86" y="150" width="308" height="60" rx="26" fill="#3E7FD0"/>
+      <rect x="86" y="184" width="308" height="26" fill="#3E7FD0"/>
 
-  <!-- Left panel -->
-  <g filter="url(#sh)">
-    <rect x="150" y="210" width="340" height="580" rx="20" ry="20" fill="url(#panel)"/>
-  </g>
-  <!-- Right panel -->
-  <g filter="url(#sh)">
-    <rect x="534" y="210" width="340" height="580" rx="20" ry="20" fill="url(#panel)"/>
-  </g>
+      <!-- Right pane: inactive, receded. -->
+      <rect x="430" y="150" width="308" height="524" rx="26" fill="url(#paneIdle)"/>
+      <rect x="430" y="150" width="308" height="60" rx="26" fill="#7E97B8"/>
+      <rect x="430" y="184" width="308" height="26" fill="#7E97B8"/>
+    </g>
 
-  <!-- Column header strip — left -->
-  <rect x="150" y="210" width="340" height="44" fill="#d6d3c4"/>
-  <rect x="534" y="210" width="340" height="44" fill="#d6d3c4"/>
-  <rect x="150" y="250" width="340" height="2" fill="#9a9684"/>
-  <rect x="534" y="250" width="340" height="2" fill="#9a9684"/>
+    <!-- Left pane rows; the third is the cursor row. -->
+    <g fill="#9FB3CC">
+      <rect x="126" y="248" width="228" height="22" rx="11"/>
+      <rect x="126" y="300" width="196" height="22" rx="11"/>
+    </g>
+    <rect x="106" y="344" width="268" height="42" rx="12" fill="#F5A623"/>
+    <g fill="#9FB3CC">
+      <rect x="126" y="410" width="212" height="22" rx="11"/>
+      <rect x="126" y="462" width="168" height="22" rx="11"/>
+      <rect x="126" y="514" width="228" height="22" rx="11"/>
+      <rect x="126" y="566" width="150" height="22" rx="11"/>
+    </g>
 
-  <!-- Cursor row on left (active) -->
-  <rect x="150" y="420" width="340" height="54" fill="url(#accent)"/>
-
-  <!-- Active pane outline -->
-  <rect x="146" y="206" width="348" height="588" rx="22" ry="22" fill="none" stroke="#ffcc66" stroke-width="6"/>
-
-  <!-- File rows (simulated) — left -->
-  <g fill="#5a5a5a">
-    <rect x="180" y="284" width="220" height="14" rx="3"/>
-    <rect x="180" y="334" width="260" height="14" rx="3"/>
-    <rect x="180" y="384" width="180" height="14" rx="3"/>
-    <!-- skip 420-474 (cursor row) -->
-    <rect x="180" y="504" width="240" height="14" rx="3"/>
-    <rect x="180" y="554" width="200" height="14" rx="3"/>
-    <rect x="180" y="604" width="180" height="14" rx="3"/>
-    <rect x="180" y="654" width="260" height="14" rx="3"/>
-    <rect x="180" y="704" width="220" height="14" rx="3"/>
-    <rect x="180" y="754" width="200" height="14" rx="3"/>
-  </g>
-
-  <!-- Cursor row label (bolder) -->
-  <rect x="180" y="444" width="250" height="14" rx="3" fill="#1a1a1a"/>
-
-  <!-- File rows — right -->
-  <g fill="#5a5a5a">
-    <rect x="564" y="284" width="220" height="14" rx="3"/>
-    <rect x="564" y="334" width="180" height="14" rx="3"/>
-    <rect x="564" y="384" width="260" height="14" rx="3"/>
-    <rect x="564" y="434" width="200" height="14" rx="3"/>
-    <rect x="564" y="484" width="240" height="14" rx="3"/>
-    <rect x="564" y="534" width="180" height="14" rx="3"/>
-    <rect x="564" y="584" width="200" height="14" rx="3"/>
-    <rect x="564" y="634" width="260" height="14" rx="3"/>
-    <rect x="564" y="684" width="220" height="14" rx="3"/>
-    <rect x="564" y="734" width="240" height="14" rx="3"/>
-  </g>
-
-  <!-- Little folder glyph on left first row (decorative) -->
-  <path d="M158 286 h12 l4 -4 h10 l4 4 h20 v20 h-50 z" fill="#5a5a5a" opacity="0"/>
-
-  <!-- Bottom "GC" monogram strip -->
-  <g transform="translate(150, 830)">
-    <rect x="0" y="0" width="724" height="76" rx="14" ry="14" fill="#0a1e4a" stroke="url(#accent)" stroke-width="4"/>
-    <text x="362" y="55" font-family="ui-monospace, Menlo, 'SF Mono', monospace" font-size="44" font-weight="800" fill="url(#accent)" text-anchor="middle">GRANDER · COMMANDER</text>
+    <!-- Right pane rows, dimmer to read as unfocused. -->
+    <g fill="#93A7C0" opacity="0.75">
+      <rect x="470" y="248" width="212" height="22" rx="11"/>
+      <rect x="470" y="300" width="168" height="22" rx="11"/>
+      <rect x="470" y="352" width="228" height="22" rx="11"/>
+      <rect x="470" y="404" width="150" height="22" rx="11"/>
+      <rect x="470" y="456" width="196" height="22" rx="11"/>
+      <rect x="470" y="508" width="212" height="22" rx="11"/>
+      <rect x="470" y="560" width="176" height="22" rx="11"/>
+    </g>
   </g>
 </svg>
