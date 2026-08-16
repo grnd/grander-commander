@@ -4,17 +4,25 @@ Rolling list of what's next. Grouped by milestone. Check off as we ship.
 
 ## M3 — Power user
 
-- [ ] **Archives**: open `.zip` / `.tar.gz` / `.7z` as a virtual panel (enter, extract selection, create). basically let me travel inside an archive, without extracting the archive first. just like in total commander. 
-- [ ] **Multi-rename tool**: regex find/replace, counter `{n}`, case transforms, preview table, dry-run diff.
-- [ ] **File compare**: diff two marked files side-by-side (use `diff` + a simple viewer).
-- [ ] **Folder sync**: dual-panel diff — left-only / right-only / differ / same, with Copy-missing and Mirror actions.
-- [ ] **Search panel**: `Cmd+F` opens a global search (name + content regex, size/date filters), results materialise as a virtual panel.
-- [ ] **Tabbed panels**: per-panel tabs with `Cmd+T` / `Cmd+W` / `Cmd+{1..9}`.
-- [ ] **Bookmarks with hotkeys**: `Ctrl+1..9` to jump, `Ctrl+Shift+1..9` to set.
-- [ ] **Internal viewer**: `F3` opens a read-only viewer with text / hex / image modes.
-- [ ] **Drag and drop** between panels and to/from Finder.
-- [ ] **Command-line completion**: path + executable completion for the bottom cmdline.
-- [ ] Ctrl+q - quick preview (turns the other pane to an internal viewer, just like Total Commander)
+- [x] **Archives**: open `.zip` / `.tar.gz` / `.7z` as a virtual panel (enter, extract selection, create). Driven by the tools macOS ships (`unzip`/`zip`, `tar`); 7-Zip is looked up at runtime and reports `brew install sevenzip` when missing.
+- [x] **Multi-rename tool**: regex find/replace, counter `{n}`, case transforms, preview table, dry-run diff. `Ctrl+M`.
+- [x] **File compare**: diff two marked files side-by-side. `Cmd+D`. Uses an in-tree Myers diff rather than shelling out — the output has to be *aligned rows*, which unified-diff text cannot give back losslessly.
+- [x] **Folder sync**: dual-panel diff — left-only / right-only / differ / same, with Copy-missing and Mirror actions. `Cmd+Y`.
+- [x] **Search panel**: `Cmd+F` opens a global search (name glob/regex + content regex, size/date filters), results materialise as a virtual panel.
+- [x] **Tabbed panels**: per-panel tabs with `Cmd+T` / `Cmd+W` / `Cmd+{1..9}`.
+- [x] **Bookmarks with hotkeys**: `Ctrl+1..9` to jump, `Ctrl+Shift+1..9` to set.
+- [x] **Internal viewer**: `F3` opens a read-only viewer with text / hex / image modes.
+- [x] **Drag and drop** between panels and to/from Finder (`Alt`+drag for the Finder direction — Electron's native drag cannot share a gesture with an in-app HTML5 drag).
+- [x] **Command-line completion**: path + executable completion for the bottom cmdline. `Tab`, then `Tab` / `Shift+Tab` to cycle.
+- [x] Ctrl+q - quick preview (turns the other pane to an internal viewer, just like Total Commander)
+
+Follow-ups this milestone left behind:
+
+- [ ] **Archive write-through**: rename/delete *inside* an archive, and drag-drop into one. Today an archive panel is read-only apart from extraction.
+- [ ] **Search progress**: results arrive in one capped batch (5000 hits / 30s). Streaming them would need an ops-style event bridge.
+- [ ] **Pack/extract progress**: the busy dialog is indeterminate because the tools report nothing parseable on stdout.
+- [ ] **Tabs do not persist** across restarts.
+
 
 ## M4 — Release
 
@@ -50,7 +58,7 @@ Rolling list of what's next. Grouped by milestone. Check off as we ship.
 
 ## Tests
 
-- [ ] Component tests for the command line (Enter, Escape, Up/Down blur→cursor).
+- [x] Component tests for the command line (Enter, Escape, Up/Down blur→cursor, Tab completion).
 - [ ] Component tests for the favorites picker and context menu.
 - [ ] Integration smoke test that drives the app via Playwright / spectron successor.
 - [ ] Unit tests for `ops` runner conflict matrix (overwrite / skip / rename / apply-to-all).

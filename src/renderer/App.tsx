@@ -390,7 +390,10 @@ export function App() {
         return reloadActiveTab(s.activeSide);
       case 'closeTab': {
         const st = useStore.getState();
-        if (st.tabs[s.activeSide].length <= 1) return;
+        // Cmd+W on the last tab closes the window, as it does everywhere else
+        // on macOS — otherwise binding it here would quietly take the shortcut
+        // away from the user.
+        if (st.tabs[s.activeSide].length <= 1) { window.close(); return; }
         st.closeTab(s.activeSide, st.activeTab[s.activeSide]);
         return reloadActiveTab(s.activeSide);
       }
