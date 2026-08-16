@@ -48,6 +48,7 @@ const SECTIONS: { title: string; rows: [string, string][] }[] = [
       ['Shift+F8 / Cmd+Shift+Delete', 'Delete permanently'],
       ['Cmd+Backspace', 'Delete cursor item (confirm)'],
       ['Ctrl+M / Cmd+Shift+M', 'Multi-rename selected files'],
+      ['Cmd+D', 'Compare two files by content'],
     ],
   },
   {

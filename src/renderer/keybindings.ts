@@ -71,6 +71,7 @@ export const bindings: Binding[] = [
   { combo: 'Ctrl+Q', command: 'toggleQuickView' },
   { combo: 'Ctrl+M', command: 'multiRename' },
   { combo: 'Cmd+Shift+M', command: 'multiRename' },
+  { combo: 'Cmd+D', command: 'compareFiles' },
   ...bookmarkBindings,
 ];
 

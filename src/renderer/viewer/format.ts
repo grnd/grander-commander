@@ -2,6 +2,14 @@
 //
 // Pure formatting helpers for the internal viewer (F3) and quick view (Ctrl+Q).
 // Kept free of React so the byte-level rules are unit-testable.
+//
+// The byte-level primitives live in @shared/text because main needs the same
+// binary/line rules when comparing two files; they are re-exported here so the
+// viewer has one import.
+
+import { isProbablyBinary } from '@shared/text';
+
+export { isProbablyBinary, decodeText, splitLines, formatBytes } from '@shared/text';
 
 export type ViewerMode = 'text' | 'hex' | 'image';
 
@@ -34,34 +42,6 @@ export function sniffMode(name: string, head: Uint8Array): ViewerMode {
   if (head.length === 0) return 'text';
   if (TEXT_EXTS.has(ext)) return 'text';
   return isProbablyBinary(head) ? 'hex' : 'text';
-}
-
-/**
- * A NUL byte is the classic binary tell (it never appears in UTF-8 text), and a
- * high proportion of other control bytes catches the rest.
- */
-export function isProbablyBinary(head: Uint8Array): boolean {
-  const n = Math.min(head.length, 8000);
-  if (n === 0) return false;
-  let control = 0;
-  for (let i = 0; i < n; i++) {
-    const b = head[i];
-    if (b === 0) return true;
-    // Tab, LF, CR, FF and ESC are ordinary in text files.
-    if (b < 0x20 && b !== 9 && b !== 10 && b !== 12 && b !== 13 && b !== 27) control++;
-  }
-  return control / n > 0.1;
-}
-
-export function decodeText(bytes: Uint8Array): string {
-  return new TextDecoder('utf-8', { fatal: false }).decode(bytes);
-}
-
-/** Split on LF, tolerating CRLF, without leaving a phantom trailing line. */
-export function splitLines(text: string): string[] {
-  const lines = text.split('\n').map((l) => (l.endsWith('\r') ? l.slice(0, -1) : l));
-  if (lines.length > 1 && lines[lines.length - 1] === '') lines.pop();
-  return lines;
 }
 
 const HEX = '0123456789abcdef';
@@ -99,15 +79,6 @@ export function hexDump(bytes: Uint8Array, baseOffset = 0): string[] {
     lines.push(`${hex8(baseOffset + i)}  ${left} |${ascii}|`);
   }
   return lines;
-}
-
-export function formatBytes(n: number): string {
-  if (n < 1024) return `${n} B`;
-  const units = ['KB', 'MB', 'GB', 'TB'];
-  let v = n / 1024;
-  let u = 0;
-  while (v >= 1024 && u < units.length - 1) { v /= 1024; u++; }
-  return `${v < 10 ? v.toFixed(1) : Math.round(v)} ${units[u]}`;
 }
 
 const MIME_BY_EXT: Record<string, string> = {

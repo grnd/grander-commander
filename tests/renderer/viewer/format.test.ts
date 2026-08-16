@@ -64,8 +64,8 @@ describe('splitLines', () => {
     expect(splitLines('a\n\nb')).toEqual(['a', '', 'b']);
   });
 
-  it('keeps a lone empty string as one line', () => {
-    expect(splitLines('')).toEqual(['']);
+  it('reports no lines for empty input', () => {
+    expect(splitLines('')).toEqual([]);
   });
 });
 

@@ -9,6 +9,7 @@ import { OverwritePrompt } from './OverwritePrompt';
 import { ProgressDialog } from './ProgressDialog';
 import { EditFavoritePrompt } from './EditFavoritePrompt';
 import { MultiRename } from './MultiRename';
+import { CompareView } from './CompareView';
 import type { RenamePreviewRow } from '@renderer/commands/multirename';
 
 type Handlers = {
@@ -78,6 +79,10 @@ export function Dialogs(h: Handlers) {
           existingNames={dialog.existingNames}
           onApply={(rows) => { h.onMultiRename(dialog.side, dialog.dir, rows); close(); }}
           onCancel={close} />
+      </DialogShell>;
+    case 'compare':
+      return <DialogShell title="Compare by content" onClose={close} size="wide">
+        <CompareView left={dialog.left} right={dialog.right} onClose={close} />
       </DialogShell>;
   }
 }

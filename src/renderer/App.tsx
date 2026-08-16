@@ -10,7 +10,7 @@ import { FKeyBar } from './components/FKeyBar';
 import { Terminal } from './components/Terminal';
 import { Viewer } from './components/Viewer';
 import type { PanelSide } from './state/panelSlice';
-import { cursorPath, entryKey, targetNames } from './state/panelSlice';
+import { cursorPath, entryKey, targetNames, targetPaths } from './state/panelSlice';
 import { applyRenamePlan, type RenamePreviewRow } from './commands/multirename';
 import { eventToCombo, lookup, allowedFromInput } from './keybindings';
 import type { CommandName } from './commands';
@@ -284,6 +284,23 @@ export function App() {
       case 'toggleQuickView':
         useStore.getState().setQuickView(!useStore.getState().quickView);
         return;
+      case 'compareFiles': {
+        // Two marked files in one panel is the explicit gesture; otherwise fall
+        // back to "the file under each panel's cursor", which is the dual-pane
+        // way to line two versions up.
+        const marked = targetPaths(active);
+        const pair: [string, string] | null =
+          marked.length === 2
+            ? [marked[0], marked[1]]
+            : (() => {
+                const l = cursorPath(s.panels.left);
+                const r = cursorPath(s.panels.right);
+                return l && r ? [l, r] : null;
+              })();
+        if (!pair) return;
+        useStore.getState().setDialog({ kind: 'compare', left: pair[0], right: pair[1] });
+        return;
+      }
       case 'multiRename': {
         const names = targetNames(active);
         if (names.length === 0) return;

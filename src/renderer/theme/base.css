@@ -396,3 +396,49 @@ body {
 .gc-suggest-kind.is-dir { color: var(--gc-status-active-bg, #0a5fcf); font-weight: 700; opacity: 1; }
 .gc-cmdline-suggest li.is-cursor .gc-suggest-kind { opacity: 1; color: inherit; }
 .gc-suggest-more { opacity: 0.6; font-style: italic; }
+
+/* ---- M3: file compare ---- */
+.gc-compare { display: flex; flex-direction: column; gap: 6px; min-height: 0; }
+.gc-compare-head {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+  font-family: Menlo, monospace; font-size: 11px; font-weight: 700;
+}
+.gc-compare-file { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gc-compare-error { padding: 6px; background: var(--gc-error-bg, #b00020); color: var(--gc-error-fg, #fff); font-size: 11px; }
+.gc-compare-empty { padding: 12px; font-size: 11px; }
+.gc-compare-verdict { padding: 8px; font-size: 12px; border: 1px solid var(--gc-border); background: var(--gc-bg); }
+.gc-compare-verdict.is-same { border-left: 3px solid #2e7d32; }
+.gc-compare-verdict.is-diff { border-left: 3px solid #b00020; }
+.gc-compare-toolbar {
+  display: flex; align-items: center; gap: 12px; font-size: 11px; flex-wrap: wrap;
+}
+.gc-compare-toolbar button {
+  padding: 1px 8px; border: 1px solid var(--gc-border); background: var(--gc-btn);
+  color: var(--gc-fg); font: inherit; cursor: pointer;
+}
+.gc-compare-truncated { opacity: 0.7; font-style: italic; }
+.gc-diff-add-fg { color: #2e7d32; }
+.gc-diff-del-fg { color: #b00020; }
+.gc-diff-change-fg { color: #a06000; }
+.gc-compare-body {
+  max-height: 58vh; overflow: auto;
+  border: 1px solid var(--gc-border); background: var(--gc-panel);
+}
+.gc-diff {
+  width: 100%; border-collapse: collapse; table-layout: fixed;
+  font-family: Menlo, monospace; font-size: 11px; line-height: 15px;
+}
+.gc-diff td { padding: 0 4px; vertical-align: top; }
+.gc-diff-no {
+  width: 44px; text-align: right; user-select: none;
+  color: var(--gc-fg); opacity: 0.45;
+  border-right: 1px solid var(--gc-border);
+}
+.gc-diff-text { white-space: pre-wrap; word-break: break-word; user-select: text; }
+.gc-diff tr.is-add td:nth-child(3), .gc-diff tr.is-add td:nth-child(4) { background: #e3f5e4; }
+.gc-diff tr.is-del td:nth-child(1), .gc-diff tr.is-del td:nth-child(2) { background: #fbe3e3; }
+.gc-diff tr.is-change td { background: #fdf3dd; }
+.gc-diff tr.is-gap td {
+  background: var(--gc-chrome); text-align: center;
+  opacity: 0.7; font-style: italic; user-select: none;
+}

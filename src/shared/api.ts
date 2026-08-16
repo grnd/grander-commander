@@ -6,7 +6,7 @@
 // channel was added on one side only.
 import type {
   FileEntry, ListDirOptions, Result, Volume, FileOp, OpId, OpEvent, ConflictAnswer,
-  UpdateStatus, MenuCommand, Completion,
+  UpdateStatus, MenuCommand, Completion, DiffResult,
 } from './types';
 
 export type GCApi = {
@@ -20,6 +20,7 @@ export type GCApi = {
     duplicate(path: string): Promise<Result<string>>;
     readChunk(path: string, offset: number, length: number): Promise<Result<{ bytes: Uint8Array; size: number }>>;
     complete(prefix: string, cwd: string, kind: 'command' | 'path'): Promise<Completion[]>;
+    compare(left: string, right: string): Promise<Result<DiffResult>>;
   };
   volumes: { list(): Promise<Volume[]> };
   ops: {

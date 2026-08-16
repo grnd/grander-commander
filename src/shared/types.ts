@@ -78,7 +78,35 @@ export type DialogState =
   | { kind: 'overwrite'; opId: OpId; srcPath: string; dstPath: string }
   | { kind: 'progress'; opId: OpId; title: string; filesDone: number; filesTotal: number; bytesDone: number; bytesTotal: number; currentFile: string }
   | { kind: 'favoriteEdit'; path: string; label: string }
-  | { kind: 'multiRename'; side: 'left' | 'right'; dir: string; names: string[]; existingNames: string[] };
+  | { kind: 'multiRename'; side: 'left' | 'right'; dir: string; names: string[]; existingNames: string[] }
+  | { kind: 'compare'; left: string; right: string };
+
+// ---- M3: file compare ----
+
+export type DiffRowKind = 'same' | 'add' | 'del' | 'change';
+
+export type DiffRow = {
+  /** 1-based line numbers; null on the side that has no line here. */
+  leftNo: number | null;
+  rightNo: number | null;
+  left: string | null;
+  right: string | null;
+  kind: DiffRowKind;
+};
+
+export type DiffResult = {
+  left: string;
+  right: string;
+  identical: boolean;
+  /** Binary content gets a bytes-match verdict instead of a line diff. */
+  binary: boolean;
+  /** Set when the row list was capped; stats still cover the whole file. */
+  truncated: boolean;
+  leftSize: number;
+  rightSize: number;
+  rows: DiffRow[];
+  stats: { added: number; removed: number; changed: number };
+};
 
 // ---- M3: command-line completion ----
 

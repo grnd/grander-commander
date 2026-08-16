@@ -11,6 +11,7 @@ import { deletePaths } from './fs/delete';
 import { duplicate } from './fs/duplicate';
 import { readChunk, MAX_CHUNK_BYTES } from './fs/readChunk';
 import { complete } from './fs/complete';
+import { compareFiles } from './fs/compare';
 import { quickLook } from './shell/quickLook';
 import { openTerminal } from './shell/openTerminal';
 import { runCommand } from './shell/runCommand';
@@ -345,6 +346,10 @@ export function registerIpc() {
       kind,
     ];
   }, (_e, prefix, cwd, kind) => complete(prefix, cwd, kind));
+  handleValidated('fs:compare', (args): [string, string] => {
+    expectArgs(args, 'fs:compare', 2);
+    return [expectString(args[0], 'left'), expectString(args[1], 'right')];
+  }, (_e, left, right) => compareFiles(left, right));
   handleValidated('volumes:list', (args): [] => {
     expectArgs(args, 'volumes:list', 0);
     return [];
