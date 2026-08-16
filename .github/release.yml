@@ -1,0 +1,30 @@
+# Controls how GitHub groups "What's Changed" in generated release notes.
+# Categories match on PR labels. Until labels are used, everything falls into
+# the catch-all at the bottom, which renders exactly like the ungrouped default
+# — so this costs nothing now and starts grouping the moment labels appear.
+changelog:
+  exclude:
+    labels:
+      - ignore-for-release
+  categories:
+    - title: Features
+      labels:
+        - feature
+        - enhancement
+    - title: Bug Fixes
+      labels:
+        - bug
+        - fix
+    - title: Build, Release & CI
+      labels:
+        - build
+        - ci
+        - release
+    - title: Documentation
+      labels:
+        - documentation
+        - docs
+    # Catch-all — must stay last.
+    - title: What's Changed
+      labels:
+        - "*"

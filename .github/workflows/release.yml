@@ -48,6 +48,21 @@ jobs:
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
+      # electron-builder creates the release but leaves the body empty, so fill
+      # it in afterwards. GitHub picks the previous release as the baseline and
+      # lists merged PRs, which keeps release-chore commits out of the notes.
+      - name: Add "What's Changed" release notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          gh api "repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
+            -f tag_name="$TAG" --jq .body > /tmp/notes.md
+          echo "--- generated notes ---"
+          cat /tmp/notes.md
+          gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --notes-file /tmp/notes.md
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
