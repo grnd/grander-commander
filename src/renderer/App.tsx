@@ -116,6 +116,7 @@ export function App() {
   // Set when a plain click landed on an already-marked row; the selection is
   // cleared on mouseup instead, so a drag starting from that row keeps it.
   const pendingClearRef = useRef<PanelSide | null>(null);
+  const terminalEverOpened = useRef(false);
   const DBL_CLICK_MS = 450;
   const cmdRef = useRef<HTMLInputElement>(null);
   const qsTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -981,6 +982,10 @@ export function App() {
   const activeDir = workingDir(active);
   const homeDir = state.volumes.find((v) => v.kind === 'home')?.path ?? '/';
 
+  // Once opened, the terminal stays mounted for the rest of the session.
+  const terminalMounted = state.terminalOpen || terminalEverOpened.current;
+  if (state.terminalOpen) terminalEverOpened.current = true;
+
   // Archive rows have no path on disk, so there is nothing for the viewer to
   // read; search hits carry their real location and preview normally.
   const quickViewTarget = state.quickView && active.source.kind !== 'archive'
@@ -1087,10 +1092,17 @@ export function App() {
         />
         <div style={{ width: `${100 - leftWidth}%` }}>{renderPane('right')}</div>
       </div>
-      {state.terminalOpen && (
+      {/*
+        Mounted from the first time it is opened and then only hidden, so
+        Ctrl+` keeps the shell and whatever is running in it. `cwd` is the
+        folder it starts in and is read once; the shell owns its directory
+        after that.
+      */}
+      {terminalMounted && (
         <Terminal
           cwd={activeDir}
           onClose={closeTerminal}
+          hidden={!state.terminalOpen}
         />
       )}
       <CommandLine

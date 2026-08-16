@@ -561,3 +561,5 @@ body {
   padding: 4px 8px; font-size: 11px;
   background: #fdf3dd; border-left: 3px solid #a06000; color: #4a3400;
 }
+/* Hidden, not unmounted — the pty and everything in it survives Ctrl+`. */
+.gc-terminal[hidden] { display: none; }
