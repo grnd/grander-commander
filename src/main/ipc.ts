@@ -9,6 +9,7 @@ import { rename } from './fs/rename';
 import { trashPaths } from './fs/trash';
 import { deletePaths } from './fs/delete';
 import { duplicate } from './fs/duplicate';
+import { readChunk, MAX_CHUNK_BYTES } from './fs/readChunk';
 import { quickLook } from './shell/quickLook';
 import { openTerminal } from './shell/openTerminal';
 import { runCommand } from './shell/runCommand';
@@ -323,6 +324,14 @@ export function registerIpc() {
     expectArgs(args, 'fs:duplicate', 1);
     return [expectString(args[0], 'path')];
   }, (_e, path) => duplicate(path));
+  handleValidated('fs:readChunk', (args): [string, number, number] => {
+    expectArgs(args, 'fs:readChunk', 3);
+    return [
+      expectString(args[0], 'path'),
+      expectInteger(args[1], 'offset', { min: 0, max: Number.MAX_SAFE_INTEGER }),
+      expectInteger(args[2], 'length', { min: 0, max: MAX_CHUNK_BYTES }),
+    ];
+  }, (_e, path, offset, length) => readChunk(path, offset, length));
   handleValidated('volumes:list', (args): [] => {
     expectArgs(args, 'volumes:list', 0);
     return [];

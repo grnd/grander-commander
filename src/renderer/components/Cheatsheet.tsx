@@ -60,6 +60,14 @@ const SECTIONS: { title: string; rows: [string, string][] }[] = [
     ],
   },
   {
+    title: 'Viewer',
+    rows: [
+      ['F3', 'Internal viewer (text / hex / image)'],
+      ['Ctrl+Q', 'Quick view in the other panel'],
+      ['Escape / F3', 'Close the viewer'],
+    ],
+  },
+  {
     title: 'Shell',
     rows: [
       ['Cmd+S', 'Open external terminal at current dir'],

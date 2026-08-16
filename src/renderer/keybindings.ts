@@ -56,6 +56,8 @@ export const bindings: Binding[] = [
   { combo: 'Cmd+G', command: 'pickFavorite' },
   { combo: 'Cmd+S', command: 'openTerminal' },
   { combo: 'Ctrl+`', command: 'toggleTerminal' },
+  { combo: 'F3', command: 'viewFile' },
+  { combo: 'Ctrl+Q', command: 'toggleQuickView' },
 ];
 
 // Convert a KeyboardEvent to its canonical combo string.

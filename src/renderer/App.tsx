@@ -7,7 +7,9 @@ import { FavoritePicker } from './components/FavoritePicker';
 import { CommandLine } from './components/CommandLine';
 import { FKeyBar } from './components/FKeyBar';
 import { Terminal } from './components/Terminal';
+import { Viewer } from './components/Viewer';
 import type { PanelSide } from './state/panelSlice';
+import { cursorPath } from './state/panelSlice';
 import { eventToCombo, lookup, allowedFromInput } from './keybindings';
 import type { CommandName } from './commands';
 import { sortEntries } from './commands/sort';
@@ -216,18 +218,14 @@ export function App() {
         requestDeleteConfirm({ panel: active, setDialog: useStore.getState().setDialog });
         return;
       case 'deleteCursorConfirm': {
-        const cur = active.entries[active.cursor];
-        if (!cur || cur.name === '..') return;
-        const name = cur.ext ? `${cur.name}.${cur.ext}` : cur.name;
-        const full = active.path === '/' ? `/${name}` : `${active.path}/${name}`;
+        const full = cursorPath(active);
+        if (!full) return;
         useStore.getState().setDialog({ kind: 'deleteConfirm', paths: [full] });
         return;
       }
       case 'duplicate': {
-        const cur = active.entries[active.cursor];
-        if (!cur || cur.name === '..') return;
-        const name = cur.ext ? `${cur.name}.${cur.ext}` : cur.name;
-        const full = active.path === '/' ? `/${name}` : `${active.path}/${name}`;
+        const full = cursorPath(active);
+        if (!full) return;
         void (async () => {
           const r = await api.fs.duplicate(full);
           if (!r.ok) { alert(`Duplicate failed: ${r.error.kind}`); return; }
@@ -241,10 +239,8 @@ export function App() {
         return;
       }
       case 'copyPath': {
-        const cur = active.entries[active.cursor];
-        if (!cur || cur.name === '..') return;
-        const name = cur.ext ? `${cur.name}.${cur.ext}` : cur.name;
-        const full = active.path === '/' ? `/${name}` : `${active.path}/${name}`;
+        const full = cursorPath(active);
+        if (!full) return;
         void navigator.clipboard.writeText(full);
         return;
       }
@@ -256,13 +252,22 @@ export function App() {
         useStore.getState().setFavoritePickerOpen(true);
         return;
       case 'quickLook': {
-        const cur = active.entries[active.cursor];
-        if (!cur || cur.name === '..') return;
-        const name = cur.ext ? `${cur.name}.${cur.ext}` : cur.name;
-        const full = active.path === '/' ? `/${name}` : `${active.path}/${name}`;
+        const full = cursorPath(active);
+        if (!full) return;
         void api.shell.quickLook(full);
         return;
       }
+      case 'viewFile': {
+        const cur = active.entries[active.cursor];
+        const full = cursorPath(active);
+        // Directories have nothing to view; Enter is the gesture for those.
+        if (!full || !cur || cur.isDir) return;
+        useStore.getState().setViewer({ path: full });
+        return;
+      }
+      case 'toggleQuickView':
+        useStore.getState().setQuickView(!useStore.getState().quickView);
+        return;
       case 'openTerminal':
         void api.shell.openTerminal(active.path);
         return;
@@ -294,6 +299,18 @@ export function App() {
       // Don't route panel shortcuts while a modal/picker owns the keyboard
       const s = useStore.getState();
       if (s.dialog || s.favoritePickerOpen) return;
+
+      // The F3 viewer is modal: it owns the keyboard so arrows scroll the
+      // document instead of moving a panel cursor the user cannot see. Keys are
+      // deliberately not preventDefault'ed, which leaves native scrolling of the
+      // focused viewer body intact.
+      if (s.viewer) {
+        if (e.key === 'Escape' || e.key === 'F3') {
+          e.preventDefault();
+          s.setViewer(null);
+        }
+        return;
+      }
 
       // An input has focus (PathBar / cmdline). Plain typing belongs to it, but
       // app shortcuts must still work: the fallback below sends unmapped
@@ -565,6 +582,52 @@ export function App() {
     },
   };
 
+  // Ctrl+Q turns the *other* pane into a live preview of the active cursor, so
+  // one side keeps browsing while the other renders whatever it lands on.
+  const quickViewTarget = state.quickView ? cursorPath(active) : null;
+  const quickViewIsDir = active.entries[active.cursor]?.isDir ?? false;
+
+  const renderPane = (side: PanelSide) => {
+    if (state.quickView && side !== state.activeSide) {
+      if (!quickViewTarget || quickViewIsDir) {
+        return (
+          <div className="gc-viewer gc-viewer-embedded" data-testid="gc-quickview-empty">
+            <div className="gc-viewer-head">
+              <span className="gc-viewer-name">Quick view</span>
+              <button type="button" className="gc-viewer-close" onClick={() => useStore.getState().setQuickView(false)} aria-label="Close viewer">✕</button>
+            </div>
+            <div className="gc-viewer-body">
+              <div className="gc-viewer-empty">
+                {quickViewIsDir ? 'Folder selected — nothing to preview.' : 'Nothing selected.'}
+              </div>
+            </div>
+          </div>
+        );
+      }
+      return (
+        <Viewer
+          path={quickViewTarget}
+          variant="embedded"
+          onClose={() => useStore.getState().setQuickView(false)}
+        />
+      );
+    }
+    const panel = side === 'left' ? left : right;
+    return (
+      <Panel
+        side={side} panel={panel} isActive={state.activeSide === side}
+        onActivate={() => useStore.setState({ activeSide: side })}
+        onRowMouseDown={onRowMouseDown(side)}
+        onRowDouble={onRowDouble(side)}
+        onRowContextMenu={onRowContextMenu(side)}
+        onPathCommit={onPathCommit(side)}
+        onSort={onSort(side)}
+        pathBarRef={side === 'left' ? leftPathRef : rightPathRef}
+        searchBuffer={state.quickSearch && state.quickSearch.side === side ? state.quickSearch.buffer : null}
+      />
+    );
+  };
+
   return (
     <div className="gc-app">
       <UpdateBanner />
@@ -586,19 +649,7 @@ export function App() {
         onReorder={(from, to) => useStore.getState().moveFavorite(from, to)}
       />
       <div className="gc-panel-row">
-        <div style={{ width: `${leftWidth}%` }}>
-          <Panel
-            side="left" panel={left} isActive={state.activeSide === 'left'}
-            onActivate={() => useStore.setState({ activeSide: 'left' })}
-            onRowMouseDown={onRowMouseDown('left')}
-            onRowDouble={onRowDouble('left')}
-            onRowContextMenu={onRowContextMenu('left')}
-            onPathCommit={onPathCommit('left')}
-            onSort={onSort('left')}
-            pathBarRef={leftPathRef}
-            searchBuffer={state.quickSearch && state.quickSearch.side === 'left' ? state.quickSearch.buffer : null}
-          />
-        </div>
+        <div style={{ width: `${leftWidth}%` }}>{renderPane('left')}</div>
         <Splitter
           onDrag={(pct) => {
             setPanel('left', { width: pct });
@@ -609,19 +660,7 @@ export function App() {
             setPanel('right', { width: 50 });
           }}
         />
-        <div style={{ width: `${100 - leftWidth}%` }}>
-          <Panel
-            side="right" panel={right} isActive={state.activeSide === 'right'}
-            onActivate={() => useStore.setState({ activeSide: 'right' })}
-            onRowMouseDown={onRowMouseDown('right')}
-            onRowDouble={onRowDouble('right')}
-            onRowContextMenu={onRowContextMenu('right')}
-            onPathCommit={onPathCommit('right')}
-            onSort={onSort('right')}
-            pathBarRef={rightPathRef}
-            searchBuffer={state.quickSearch && state.quickSearch.side === 'right' ? state.quickSearch.buffer : null}
-          />
-        </div>
+        <div style={{ width: `${100 - leftWidth}%` }}>{renderPane('right')}</div>
       </div>
       {state.terminalOpen && (
         <Terminal
@@ -664,6 +703,15 @@ export function App() {
         </div>
       )}
       <Dialogs {...dialogHandlers} />
+      {state.viewer && (
+        <div className="gc-viewer-backdrop">
+          <Viewer
+            path={state.viewer.path}
+            variant="overlay"
+            onClose={() => useStore.getState().setViewer(null)}
+          />
+        </div>
+      )}
       {cheatVisible && <Cheatsheet />}
       {state.favoritePickerOpen && (
         <FavoritePicker

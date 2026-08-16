@@ -34,3 +34,31 @@ export function initialPanelState(path: string): PanelState {
 export function entryKey(e: FileEntry): string {
   return e.ext ? `${e.name}.${e.ext}` : e.name;
 }
+
+/** Join a directory and a basename without doubling the slash at the root. */
+export function joinPath(dir: string, name: string): string {
+  return dir === '/' ? `/${name}` : `${dir}/${name}`;
+}
+
+/**
+ * Absolute path of the row under the cursor, or null when there is nothing
+ * actionable there (empty panel, or the synthetic "..").
+ */
+export function cursorPath(panel: PanelState): string | null {
+  const cur = panel.entries[panel.cursor];
+  if (!cur || cur.name === '..') return null;
+  return joinPath(panel.path, entryKey(cur));
+}
+
+/**
+ * Paths the next operation should act on: every marked row, or — when nothing
+ * is marked — just the row under the cursor. This is Total Commander's rule and
+ * every mutation command follows it.
+ */
+export function targetPaths(panel: PanelState): string[] {
+  if (panel.selection.size > 0) {
+    return [...panel.selection].map((k) => joinPath(panel.path, k));
+  }
+  const single = cursorPath(panel);
+  return single ? [single] : [];
+}

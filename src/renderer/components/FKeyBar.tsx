@@ -5,7 +5,7 @@ type Props = {
 };
 
 const BUTTONS: { key: string; label: string; cmd: CommandName }[] = [
-  { key: 'F3', label: 'View', cmd: 'quickLook' },
+  { key: 'F3', label: 'View', cmd: 'viewFile' },
   { key: 'F4', label: 'Edit', cmd: 'navigateInto' },    // open in default app (Enter-equivalent for files)
   { key: 'F5', label: 'Copy', cmd: 'copy' },
   { key: 'F6', label: 'Move', cmd: 'move' },

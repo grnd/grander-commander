@@ -263,3 +263,60 @@ body {
   text-decoration: underline;
   padding: 1px 2px;
 }
+
+/* ---- M3: internal viewer (F3) and quick view (Ctrl+Q) ---- */
+.gc-viewer-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+  display: flex; align-items: stretch; justify-content: center;
+  padding: 24px; z-index: 1500;
+}
+.gc-viewer {
+  display: flex; flex-direction: column; min-height: 0;
+  background: var(--gc-panel); border: 1px solid var(--gc-border);
+}
+.gc-viewer-overlay { flex: 1; max-width: 1200px; box-shadow: 0 6px 40px rgba(0,0,0,0.4); }
+.gc-viewer-embedded { height: 100%; }
+.gc-viewer-head {
+  display: flex; align-items: center; gap: 8px;
+  padding: 3px 6px;
+  background: var(--gc-status-active-bg, #0a5fcf); color: var(--gc-status-active-fg, #fff);
+  font-size: 11px;
+}
+.gc-viewer-name {
+  font-weight: 600; flex: 1; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.gc-viewer-meta { opacity: 0.85; white-space: nowrap; font-family: Menlo, monospace; font-size: 10px; }
+.gc-viewer-modes { display: flex; gap: 2px; }
+.gc-viewer-modes button {
+  background: transparent; border: 1px solid rgba(255,255,255,0.45);
+  color: inherit; font: inherit; font-size: 10px; padding: 0 5px; cursor: pointer;
+}
+.gc-viewer-modes button.is-active { background: rgba(255,255,255,0.28); font-weight: 700; }
+.gc-viewer-close {
+  background: transparent; border: none; color: inherit;
+  font-size: 13px; line-height: 1; cursor: pointer; padding: 0 2px;
+}
+.gc-viewer-body { flex: 1; min-height: 0; overflow: auto; background: var(--gc-bg); }
+.gc-viewer-body:focus { outline: none; }
+.gc-viewer-pre {
+  margin: 0; padding: 6px 8px;
+  font-family: Menlo, monospace; font-size: 11px; line-height: 15px;
+  color: var(--gc-fg);
+  white-space: pre; user-select: text;
+}
+.gc-viewer-pre.is-wrapped { white-space: pre-wrap; word-break: break-word; }
+.gc-viewer-image { display: flex; align-items: center; justify-content: center; padding: 12px; height: 100%; }
+.gc-viewer-image img { max-width: 100%; max-height: 100%; object-fit: contain; image-rendering: auto; }
+.gc-viewer-empty, .gc-viewer-error { padding: 12px; font-size: 11px; }
+.gc-viewer-error { color: var(--gc-error-fg, #fff); background: var(--gc-error-bg, #b00020); }
+.gc-viewer-pager {
+  display: flex; align-items: center; justify-content: center; gap: 12px;
+  padding: 3px 6px; font-size: 10px;
+  background: var(--gc-chrome); border-top: 1px solid var(--gc-border);
+}
+.gc-viewer-pager button {
+  background: var(--gc-btn); border: 1px solid var(--gc-border);
+  color: var(--gc-fg); font: inherit; padding: 1px 8px; cursor: pointer;
+}
+.gc-viewer-pager button:disabled { opacity: 0.45; cursor: not-allowed; }

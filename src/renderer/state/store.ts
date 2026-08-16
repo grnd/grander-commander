@@ -42,6 +42,10 @@ export type AppState = {
   favoritePickerOpen: boolean;
   quickSearch: { buffer: string; side: PanelSide } | null;
   terminalOpen: boolean;
+  /** F3 full-window viewer. Owns the keyboard while open. */
+  viewer: { path: string } | null;
+  /** Ctrl+Q: the inactive panel mirrors the active panel's cursor as a preview. */
+  quickView: boolean;
 
   setActive: (side: PanelSide) => void;
   replacePanel: (side: PanelSide, patch: Partial<PanelState>) => void;
@@ -54,6 +58,8 @@ export type AppState = {
   setFavoritePickerOpen: (open: boolean) => void;
   setQuickSearch: (qs: { buffer: string; side: PanelSide } | null) => void;
   setTerminalOpen: (open: boolean) => void;
+  setViewer: (v: { path: string } | null) => void;
+  setQuickView: (open: boolean) => void;
 };
 
 export const useStore = create<AppState>((set) => ({
@@ -71,6 +77,8 @@ export const useStore = create<AppState>((set) => ({
   favoritePickerOpen: false,
   quickSearch: null,
   terminalOpen: false,
+  viewer: null,
+  quickView: false,
 
   setActive: (side) => set({ activeSide: side }),
   replacePanel: (side, patch) =>
@@ -111,4 +119,6 @@ export const useStore = create<AppState>((set) => ({
   setFavoritePickerOpen: (open) => set({ favoritePickerOpen: open }),
   setQuickSearch: (qs) => set({ quickSearch: qs }),
   setTerminalOpen: (open) => set({ terminalOpen: open }),
+  setViewer: (viewer) => set({ viewer }),
+  setQuickView: (quickView) => set({ quickView }),
 }));
