@@ -92,7 +92,7 @@ describe('buildSyncPlan — selection and roots', () => {
 
   it('plans nothing for an empty selection', () => {
     const plan = buildSyncPlan(entries, L, R, 'mirror-right', new Set());
-    expect(plan).toEqual({ copies: [], deletes: [] });
+    expect(plan).toEqual({ copies: [], deletes: [], skipped: [] });
   });
 
   it('preserves nested relative paths on both sides', () => {
@@ -116,5 +116,53 @@ describe('countFor', () => {
   it('is zero when there is nothing to do', () => {
     const allSame = [entry({ relPath: 'equal.txt', status: 'same' })];
     expect(countFor(allSame, L, R, 'mirror-right')).toEqual({ copies: 0, deletes: 0 });
+  });
+});
+
+// Regression: the scan reports both `clash` (folder here, file there) and
+// `clash/inner.txt` (left-only). Copy-missing skips the conflict but used to
+// still plan a write *underneath* it, which died mid-run with ENOTDIR.
+describe('buildSyncPlan — folder/file conflicts', () => {
+  const conflict: SyncEntry[] = [
+    entry({ relPath: 'clash', status: 'differ', isDir: true, typeConflict: true }),
+    entry({ relPath: 'clash/inner.txt', status: 'left-only' }),
+    entry({ relPath: 'fine.txt', status: 'left-only' }),
+  ];
+
+  it('refuses to copy into a conflict copy-missing is not resolving', () => {
+    const plan = buildSyncPlan(conflict, L, R, 'copy-missing-right');
+    expect(plan.copies.map((c) => c.relPath)).toEqual(['fine.txt']);
+    expect(plan.skipped.map((s) => s.relPath)).toEqual(['clash/inner.txt']);
+  });
+
+  it('explains why it skipped them', () => {
+    const plan = buildSyncPlan(conflict, L, R, 'copy-missing-right');
+    expect(plan.skipped[0].reason).toMatch(/conflict/);
+  });
+
+  it('resolves the conflict under mirror, and lets the folder carry its child', () => {
+    const plan = buildSyncPlan(conflict, L, R, 'mirror-right');
+    expect(plan.deletes).toEqual(['/r/clash']);
+    expect(plan.copies.map((c) => c.relPath).sort()).toEqual(['clash', 'fine.txt']);
+    expect(plan.skipped).toEqual([]);
+  });
+
+  it('never plans a child alongside the directory that already carries it', () => {
+    const nested: SyncEntry[] = [
+      entry({ relPath: 'dir', status: 'left-only', isDir: true }),
+      entry({ relPath: 'dir/a.txt', status: 'left-only' }),
+      entry({ relPath: 'dir/deep/b.txt', status: 'left-only' }),
+    ];
+    const plan = buildSyncPlan(nested, L, R, 'copy-missing-right');
+    expect(plan.copies.map((c) => c.relPath)).toEqual(['dir']);
+  });
+
+  it('does not mistake a sibling with a shared prefix for a child', () => {
+    const siblings: SyncEntry[] = [
+      entry({ relPath: 'dir', status: 'left-only', isDir: true }),
+      entry({ relPath: 'dirty.txt', status: 'left-only' }),
+    ];
+    const plan = buildSyncPlan(siblings, L, R, 'copy-missing-right');
+    expect(plan.copies.map((c) => c.relPath).sort()).toEqual(['dir', 'dirty.txt']);
   });
 });

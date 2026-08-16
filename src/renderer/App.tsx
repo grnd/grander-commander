@@ -15,9 +15,10 @@ import {
 } from './state/panelSlice';
 import { applyRenamePlan, type RenamePreviewRow } from './commands/multirename';
 import { SYNC_LABELS, type SyncAction, type SyncPlan } from './commands/sync';
-import { archiveTargets } from './commands/archive';
+import { archiveDragMembers, archiveTargets } from './commands/archive';
 import {
-  GC_PATHS, decodePaths, dragPaths, dropTarget, encodePaths, externalPaths, resolveDrop,
+  GC_ARCHIVE, GC_PATHS, decodeArchiveDrag, decodePaths, dragPaths, dropTarget, encodeArchiveDrag,
+  encodePaths, externalPaths, resolveDrop,
 } from './commands/dnd';
 
 import { eventToCombo, lookup, allowedFromInput } from './keybindings';
@@ -732,7 +733,22 @@ export function App() {
     // The click that began this drag was on a marked row; keep the marks.
     pendingClearRef.current = null;
     const panel = useStore.getState().panels[side];
-    if (panel.source.kind === 'archive') { ev.preventDefault(); return; }
+
+    // Archive members have no path on disk, so they travel as an extraction
+    // request. Alt-dragging one out to Finder is not possible for the same
+    // reason — there is nothing yet for the OS to hand over.
+    if (panel.source.kind === 'archive') {
+      const members = archiveDragMembers(panel, index);
+      if (members.length === 0 || ev.altKey) { ev.preventDefault(); return; }
+      ev.dataTransfer.setData(GC_ARCHIVE, encodeArchiveDrag({
+        archivePath: panel.source.archivePath,
+        stripPrefix: panel.source.innerPath,
+        members,
+      }));
+      ev.dataTransfer.effectAllowed = 'copy';
+      return;
+    }
+
     const paths = dragPaths(panel, index);
     if (paths.length === 0) { ev.preventDefault(); return; }
 
@@ -741,8 +757,10 @@ export function App() {
       void api.shell.startDrag(paths);
       return;
     }
+    // Deliberately no text/plain: Finder accepts it and writes a "Text
+    // Clipping" file named after the path, which looks like a broken copy.
+    // Dragging out to another app is Alt+drag, which hands over real files.
     ev.dataTransfer.setData(GC_PATHS, encodePaths(paths));
-    ev.dataTransfer.setData('text/plain', paths.join('\n'));
     ev.dataTransfer.effectAllowed = 'copyMove';
   };
 
@@ -761,6 +779,20 @@ export function App() {
     ev.preventDefault();
     setDropHint(null);
     const panel = useStore.getState().panels[side];
+
+    // Dropped out of an archive: same work F5 does, aimed at wherever it landed.
+    const fromArchive = decodeArchiveDrag(ev.dataTransfer.getData(GC_ARCHIVE));
+    if (fromArchive) {
+      const dest = dropTarget(panel, index);
+      if (!dest) return;
+      void runArchive(
+        { kind: 'extract', ...fromArchive, dest },
+        'Extracting',
+        `${fromArchive.members.length} item(s) → ${dest}`,
+      );
+      return;
+    }
+
     const internal = decodePaths(ev.dataTransfer.getData(GC_PATHS));
     const sources = internal.length > 0 ? internal : externalPaths(ev.dataTransfer.files);
     const dest = dropTarget(panel, index);

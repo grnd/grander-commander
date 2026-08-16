@@ -100,3 +100,20 @@ export function archiveTargets(panel: PanelState): { path: string; isDir: boolea
       })();
   return rows.map((e) => ({ path: innerJoin(inner, key(e)), isDir: e.isDir }));
 }
+
+/**
+ * Members a drag beginning on `index` should carry: the marked set when the
+ * grabbed row belongs to it, otherwise just that row. Mirrors dragPaths, but
+ * inside the archive.
+ */
+export function archiveDragMembers(
+  panel: PanelState,
+  index: number,
+): { path: string; isDir: boolean }[] {
+  if (panel.source.kind !== 'archive') return [];
+  const entry = panel.entries[index];
+  if (!entry || entry.name === '..') return [];
+  const key = (e: FileEntry) => (e.ext ? `${e.name}.${e.ext}` : e.name);
+  if (panel.selection.size > 0 && panel.selection.has(key(entry))) return archiveTargets(panel);
+  return [{ path: innerJoin(panel.source.innerPath, key(entry)), isDir: entry.isDir }];
+}

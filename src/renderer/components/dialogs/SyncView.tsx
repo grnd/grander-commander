@@ -98,6 +98,7 @@ export function SyncView({ leftRoot, rightRoot, onRun, onClose, scan }: Props) {
       rightOnly: list.filter((e) => e.status === 'right-only').length,
       differ: list.filter((e) => e.status === 'differ').length,
       same: list.filter((e) => e.status === 'same').length,
+      conflicts: list.filter((e) => e.typeConflict).length,
     };
   }, [entries]);
 
@@ -153,6 +154,14 @@ export function SyncView({ leftRoot, rightRoot, onRun, onClose, scan }: Props) {
             {summary.leftOnly} left only · {summary.rightOnly} right only ·{' '}
             {summary.differ} differ · {summary.same} equal
           </div>
+
+          {summary.conflicts > 0 && (
+            <div className="gc-sync-note">
+              {summary.conflicts} path{summary.conflicts === 1 ? ' is' : 's are'} a folder on one
+              side and a file on the other. Copy-missing leaves those alone, and skips anything
+              inside them; only Mirror replaces them.
+            </div>
+          )}
 
           {visible.length === 0 ? (
             <div className="gc-sync-empty">

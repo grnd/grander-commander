@@ -15,6 +15,8 @@ export type SyncPlan = {
   copies: { src: string; dst: string; relPath: string }[];
   /** Full paths to move to Trash. Applied before the copies. */
   deletes: string[];
+  /** Entries this action cannot carry out, and why. */
+  skipped: { relPath: string; reason: string }[];
 };
 
 function joinRel(root: string, rel: string): string {
@@ -58,25 +60,60 @@ export function buildSyncPlan(
   const sourceOnly = toRight ? 'left-only' : 'right-only';
   const destOnly = toRight ? 'right-only' : 'left-only';
 
-  const copies: SyncPlan['copies'] = [];
+  const chosen = entries.filter((e) => !selected || selected.has(e.relPath));
+
+  // Pass 1 — what each entry asks for on its own.
+  const wantsCopy = new Set<string>();
   const deletes: string[] = [];
-
-  for (const e of entries) {
-    if (selected && !selected.has(e.relPath)) continue;
-    const src = joinRel(srcRoot, e.relPath);
-    const dst = joinRel(dstRoot, e.relPath);
-
-    if (e.status === sourceOnly) { copies.push({ src, dst, relPath: e.relPath }); continue; }
+  for (const e of chosen) {
+    if (e.status === sourceOnly) { wantsCopy.add(e.relPath); continue; }
     if (!mirror) continue;
-    if (e.status === destOnly) { deletes.push(dst); continue; }
+    if (e.status === destOnly) { deletes.push(joinRel(dstRoot, e.relPath)); continue; }
     if (e.status === 'differ') {
       // Folder-vs-file cannot be overwritten in place; clear it out first.
-      if (e.typeConflict) deletes.push(dst);
-      copies.push({ src, dst, relPath: e.relPath });
+      if (e.typeConflict) deletes.push(joinRel(dstRoot, e.relPath));
+      wantsCopy.add(e.relPath);
     }
   }
 
-  return { copies, deletes };
+  // Pass 2 — reconcile entries against each other.
+  //
+  // A directory copy carries its whole subtree, so a child planned separately
+  // is redundant work that can also race the parent.
+  //
+  // A type conflict this action is *not* resolving leaves a file sitting where
+  // a child's parent directory would have to be. Copying into it fails with
+  // ENOTDIR partway through the run, so those are refused up front and
+  // reported instead.
+  const copiedDirs = entries
+    .filter((e) => e.isDir && wantsCopy.has(e.relPath))
+    .map((e) => e.relPath);
+  const unresolvedConflicts = entries
+    .filter((e) => e.typeConflict && !wantsCopy.has(e.relPath))
+    .map((e) => e.relPath);
+  const isUnder = (rel: string, roots: readonly string[]) =>
+    roots.some((root) => rel.startsWith(`${root}/`));
+
+  const copies: SyncPlan['copies'] = [];
+  const skipped: SyncPlan['skipped'] = [];
+  for (const e of chosen) {
+    if (!wantsCopy.has(e.relPath)) continue;
+    if (isUnder(e.relPath, copiedDirs)) continue;
+    if (isUnder(e.relPath, unresolvedConflicts)) {
+      skipped.push({
+        relPath: e.relPath,
+        reason: 'a folder/file conflict above it has to be resolved first',
+      });
+      continue;
+    }
+    copies.push({
+      src: joinRel(srcRoot, e.relPath),
+      dst: joinRel(dstRoot, e.relPath),
+      relPath: e.relPath,
+    });
+  }
+
+  return { copies, deletes, skipped };
 }
 
 /** Rows an action would touch, for the count on its button. */

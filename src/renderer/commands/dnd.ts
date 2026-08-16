@@ -3,6 +3,7 @@
 // Drag-and-drop payload handling, kept pure so the rules about which paths
 // travel and what a drop means are testable without a DOM drag.
 
+import type { ArchiveMember } from '@shared/types';
 import type { PanelState } from '@renderer/state/panelSlice';
 import { entryKey, entryPath, targetPaths } from '@renderer/state/panelSlice';
 
@@ -11,6 +12,41 @@ import { entryKey, entryPath, targetPaths } from '@renderer/state/panelSlice';
  * which is how a drop is told apart from one coming out of Finder.
  */
 export const GC_PATHS = 'text/gc-paths';
+
+/**
+ * Members dragged out of an archive. They have no path on disk, so a drop
+ * has to become an extraction rather than a copy.
+ */
+export const GC_ARCHIVE = 'text/gc-archive';
+
+export type ArchiveDrag = {
+  archivePath: string;
+  /** Inner folder being browsed; members are lifted out of it on the way. */
+  stripPrefix: string;
+  members: ArchiveMember[];
+};
+
+export function encodeArchiveDrag(payload: ArchiveDrag): string {
+  return JSON.stringify(payload);
+}
+
+export function decodeArchiveDrag(raw: string): ArchiveDrag | null {
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return null;
+    const { archivePath, stripPrefix, members } = parsed as Partial<ArchiveDrag>;
+    if (typeof archivePath !== 'string' || typeof stripPrefix !== 'string') return null;
+    if (!Array.isArray(members)) return null;
+    const clean = members.filter(
+      (m): m is ArchiveMember =>
+        Boolean(m) && typeof m.path === 'string' && typeof m.isDir === 'boolean',
+    );
+    if (clean.length === 0) return null;
+    return { archivePath, stripPrefix, members: clean };
+  } catch {
+    return null;
+  }
+}
 
 export type DropIntent = { kind: 'copy' | 'move'; sources: string[]; dest: string };
 

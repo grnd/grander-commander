@@ -557,3 +557,7 @@ body {
   background: var(--gc-cursor-active-bg);
 }
 .gc-file-row[draggable='true'] { cursor: default; }
+.gc-sync-note {
+  padding: 4px 8px; font-size: 11px;
+  background: #fdf3dd; border-left: 3px solid #a06000; color: #4a3400;
+}

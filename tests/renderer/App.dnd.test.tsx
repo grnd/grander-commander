@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, createEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, createEvent, waitFor, act } from '@testing-library/react';
 import type { FileEntry } from '@shared/types';
 
 vi.mock('@renderer/components/Terminal', () => ({ Terminal: () => null }));
@@ -7,24 +7,38 @@ vi.mock('@renderer/components/Terminal', () => ({ Terminal: () => null }));
 import { App } from '@renderer/App';
 import { useStore } from '@renderer/state/store';
 import { initialPanelState } from '@renderer/state/panelSlice';
-import { GC_PATHS } from '@renderer/commands/dnd';
+import { GC_ARCHIVE, GC_PATHS } from '@renderer/commands/dnd';
 
 beforeAll(() => {
   globalThis.ResizeObserver = class {
     constructor(private readonly cb: ResizeObserverCallback) {}
     observe(target: Element) {
-      this.cb([{
-        target,
-        contentRect: { width: 640, height: 320 } as DOMRectReadOnly,
-      } as ResizeObserverEntry], this as unknown as ResizeObserver);
+      this.cb(
+        [
+          {
+            target,
+            contentRect: { width: 640, height: 320 } as DOMRectReadOnly,
+          } as ResizeObserverEntry,
+        ],
+        this as unknown as ResizeObserver,
+      );
     }
     unobserve() {}
     disconnect() {}
   } as unknown as typeof ResizeObserver;
 });
 
-const entry = (name: string, ext = '', isDir = false): FileEntry =>
-  ({ name, ext, isDir, isSymlink: false, isAppBundle: false, isHidden: false, size: 1, mtime: 0, mode: 0o644 });
+const entry = (name: string, ext = '', isDir = false): FileEntry => ({
+  name,
+  ext,
+  isDir,
+  isSymlink: false,
+  isAppBundle: false,
+  isHidden: false,
+  size: 1,
+  mtime: 0,
+  mode: 0o644,
+});
 
 const ROWS = [entry('alpha', 'txt'), entry('photos', '', true), entry('zeta', 'txt')];
 
@@ -32,36 +46,56 @@ function mockApi() {
   return {
     fs: {
       listDir: vi.fn().mockResolvedValue({ ok: true, value: ROWS }),
-      stat: vi.fn(), mkdir: vi.fn(), rename: vi.fn(),
+      stat: vi.fn(),
+      mkdir: vi.fn(),
+      rename: vi.fn(),
       trash: vi.fn().mockResolvedValue({ ok: true }),
       delete: vi.fn().mockResolvedValue({ ok: true }),
-      duplicate: vi.fn(), readChunk: vi.fn(), complete: vi.fn().mockResolvedValue([]),
-      compare: vi.fn(), syncScan: vi.fn(), search: vi.fn(), cancelSearch: vi.fn(),
+      duplicate: vi.fn(),
+      readChunk: vi.fn(),
+      complete: vi.fn().mockResolvedValue([]),
+      compare: vi.fn(),
+      syncScan: vi.fn(),
+      search: vi.fn(),
+      cancelSearch: vi.fn(),
     },
     archive: {
       isArchive: vi.fn().mockResolvedValue(false),
-      list: vi.fn(), run: vi.fn(), cancel: vi.fn(), extractToTemp: vi.fn(),
+      list: vi.fn(),
+      run: vi.fn().mockResolvedValue({ ok: true, value: undefined }),
+      cancel: vi.fn(),
+      extractToTemp: vi.fn(),
     },
     volumes: { list: vi.fn().mockResolvedValue([{ name: 'Home', path: '/home/u', kind: 'home' }]) },
     ops: {
       start: vi.fn().mockResolvedValue('op-1'),
-      cancel: vi.fn(), answerConflict: vi.fn(),
+      cancel: vi.fn(),
+      answerConflict: vi.fn(),
       subscribe: vi.fn(() => () => {}),
     },
     shell: {
-      openPath: vi.fn(), quickLook: vi.fn(), openTerminal: vi.fn(),
+      openPath: vi.fn(),
+      quickLook: vi.fn(),
+      openTerminal: vi.fn(),
       runCommand: vi.fn().mockResolvedValue({ stdout: '', stderr: '', exitCode: 0 }),
       startDrag: vi.fn().mockResolvedValue(undefined),
     },
     terminal: {
-      spawn: vi.fn(), write: vi.fn(), resize: vi.fn(), kill: vi.fn(),
-      onData: vi.fn(() => () => {}), onExit: vi.fn(() => () => {}),
+      spawn: vi.fn(),
+      write: vi.fn(),
+      resize: vi.fn(),
+      kill: vi.fn(),
+      onData: vi.fn(() => () => {}),
+      onExit: vi.fn(() => () => {}),
     },
     menu: { onCommand: vi.fn(() => () => {}), popupFileContext: vi.fn() },
     update: {
-      check: vi.fn(), download: vi.fn(), install: vi.fn(),
+      check: vi.fn(),
+      download: vi.fn(),
+      install: vi.fn(),
       status: vi.fn().mockResolvedValue({ kind: 'idle' }),
-      releaseNotes: vi.fn(), onStatus: vi.fn(() => () => {}),
+      releaseNotes: vi.fn(),
+      onStatus: vi.fn(() => () => {}),
     },
   };
 }
@@ -70,7 +104,9 @@ function mockApi() {
 function dataTransfer(files: { path: string }[] = []) {
   const store = new Map<string, string>();
   return {
-    setData: (k: string, v: string) => { store.set(k, v); },
+    setData: (k: string, v: string) => {
+      store.set(k, v);
+    },
     getData: (k: string) => store.get(k) ?? '',
     files: files as unknown as FileList,
     effectAllowed: '',
@@ -113,22 +149,30 @@ function markLeft(...keys: string[]) {
   }));
 }
 
+beforeEach(() => {
+  useStore.setState((s) => ({
+    ...s,
+    panels: { left: initialPanelState('/'), right: initialPanelState('/') },
+    tabs: { left: [initialPanelState('/')], right: [initialPanelState('/')] },
+    activeTab: { left: 0, right: 0 },
+    activeSide: 'left',
+    volumes: [],
+    dialog: null,
+    favorites: [],
+    favoritePickerOpen: false,
+    quickSearch: null,
+    terminalOpen: false,
+    viewer: null,
+    quickView: false,
+  }));
+  (window as unknown as { gc: unknown }).gc = mockApi();
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
 describe('App drag and drop', () => {
-  beforeEach(() => {
-    useStore.setState((s) => ({
-      ...s,
-      panels: { left: initialPanelState('/'), right: initialPanelState('/') },
-      tabs: { left: [initialPanelState('/')], right: [initialPanelState('/')] },
-      activeTab: { left: 0, right: 0 },
-      activeSide: 'left',
-      volumes: [], dialog: null, favorites: [], favoritePickerOpen: false,
-      quickSearch: null, terminalOpen: false, viewer: null, quickView: false,
-    }));
-    (window as unknown as { gc: unknown }).gc = mockApi();
-  });
-
-  afterEach(() => { vi.restoreAllMocks(); });
-
   // The bug: mousedown cleared the selection before dragstart fired, so a
   // multi-file drag carried exactly one file.
   it('keeps the marked set when the drag starts on a marked row', async () => {
@@ -160,6 +204,15 @@ describe('App drag and drop', () => {
     expect(useStore.getState().panels.left.selection.size).toBe(0);
   });
 
+  // Finder accepts text/plain and writes a "Text Clipping" named after the
+  // path, which reads as a broken copy. Out-of-app drags are Alt+drag.
+  it('puts no plain-text payload on the drag', async () => {
+    await renderApp();
+    const dt = dataTransfer();
+    fireDrag(row('zeta'), 'dragStart', { dataTransfer: dt });
+    expect(dt.getData('text/plain')).toBe('');
+  });
+
   it('drags just the grabbed row when nothing is marked', async () => {
     await renderApp();
     const dt = dataTransfer();
@@ -186,11 +239,13 @@ describe('App drag and drop', () => {
     fireDrag(panelBody(1), 'dragOver', { dataTransfer: dt });
     fireDrag(panelBody(1), 'drop', { dataTransfer: dt });
 
-    await waitFor(() => expect(gc.ops.start).toHaveBeenCalledWith({
-      kind: 'copy',
-      sources: ['/other/one.txt', '/other/two.txt'],
-      dst: '/home/u/Documents',
-    }));
+    await waitFor(() =>
+      expect(gc.ops.start).toHaveBeenCalledWith({
+        kind: 'copy',
+        sources: ['/other/one.txt', '/other/two.txt'],
+        dst: '/home/u/Documents',
+      }),
+    );
   });
 
   it('moves instead when Shift is held', async () => {
@@ -199,9 +254,9 @@ describe('App drag and drop', () => {
     dt.setData(GC_PATHS, JSON.stringify(['/other/one.txt']));
 
     fireDrag(panelBody(1), 'drop', { dataTransfer: dt, shiftKey: true });
-    await waitFor(() => expect(gc.ops.start).toHaveBeenCalledWith(
-      expect.objectContaining({ kind: 'move' }),
-    ));
+    await waitFor(() =>
+      expect(gc.ops.start).toHaveBeenCalledWith(expect.objectContaining({ kind: 'move' })),
+    );
   });
 
   it('drops into the folder row under the pointer', async () => {
@@ -210,9 +265,9 @@ describe('App drag and drop', () => {
     dt.setData(GC_PATHS, JSON.stringify(['/other/one.txt']));
 
     fireDrag(row('photos'), 'drop', { dataTransfer: dt });
-    await waitFor(() => expect(gc.ops.start).toHaveBeenCalledWith(
-      expect.objectContaining({ dst: '/home/u/photos' }),
-    ));
+    await waitFor(() =>
+      expect(gc.ops.start).toHaveBeenCalledWith(expect.objectContaining({ dst: '/home/u/photos' })),
+    );
   });
 
   it('copies files dropped in from Finder', async () => {
@@ -220,11 +275,13 @@ describe('App drag and drop', () => {
     const dt = dataTransfer([{ path: '/Users/me/from-finder.txt' }]);
 
     fireDrag(panelBody(1), 'drop', { dataTransfer: dt });
-    await waitFor(() => expect(gc.ops.start).toHaveBeenCalledWith({
-      kind: 'copy',
-      sources: ['/Users/me/from-finder.txt'],
-      dst: '/home/u/Documents',
-    }));
+    await waitFor(() =>
+      expect(gc.ops.start).toHaveBeenCalledWith({
+        kind: 'copy',
+        sources: ['/Users/me/from-finder.txt'],
+        dst: '/home/u/Documents',
+      }),
+    );
   });
 
   // Taking a file out from under another app on a plain drag is not a call to
@@ -234,9 +291,9 @@ describe('App drag and drop', () => {
     const dt = dataTransfer([{ path: '/Users/me/from-finder.txt' }]);
 
     fireDrag(panelBody(1), 'drop', { dataTransfer: dt, shiftKey: true });
-    await waitFor(() => expect(gc.ops.start).toHaveBeenCalledWith(
-      expect.objectContaining({ kind: 'copy' }),
-    ));
+    await waitFor(() =>
+      expect(gc.ops.start).toHaveBeenCalledWith(expect.objectContaining({ kind: 'copy' })),
+    );
   });
 
   it('ignores a drop of nothing it understands', async () => {
@@ -244,5 +301,124 @@ describe('App drag and drop', () => {
     fireDrag(panelBody(1), 'drop', { dataTransfer: dataTransfer() });
     await new Promise((r) => setTimeout(r, 10));
     expect(gc.ops.start).not.toHaveBeenCalled();
+  });
+});
+
+describe('App drag out of an archive', () => {
+  const ARCHIVE_ROWS = [
+    {
+      name: 'hello',
+      ext: 'txt',
+      isDir: false,
+      isSymlink: false,
+      isAppBundle: false,
+      isHidden: false,
+      size: 5,
+      mtime: 0,
+      mode: 0,
+    },
+    {
+      name: 'deep',
+      ext: '',
+      isDir: true,
+      isSymlink: false,
+      isAppBundle: false,
+      isHidden: false,
+      size: 0,
+      mtime: 0,
+      mode: 0,
+    },
+  ];
+
+  const dotDot = {
+    name: '..',
+    ext: '',
+    isDir: true,
+    isSymlink: false,
+    isAppBundle: false,
+    isHidden: false,
+    size: 0,
+    mtime: 0,
+    mode: 0,
+  };
+
+  /** Put the left panel inside `sample.zip` at `payload/`. */
+  function browseArchive(selection: string[] = []) {
+    // act(), because these rows have to be on screen before the drag is fired.
+    act(() => {
+      useStore.setState((s) => ({
+        panels: {
+          ...s.panels,
+          left: {
+            ...s.panels.left,
+            path: '/arc/sample.zip/payload',
+            source: { kind: 'archive', archivePath: '/arc/sample.zip', innerPath: 'payload' },
+            entries: [dotDot, ...ARCHIVE_ROWS],
+            cursor: 1,
+            selection: new Set(selection),
+          },
+        },
+      }));
+    });
+  }
+
+  // Previously the drag was refused outright, so F5 was the only way out.
+  it('carries the grabbed member as an extraction request', async () => {
+    await renderApp();
+    browseArchive();
+
+    const dt = dataTransfer();
+    fireDrag(row('hello'), 'dragStart', { dataTransfer: dt });
+
+    expect(JSON.parse(dt.getData(GC_ARCHIVE))).toEqual({
+      archivePath: '/arc/sample.zip',
+      stripPrefix: 'payload',
+      members: [{ path: 'payload/hello.txt', isDir: false }],
+    });
+    // Never the filesystem payload: these paths do not exist on disk.
+    expect(dt.getData(GC_PATHS)).toBe('');
+  });
+
+  it('carries the whole marked set when the grabbed row is part of it', async () => {
+    await renderApp();
+    browseArchive(['hello.txt', 'deep']);
+
+    const dt = dataTransfer();
+    fireDrag(row('hello'), 'dragStart', { dataTransfer: dt });
+
+    expect(JSON.parse(dt.getData(GC_ARCHIVE)).members).toEqual([
+      { path: 'payload/hello.txt', isDir: false },
+      { path: 'payload/deep', isDir: true },
+    ]);
+  });
+
+  it('extracts into the folder it was dropped on', async () => {
+    const gc = await renderApp();
+    browseArchive();
+
+    const dt = dataTransfer();
+    fireDrag(row('hello'), 'dragStart', { dataTransfer: dt });
+    fireDrag(panelBody(1), 'drop', { dataTransfer: dt });
+
+    await waitFor(() =>
+      expect(gc.archive.run).toHaveBeenCalledWith(expect.any(String), {
+        kind: 'extract',
+        archivePath: '/arc/sample.zip',
+        stripPrefix: 'payload',
+        members: [{ path: 'payload/hello.txt', isDir: false }],
+        dest: '/home/u/Documents',
+      }),
+    );
+  });
+
+  it('never starts a native drag out of an archive', async () => {
+    const gc = await renderApp();
+    browseArchive();
+
+    const dt = dataTransfer();
+    fireDrag(row('hello'), 'dragStart', { dataTransfer: dt, altKey: true });
+
+    expect(gc.shell.startDrag).not.toHaveBeenCalled();
+    expect(dt.getData(GC_ARCHIVE)).toBe('');
   });
 });
