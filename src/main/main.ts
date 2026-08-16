@@ -87,7 +87,7 @@ async function createWindow() {
     minHeight: 500,
     title: 'Grander Commander',
     webPreferences: {
-      preload: join(__dirname, '../preload/preload.mjs'),
+      preload: join(__dirname, '../preload/preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
