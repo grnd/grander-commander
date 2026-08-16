@@ -43,6 +43,25 @@ export function entryKey(e: FileEntry): string {
   return e.ext ? `${e.name}.${e.ext}` : e.name;
 }
 
+/**
+ * The real directory a panel stands for.
+ *
+ * In a virtual panel `path` is a *label* ("Search: *.ts in /src", or an archive
+ * plus an inner path), so anything that needs a working directory — the command
+ * line, an external terminal, bookmarking, "same folder as the other panel" —
+ * has to ask for this instead. Search answers with the folder it searched, an
+ * archive with the folder the archive itself lives in.
+ */
+export function workingDir(panel: PanelState): string {
+  const source = panel.source;
+  if (source.kind === 'search') return source.roots[0] ?? '/';
+  if (source.kind === 'archive') {
+    const i = source.archivePath.lastIndexOf('/');
+    return i <= 0 ? '/' : source.archivePath.slice(0, i);
+  }
+  return panel.path;
+}
+
 /** Join a directory and a basename without doubling the slash at the root. */
 export function joinPath(dir: string, name: string): string {
   return dir === '/' ? `/${name}` : `${dir}/${name}`;

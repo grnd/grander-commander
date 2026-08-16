@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { navigateInto, navigateUp, revealPath, showSearchResults } from '@renderer/commands/navigation';
-import { cursorPath, entryPath, initialPanelState, targetPaths } from '@renderer/state/panelSlice';
+import { cursorPath, entryPath, initialPanelState, targetPaths, workingDir } from '@renderer/state/panelSlice';
 import type { PanelState } from '@renderer/state/panelSlice';
 import type { FileEntry } from '@shared/types';
 
@@ -134,5 +134,34 @@ describe('navigating out of a virtual panel', () => {
     expect(a.fs.listDir).toHaveBeenCalledWith('/root/deep', expect.anything());
     expect(next.path).toBe('/root/deep');
     expect(next.entries[next.cursor].name).toBe('a');
+  });
+});
+
+describe('workingDir', () => {
+  it('is the folder itself for a real listing', () => {
+    expect(workingDir(initialPanelState('/Users/me'))).toBe('/Users/me');
+  });
+
+  // A virtual panel's `path` is a label, so the shell, an external terminal and
+  // "add to favorites" all need the folder it stands for instead.
+  it('is the search root for a results panel', () => {
+    const panel = searchPanel([hit('a.ts', '/root/a.ts')], ['/root/src']);
+    expect(workingDir(panel)).toBe('/root/src');
+  });
+
+  it('is the archive\'s own folder while browsing inside it', () => {
+    const panel = {
+      ...initialPanelState('/x/t.zip/src'),
+      source: { kind: 'archive' as const, archivePath: '/x/t.zip', innerPath: 'src' },
+    };
+    expect(workingDir(panel)).toBe('/x');
+  });
+
+  it('does not walk above the filesystem root', () => {
+    const panel = {
+      ...initialPanelState('/t.zip'),
+      source: { kind: 'archive' as const, archivePath: '/t.zip', innerPath: '' },
+    };
+    expect(workingDir(panel)).toBe('/');
   });
 });

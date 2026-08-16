@@ -10,7 +10,9 @@ import { FKeyBar } from './components/FKeyBar';
 import { Terminal } from './components/Terminal';
 import { Viewer } from './components/Viewer';
 import type { PanelSide } from './state/panelSlice';
-import { cursorPath, entryKey, entryPath, targetNames, targetPaths } from './state/panelSlice';
+import {
+  cursorPath, entryKey, entryPath, targetNames, targetPaths, workingDir,
+} from './state/panelSlice';
 import { applyRenamePlan, type RenamePreviewRow } from './commands/multirename';
 import { SYNC_LABELS, type SyncAction, type SyncPlan } from './commands/sync';
 import { archiveTargets } from './commands/archive';
@@ -22,7 +24,8 @@ import { eventToCombo, lookup, allowedFromInput } from './keybindings';
 import type { CommandName } from './commands';
 import { sortEntries } from './commands/sort';
 import {
-  cursorMove, cursorTo, navigateInto, navigateUp, navigateTo, revealPath, showSearchResults,
+  cursorMove, cursorTo, navigateInto, navigateUp, navigateTo, openArchive, revealPath,
+  showSearchResults,
 } from './commands/navigation';
 import {
   toggleMark, selectAll, clearSelection, rangeSelect,
@@ -54,8 +57,15 @@ import type {
 const BLOCKED_IN_ARCHIVE: ReadonlySet<string> = new Set([
   'mkdir', 'rename', 'move', 'trash', 'deleteConfirm', 'deleteCursorConfirm',
   'duplicate', 'multiRename', 'quickLook', 'viewFile', 'compareFiles',
-  'openTerminal', 'runShellCommand', 'addToFavorites', 'packArchive',
+  'runShellCommand', 'packArchive',
 ]);
+
+/**
+ * Commands that write into "the folder this panel is showing". Search results
+ * come from many folders at once and an archive listing from none, so there is
+ * no single directory for these to mean.
+ */
+const NEEDS_REAL_DIR: ReadonlySet<string> = new Set(['mkdir', 'rename', 'multiRename']);
 
 /** fs:trash validates at most 1024 paths per call; a mirror can plan more. */
 const TRASH_CHUNK = 1000;
@@ -179,6 +189,7 @@ export function App() {
     const selCtx = { panel: active, setPanel: setActive };
 
     if (active.source.kind === 'archive' && BLOCKED_IN_ARCHIVE.has(cmd)) return;
+    if (active.source.kind !== 'fs' && NEEDS_REAL_DIR.has(cmd)) return;
     // A virtual panel's `path` is a label, so folder-level tools have nothing
     // real to work with.
     if (cmd === 'syncFolders'
@@ -265,11 +276,22 @@ export function App() {
       case 'toggleHidden': {
         const newShow = !active.showHidden;
         setActive({ showHidden: newShow });
+        // Only a real listing filters by the flag; a virtual panel just records
+        // it for whatever it lists next.
+        if (active.source.kind !== 'fs') return;
         return navigateTo({
           panel: { ...active, showHidden: newShow }, setPanel: setActive, api, path: active.path, requestKey: s.activeSide,
         });
       }
-      case 'refresh':         return navigateTo({ panel: active, setPanel: setActive, api, path: active.path, requestKey: s.activeSide });
+      case 'refresh': {
+        // Re-listing a virtual panel by its `path` would replace it with a
+        // "not found" error, since that path is a label.
+        if (active.source.kind === 'archive') {
+          return openArchive(navCtx, active.source.archivePath, active.source.innerPath).then(() => {});
+        }
+        if (active.source.kind !== 'fs') return;
+        return navigateTo({ panel: active, setPanel: setActive, api, path: active.path, requestKey: s.activeSide });
+      }
       case 'focusPathBar': {
         const el = (s.activeSide === 'left' ? leftPathRef : rightPathRef).current;
         if (el) { el.focus(); el.select(); }
@@ -362,7 +384,7 @@ export function App() {
         return;
       }
       case 'addToFavorites': {
-        useStore.getState().addFavorite(active.path);
+        useStore.getState().addFavorite(workingDir(active));
         return;
       }
       case 'pickFavorite':
@@ -413,8 +435,8 @@ export function App() {
         useStore.getState().setDialog({
           kind: 'search',
           side: s.activeSide,
-          root: active.path,
-          otherRoot: s.panels[s.activeSide === 'left' ? 'right' : 'left'].path,
+          root: workingDir(active),
+          otherRoot: workingDir(s.panels[s.activeSide === 'left' ? 'right' : 'left']),
         });
         return;
       case 'revealInPanel': {
@@ -461,7 +483,7 @@ export function App() {
         return;
       }
       case 'openTerminal':
-        void api.shell.openTerminal(active.path);
+        void api.shell.openTerminal(workingDir(active));
         return;
       case 'toggleTerminal':
         useStore.getState().setTerminalOpen(!useStore.getState().terminalOpen);
@@ -883,6 +905,10 @@ export function App() {
 
   // Ctrl+Q turns the *other* pane into a live preview of the active cursor, so
   // one side keeps browsing while the other renders whatever it lands on.
+  // Shell, terminal and drive bar all need a real folder; in a virtual panel
+  // `path` is a label.
+  const activeDir = workingDir(active);
+
   // Archive rows have no path on disk, so there is nothing for the viewer to
   // read; search hits carry their real location and preview normally.
   const quickViewTarget = state.quickView && active.source.kind !== 'archive'
@@ -961,7 +987,7 @@ export function App() {
   return (
     <div className="gc-app">
       <UpdateBanner />
-      <DriveBar volumes={state.volumes} currentPath={active.path} onPick={goTo} />
+      <DriveBar volumes={state.volumes} currentPath={activeDir} onPick={goTo} />
       <BookmarkBar
         bookmarks={state.bookmarks}
         onPick={goTo}
@@ -991,24 +1017,24 @@ export function App() {
       </div>
       {state.terminalOpen && (
         <Terminal
-          cwd={active.path}
+          cwd={activeDir}
           onClose={closeTerminal}
         />
       )}
       <CommandLine
-        cwd={active.path}
+        cwd={activeDir}
         label={(() => {
           const home = state.volumes.find((v) => v.kind === 'home')?.path;
-          if (home && (active.path === home || active.path.startsWith(home + '/'))) {
-            return '~' + active.path.slice(home.length);
+          if (home && (activeDir === home || activeDir.startsWith(home + '/'))) {
+            return '~' + activeDir.slice(home.length);
           }
-          return active.path;
+          return activeDir;
         })()}
         inputRef={cmdRef}
         onCursorUp={() => void dispatch('cursorUp')}
         onCursorDown={() => void dispatch('cursorDown')}
         onRun={async (cmd) => {
-          const r = await api.shell.runCommand(cmd, active.path);
+          const r = await api.shell.runCommand(cmd, activeDir);
           setCmdOutput({ cmd, ...r });
           // Refresh both panels in case the command changed files.
           await Promise.all([refreshSide('left'), refreshSide('right')]);
