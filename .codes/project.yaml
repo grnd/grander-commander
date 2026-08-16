@@ -1,0 +1,5 @@
+services:
+  favicon: "/Users/grnd/projects/grander-commander/.codes/favicon.svg"
+  themeColor: "#0a5fcf"
+  accentColor: "#ffcc66"
+ai_note: "Suggest alternatives if better fit"

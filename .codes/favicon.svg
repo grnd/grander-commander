@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <rect width="32" height="32" rx="7" fill="#F97316"/>
+  <!-- Joystick base -->
+  <rect x="8" y="23" width="16" height="5" rx="2.5" fill="white"/>
+  <!-- Stick -->
+  <rect x="14" y="12" width="4" height="13" rx="2" fill="white"/>
+  <!-- Ball top -->
+  <circle cx="16" cy="10" r="5.5" fill="white"/>
+  <!-- Button on ball -->
+  <circle cx="16" cy="10" r="2.5" fill="#F97316"/>
+</svg>
