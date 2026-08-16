@@ -83,8 +83,8 @@ export type UpdateStatus =
   | { kind: 'idle' }
   | { kind: 'checking' }
   | { kind: 'up-to-date'; checkedAt: number }
-  | { kind: 'available'; version: string }
+  | { kind: 'available'; version: string; releaseUrl: string }
   | { kind: 'downloading'; percent: number }
-  | { kind: 'ready'; version: string }
+  | { kind: 'ready'; version: string; releaseUrl: string }
   | { kind: 'error'; message: string }
   | { kind: 'unsupported'; reason: string };

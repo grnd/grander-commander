@@ -23,3 +23,9 @@ export function tagFromLatestRedirect(location: string | null | undefined): stri
   const m = /\/releases\/tag\/([^/?#]+)/.exec(location);
   return m ? decodeURIComponent(m[1]) : null;
 }
+
+/** Human-facing release page for a version. Tags carry a leading "v". */
+export function releaseNotesUrl(version: string, repo: string = DEFAULT_REPO): string {
+  const tag = version.startsWith('v') ? version : `v${version}`;
+  return `https://github.com/${repo}/releases/tag/${tag}`;
+}

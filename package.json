@@ -54,11 +54,12 @@
       "entitlementsInherit": "build/entitlements.mac.plist",
       "notarize": true,
       "extendInfo": {
-        "NSDesktopFolderUsageDescription": "GranderCommander needs access to your Desktop folder to display and manage its files.",
-        "NSDocumentsFolderUsageDescription": "GranderCommander needs access to your Documents folder to display and manage its files.",
-        "NSDownloadsFolderUsageDescription": "GranderCommander needs access to your Downloads folder to display and manage its files.",
-        "NSRemovableVolumesUsageDescription": "GranderCommander needs access to removable volumes to display and manage their files.",
-        "NSAppleEventsUsageDescription": "GranderCommander uses AppleEvents to open items and reveal them in Finder."
+        "NSDesktopFolderUsageDescription": "Grander Commander needs access to your Desktop folder to display and manage its files.",
+        "NSDocumentsFolderUsageDescription": "Grander Commander needs access to your Documents folder to display and manage its files.",
+        "NSDownloadsFolderUsageDescription": "Grander Commander needs access to your Downloads folder to display and manage its files.",
+        "NSRemovableVolumesUsageDescription": "Grander Commander needs access to removable volumes to display and manage their files.",
+        "NSAppleEventsUsageDescription": "Grander Commander uses AppleEvents to open items and reveal them in Finder.",
+        "CFBundleDisplayName": "Grander Commander"
       }
     },
     "publish": [
@@ -70,11 +71,12 @@
       }
     ],
     "dmg": {
-      "title": "GranderCommander ${version}",
+      "title": "Grander Commander ${version}",
       "contents": [
         {
           "x": 140,
-          "y": 180
+          "y": 180,
+          "type": "file"
         },
         {
           "x": 400,
@@ -82,7 +84,13 @@
           "type": "link",
           "path": "/Applications"
         }
-      ]
+      ],
+      "background": "build/dmg-background.png",
+      "window": {
+        "width": 540,
+        "height": 380
+      },
+      "iconSize": 96
     }
   },
   "devDependencies": {

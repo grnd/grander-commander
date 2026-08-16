@@ -49,6 +49,7 @@ export type GCApi = {
     download(): Promise<void>;
     install(): Promise<void>;
     status(): Promise<UpdateStatus>;
+    releaseNotes(): Promise<void>;
     onStatus(cb: (s: UpdateStatus) => void): () => void;
   };
 };

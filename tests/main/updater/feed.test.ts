@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { latestFeedUrl, tagFeedUrl, tagFromLatestRedirect } from '@main/updater/feed';
+import { latestFeedUrl, tagFeedUrl, tagFromLatestRedirect, releaseNotesUrl } from '@main/updater/feed';
 
 describe('update feed URLs', () => {
   it('builds the /latest/download feed used as the fallback', () => {
@@ -40,5 +40,17 @@ describe('tagFromLatestRedirect', () => {
   it('returns null for a URL that is not a release tag', () => {
     // Falling back to the /latest feed is correct here; guessing a tag is not.
     expect(tagFromLatestRedirect('https://github.com/grnd/grander-commander/releases')).toBeNull();
+  });
+});
+
+describe('releaseNotesUrl', () => {
+  it('points at the tag page for a version', () => {
+    expect(releaseNotesUrl('0.1.6', 'grnd/grander-commander'))
+      .toBe('https://github.com/grnd/grander-commander/releases/tag/v0.1.6');
+  });
+
+  it('does not double the v prefix when the version already has one', () => {
+    expect(releaseNotesUrl('v0.1.6', 'grnd/grander-commander'))
+      .toBe('https://github.com/grnd/grander-commander/releases/tag/v0.1.6');
   });
 });

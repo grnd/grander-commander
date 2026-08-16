@@ -12,7 +12,7 @@ import { duplicate } from './fs/duplicate';
 import { quickLook } from './shell/quickLook';
 import { openTerminal } from './shell/openTerminal';
 import { runCommand } from './shell/runCommand';
-import { checkForUpdates, downloadUpdate, quitAndInstall, getUpdateStatus } from './updater';
+import { checkForUpdates, downloadUpdate, quitAndInstall, getUpdateStatus, openReleaseNotes } from './updater';
 import { spawnTerminal, writeTerminal, resizeTerminal, killTerminal, killAllForContents } from './shell/terminal';
 import { popupFileContext, type FileContextArgs } from './menu/fileContext';
 import { OpRunner } from './ops/runner';
@@ -465,6 +465,10 @@ export function registerIpc() {
     expectArgs(args, 'update:status', 0);
     return [];
   }, () => getUpdateStatus());
+  handleValidated('update:releaseNotes', (args): [] => {
+    expectArgs(args, 'update:releaseNotes', 0);
+    return [];
+  }, () => openReleaseNotes());
 }
 
 export { runner };
