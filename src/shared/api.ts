@@ -7,6 +7,7 @@
 import type {
   FileEntry, ListDirOptions, Result, Volume, FileOp, OpId, OpEvent, ConflictAnswer,
   UpdateStatus, MenuCommand, Completion, DiffResult, SyncEntry, SyncOptions,
+  SearchQuery, SearchOutcome,
 } from './types';
 
 export type GCApi = {
@@ -22,6 +23,9 @@ export type GCApi = {
     complete(prefix: string, cwd: string, kind: 'command' | 'path'): Promise<Completion[]>;
     compare(left: string, right: string): Promise<Result<DiffResult>>;
     syncScan(left: string, right: string, opts: SyncOptions): Promise<Result<SyncEntry[]>>;
+    /** `token` is the caller's handle for cancelSearch; any unique string. */
+    search(token: string, query: SearchQuery): Promise<Result<SearchOutcome>>;
+    cancelSearch(token: string): Promise<void>;
   };
   volumes: { list(): Promise<Volume[]> };
   ops: {

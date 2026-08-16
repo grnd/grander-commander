@@ -11,6 +11,7 @@ import { EditFavoritePrompt } from './EditFavoritePrompt';
 import { MultiRename } from './MultiRename';
 import { CompareView } from './CompareView';
 import { SyncView } from './SyncView';
+import { SearchDialog } from './SearchDialog';
 import type { RenamePreviewRow } from '@renderer/commands/multirename';
 import type { SyncAction, SyncPlan } from '@renderer/commands/sync';
 
@@ -26,6 +27,12 @@ type Handlers = {
   onFavoriteRemoved: (path: string) => void;
   onMultiRename: (side: 'left' | 'right', dir: string, rows: RenamePreviewRow[]) => void;
   onSyncRun: (action: SyncAction, plan: SyncPlan) => void;
+  onSearchResults: (
+    side: 'left' | 'right',
+    label: string,
+    roots: string[],
+    entries: import('@shared/types').FileEntry[],
+  ) => void;
 };
 
 export function Dialogs(h: Handlers) {
@@ -94,6 +101,17 @@ export function Dialogs(h: Handlers) {
           rightRoot={dialog.rightRoot}
           onRun={(action, plan) => { close(); h.onSyncRun(action, plan); }}
           onClose={close} />
+      </DialogShell>;
+    case 'search':
+      return <DialogShell title="Find files" onClose={close}>
+        <SearchDialog
+          root={dialog.root}
+          otherRoot={dialog.otherRoot}
+          onResults={(label, roots, entries) => {
+            close();
+            h.onSearchResults(dialog.side, label, roots, entries);
+          }}
+          onCancel={close} />
       </DialogShell>;
   }
 }

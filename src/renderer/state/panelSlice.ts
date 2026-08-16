@@ -1,5 +1,5 @@
 // src/renderer/state/panelSlice.ts
-import type { FileEntry, SortCol, SortDir } from '@shared/types';
+import type { FileEntry, PanelSource, SortCol, SortDir } from '@shared/types';
 
 export type PanelSide = 'left' | 'right';
 
@@ -9,6 +9,8 @@ export type PanelState = {
   /** Stable identity for the tab strip's React keys. */
   id: string;
   path: string;
+  /** `fs` lists `path`; a virtual source supplies rows from elsewhere. */
+  source: PanelSource;
   entries: FileEntry[];     // sorted per `sort`
   sort: { col: SortCol; dir: SortDir };
   cursor: number;           // index into entries
@@ -24,6 +26,7 @@ export function initialPanelState(path: string): PanelState {
   return {
     id: `tab-${++tabSeq}`,
     path,
+    source: { kind: 'fs' },
     entries: [],
     sort: { col: 'name', dir: 'asc' },
     cursor: 0,
@@ -46,13 +49,21 @@ export function joinPath(dir: string, name: string): string {
 }
 
 /**
+ * Absolute path of a row. Search results carry their own location, since they
+ * were gathered from many directories and do not live under `panel.path`.
+ */
+export function entryPath(panel: PanelState, entry: FileEntry): string {
+  return entry.srcPath ?? joinPath(panel.path, entryKey(entry));
+}
+
+/**
  * Absolute path of the row under the cursor, or null when there is nothing
  * actionable there (empty panel, or the synthetic "..").
  */
 export function cursorPath(panel: PanelState): string | null {
   const cur = panel.entries[panel.cursor];
   if (!cur || cur.name === '..') return null;
-  return joinPath(panel.path, entryKey(cur));
+  return entryPath(panel, cur);
 }
 
 /**
@@ -75,5 +86,12 @@ export function targetNames(panel: PanelState): string[] {
 }
 
 export function targetPaths(panel: PanelState): string[] {
-  return targetNames(panel).map((n) => joinPath(panel.path, n));
+  const marked = panel.selection;
+  const rows = marked.size > 0
+    ? panel.entries.filter((e) => e.name !== '..' && marked.has(entryKey(e)))
+    : (() => {
+        const cur = panel.entries[panel.cursor];
+        return cur && cur.name !== '..' ? [cur] : [];
+      })();
+  return rows.map((e) => entryPath(panel, e));
 }

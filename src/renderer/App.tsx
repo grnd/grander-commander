@@ -10,7 +10,7 @@ import { FKeyBar } from './components/FKeyBar';
 import { Terminal } from './components/Terminal';
 import { Viewer } from './components/Viewer';
 import type { PanelSide } from './state/panelSlice';
-import { cursorPath, entryKey, targetNames, targetPaths } from './state/panelSlice';
+import { cursorPath, entryKey, entryPath, targetNames, targetPaths } from './state/panelSlice';
 import { applyRenamePlan, type RenamePreviewRow } from './commands/multirename';
 import { SYNC_LABELS, type SyncAction, type SyncPlan } from './commands/sync';
 
@@ -20,7 +20,7 @@ import { eventToCombo, lookup, allowedFromInput } from './keybindings';
 import type { CommandName } from './commands';
 import { sortEntries } from './commands/sort';
 import {
-  cursorMove, cursorTo, navigateInto, navigateUp, navigateTo,
+  cursorMove, cursorTo, navigateInto, navigateUp, navigateTo, revealPath, showSearchResults,
 } from './commands/navigation';
 import {
   toggleMark, selectAll, clearSelection, rangeSelect,
@@ -40,7 +40,7 @@ import {
 } from './commands/mutations';
 import { Dialogs } from './components/dialogs';
 import { opItemCount } from '@shared/types';
-import type { FileOp, OpEvent, OpId, ConflictAnswer, OpError, MenuCommand } from '@shared/types';
+import type { FileEntry, FileOp, OpEvent, OpId, ConflictAnswer, OpError, MenuCommand } from '@shared/types';
 
 function applySort(
   panel: PanelState,
@@ -325,6 +325,21 @@ export function App() {
         st.closeTab(s.activeSide, st.activeTab[s.activeSide]);
         return reloadActiveTab(s.activeSide);
       }
+      case 'openSearch':
+        useStore.getState().setDialog({
+          kind: 'search',
+          side: s.activeSide,
+          root: active.path,
+          otherRoot: s.panels[s.activeSide === 'left' ? 'right' : 'left'].path,
+        });
+        return;
+      case 'revealInPanel': {
+        // The way out of a search listing: jump to the row's real folder with
+        // the cursor already on it.
+        const full = cursorPath(active);
+        if (!full) return;
+        return revealPath({ panel: active, setPanel: setActive, api, requestKey: s.activeSide }, full);
+      }
       case 'syncFolders':
         useStore.getState().setDialog({
           kind: 'sync', leftRoot: s.panels.left.path, rightRoot: s.panels.right.path,
@@ -558,8 +573,7 @@ export function App() {
     const isDotDot = entry.name === '..';
     const nextSelection = selectionForContextTarget(panel, entry);
     setPanel(side, { cursor: index, selection: nextSelection });
-    const name = entry.ext ? `${entry.name}.${entry.ext}` : entry.name;
-    const fullPath = panel.path === '/' ? `/${name}` : `${panel.path}/${name}`;
+    const fullPath = entryPath(panel, entry);
     void api.menu.popupFileContext({
       x: ev.clientX,
       y: ev.clientY,
@@ -681,6 +695,14 @@ export function App() {
     },
     onFavoriteRemoved: (path: string) => {
       useStore.getState().removeFavorite(path);
+    },
+    onSearchResults: (side: PanelSide, label: string, roots: string[], entries: FileEntry[]) => {
+      const panel = useStore.getState().panels[side];
+      showSearchResults(
+        { panel, setPanel: (patch) => setPanel(side, patch) },
+        { label, roots, entries },
+      );
+      useStore.setState({ activeSide: side });
     },
     onSyncRun: async (action: SyncAction, plan: SyncPlan) => {
       // Deletions first: mirroring a folder over a file needs the file gone

@@ -10,6 +10,12 @@ export type FileEntry = {
   size: number;
   mtime: number;          // unix ms
   mode: number;
+  /**
+   * Absolute path, set only when the row does not live at
+   * `panel.path + name` — search results, which are gathered from many
+   * directories at once. Every path-building helper prefers it when present.
+   */
+  srcPath?: string;
 };
 
 export type Volume = {
@@ -88,7 +94,45 @@ export type DialogState =
   | { kind: 'favoriteEdit'; path: string; label: string }
   | { kind: 'multiRename'; side: 'left' | 'right'; dir: string; names: string[]; existingNames: string[] }
   | { kind: 'compare'; left: string; right: string }
-  | { kind: 'sync'; leftRoot: string; rightRoot: string };
+  | { kind: 'sync'; leftRoot: string; rightRoot: string }
+  | { kind: 'search'; side: 'left' | 'right'; root: string; otherRoot: string };
+
+// ---- M3: virtual panels ----
+
+/**
+ * Where a panel's rows come from. A virtual panel still renders like any other
+ * listing, but its rows are not `readdir` of `panel.path`, so navigation and
+ * path-building take a different route.
+ */
+export type PanelSource =
+  | { kind: 'fs' }
+  | { kind: 'search'; label: string; roots: string[] };
+
+// ---- M3: search ----
+
+export type SearchQuery = {
+  roots: string[];
+  /** Glob by default (`*.ts`, `foo?.txt`); a regex when `nameIsRegex`. */
+  namePattern: string;
+  nameIsRegex: boolean;
+  caseSensitive: boolean;
+  /** Empty means "do not read file contents at all". */
+  contentPattern: string;
+  contentIsRegex: boolean;
+  showHidden: boolean;
+  minSize: number | null;
+  maxSize: number | null;
+  modifiedAfter: number | null;
+  modifiedBefore: number | null;
+};
+
+export type SearchOutcome = {
+  entries: FileEntry[];
+  scanned: number;
+  /** The result cap or the time budget stopped the walk early. */
+  truncated: boolean;
+  cancelled: boolean;
+};
 
 // ---- M3: folder sync ----
 

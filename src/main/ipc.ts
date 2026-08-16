@@ -13,6 +13,7 @@ import { readChunk, MAX_CHUNK_BYTES } from './fs/readChunk';
 import { complete } from './fs/complete';
 import { compareFiles } from './fs/compare';
 import { syncScan } from './fs/syncScan';
+import { search, cancelSearch } from './fs/search';
 import { quickLook } from './shell/quickLook';
 import { openTerminal } from './shell/openTerminal';
 import { runCommand } from './shell/runCommand';
@@ -20,7 +21,9 @@ import { checkForUpdates, downloadUpdate, quitAndInstall, getUpdateStatus, openR
 import { spawnTerminal, writeTerminal, resizeTerminal, killTerminal, killAllForContents } from './shell/terminal';
 import { popupFileContext, type FileContextArgs } from './menu/fileContext';
 import { OpRunner } from './ops/runner';
-import type { ConflictAnswer, FileOp, ListDirOptions, OpEvent, OpId, SyncOptions } from '@shared/types';
+import type {
+  ConflictAnswer, FileOp, ListDirOptions, OpEvent, OpId, SearchQuery, SyncOptions,
+} from '@shared/types';
 
 const runner = new OpRunner();
 type OpBridge = {
@@ -183,6 +186,32 @@ export function validateFileOpPayload(value: unknown): FileOp {
     kind,
     sources: expectStringArray(value.sources, 'op.sources'),
     dst: expectString(value.dst, 'op.dst'),
+  };
+}
+
+function expectNullableInteger(value: unknown, name: string): number | null {
+  if (value === null || value === undefined) return null;
+  return expectInteger(value, name, { min: 0, max: Number.MAX_SAFE_INTEGER });
+}
+
+export function validateSearchQuery(value: unknown): SearchQuery {
+  if (!isRecord(value)) throw new TypeError('query must be an object');
+  return {
+    roots: expectStringArray(value.roots, 'query.roots', { maxItems: 16 }),
+    namePattern: expectString(value.namePattern, 'query.namePattern', {
+      allowEmpty: true, maxLength: MAX_BASENAME_LENGTH * 4,
+    }),
+    nameIsRegex: expectBoolean(value.nameIsRegex, 'query.nameIsRegex'),
+    caseSensitive: expectBoolean(value.caseSensitive, 'query.caseSensitive'),
+    contentPattern: expectString(value.contentPattern, 'query.contentPattern', {
+      allowEmpty: true, maxLength: MAX_COMMAND_LENGTH,
+    }),
+    contentIsRegex: expectBoolean(value.contentIsRegex, 'query.contentIsRegex'),
+    showHidden: expectBoolean(value.showHidden, 'query.showHidden'),
+    minSize: expectNullableInteger(value.minSize, 'query.minSize'),
+    maxSize: expectNullableInteger(value.maxSize, 'query.maxSize'),
+    modifiedAfter: expectNullableInteger(value.modifiedAfter, 'query.modifiedAfter'),
+    modifiedBefore: expectNullableInteger(value.modifiedBefore, 'query.modifiedBefore'),
   };
 }
 
@@ -388,6 +417,17 @@ export function registerIpc() {
       validateSyncOptions(args[2]),
     ];
   }, (_e, left, right, opts) => syncScan(left, right, opts));
+  handleValidated('fs:search', (args): [string, SearchQuery] => {
+    expectArgs(args, 'fs:search', 2);
+    return [
+      expectString(args[0], 'token', { maxLength: 128 }),
+      validateSearchQuery(args[1]),
+    ];
+  }, (_e, token, query) => search(token, query));
+  handleValidated('fs:searchCancel', (args): [string] => {
+    expectArgs(args, 'fs:searchCancel', 1);
+    return [expectString(args[0], 'token', { maxLength: 128 })];
+  }, (_e, token) => { cancelSearch(token); });
   handleValidated('volumes:list', (args): [] => {
     expectArgs(args, 'volumes:list', 0);
     return [];

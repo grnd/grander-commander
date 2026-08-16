@@ -1,6 +1,15 @@
 import type { FileEntry, OpError } from '@shared/types';
 import type { PanelState } from '@renderer/state/panelSlice';
+import { entryPath } from '@renderer/state/panelSlice';
 import { sortEntries } from './sort';
+
+/** The synthetic parent row every non-root listing carries. */
+export function dotDotEntry(): FileEntry {
+  return {
+    name: '..', ext: '', isDir: true, isSymlink: false, isAppBundle: false,
+    isHidden: false, size: 0, mtime: 0, mode: 0,
+  };
+}
 
 type Api = {
   fs: {
@@ -58,11 +67,7 @@ async function loadInto(ctx: NavCtx, newPath: string, cursorOnName?: string): Pr
   }
   const sorted = sortEntries(r.value, ctx.panel.sort);
   // Add synthetic ".." when not at root
-  const entries = newPath === '/' ? sorted : [
-    { name: '..', ext: '', isDir: true, isSymlink: false, isAppBundle: false,
-      isHidden: false, size: 0, mtime: 0, mode: 0 } as FileEntry,
-    ...sorted,
-  ];
+  const entries = newPath === '/' ? sorted : [dotDotEntry(), ...sorted];
   let cursor = 0;
   if (cursorOnName) {
     const idx = entries.findIndex((e) => {
@@ -73,6 +78,9 @@ async function loadInto(ctx: NavCtx, newPath: string, cursorOnName?: string): Pr
   }
   ctx.setPanel({
     path: newPath,
+    // Any successful listing lands the panel back on the real filesystem, which
+    // is how a virtual panel is left: type a path, or press Backspace.
+    source: { kind: 'fs' },
     entries,
     cursor,
     selection: new Set(),
@@ -87,18 +95,27 @@ function leafOf(path: string): string {
   return i >= 0 ? path.slice(i + 1) : path;
 }
 
+/** Where ".." and Backspace lead out of a virtual panel. */
+function exitOf(panel: PanelState): string | null {
+  if (panel.source.kind === 'search') return panel.source.roots[0] ?? '/';
+  return parentOf(panel.path);
+}
+
 export async function navigateInto(ctx: NavCtx) {
   const cur = ctx.panel.entries[ctx.panel.cursor];
   if (!cur) return;
   if (cur.name === '..') {
-    const parent = parentOf(ctx.panel.path);
-    if (parent) await loadInto(ctx, parent, leafOf(ctx.panel.path));
+    const exit = exitOf(ctx.panel);
+    if (!exit) return;
+    // Only a real listing has a leaf worth putting the cursor back on.
+    const cursorOn = ctx.panel.source.kind === 'fs' ? leafOf(ctx.panel.path) : undefined;
+    await loadInto(ctx, exit, cursorOn);
     return;
   }
   // Directories are split into name+ext too, so always reassemble before
   // building a path — "GoogleDrive-x@gmail.com" lists as name+ext "com".
-  const fullName = cur.ext ? `${cur.name}.${cur.ext}` : cur.name;
-  const full = ctx.panel.path === '/' ? `/${fullName}` : `${ctx.panel.path}/${fullName}`;
+  // Search rows carry their own absolute location instead.
+  const full = entryPath(ctx.panel, cur);
   if (cur.isDir) {
     await loadInto(ctx, full);
     return;
@@ -108,9 +125,38 @@ export async function navigateInto(ctx: NavCtx) {
 }
 
 export async function navigateUp(ctx: NavCtx) {
-  const parent = parentOf(ctx.panel.path);
-  if (!parent) return;
-  await loadInto(ctx, parent, leafOf(ctx.panel.path));
+  const exit = exitOf(ctx.panel);
+  if (!exit) return;
+  const cursorOn = ctx.panel.source.kind === 'fs' ? leafOf(ctx.panel.path) : undefined;
+  await loadInto(ctx, exit, cursorOn);
+}
+
+/** Show `full`'s containing folder with the cursor parked on it. */
+export async function revealPath(ctx: NavCtx, full: string): Promise<boolean> {
+  const parent = parentOf(full);
+  if (!parent) return false;
+  return loadInto(ctx, parent, leafOf(full));
+}
+
+/**
+ * Install search results as a virtual listing. The panel keeps rendering like
+ * any other, but its rows come from many directories, so each one carries its
+ * own absolute path.
+ */
+export function showSearchResults(
+  ctx: { panel: PanelState; setPanel: (patch: Partial<PanelState>) => void },
+  opts: { label: string; roots: string[]; entries: FileEntry[] },
+): void {
+  const sorted = sortEntries(opts.entries, ctx.panel.sort);
+  ctx.setPanel({
+    path: opts.label,
+    source: { kind: 'search', label: opts.label, roots: opts.roots },
+    entries: [dotDotEntry(), ...sorted],
+    cursor: sorted.length > 0 ? 1 : 0,
+    selection: new Set(),
+    loading: false,
+    error: null,
+  });
 }
 
 export async function navigateTo(ctx: NavCtx & { path: string }): Promise<boolean> {

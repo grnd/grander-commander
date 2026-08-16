@@ -5,16 +5,19 @@ type Props = {
   onCommit: (newPath: string) => Promise<boolean>;
   active: boolean;
   inputRef?: React.Ref<HTMLInputElement>;
+  /** A virtual listing shows a description here, not a folder to navigate to. */
+  virtual?: boolean;
 };
 
-export function PathBar({ path, onCommit, active, inputRef }: Props) {
+export function PathBar({ path, onCommit, active, inputRef, virtual = false }: Props) {
   const [value, setValue] = useState(path);
   useEffect(() => setValue(path), [path]);
 
   return (
     <input
       ref={inputRef}
-      className={`gc-pathbar${active ? ' is-active' : ''}`}
+      className={`gc-pathbar${active ? ' is-active' : ''}${virtual ? ' is-virtual' : ''}`}
+      title={path}
       value={value}
       onChange={(e) => setValue(e.target.value)}
       onKeyDown={async (e) => {

@@ -509,3 +509,23 @@ body {
   background: transparent; border: none; color: var(--gc-fg);
   cursor: pointer; font-size: 12px; line-height: 1; padding: 0 6px;
 }
+
+/* ---- M3: search dialog ---- */
+.gc-search { display: flex; flex-direction: column; gap: 6px; }
+.gc-search-field { display: grid; grid-template-columns: 74px 1fr; align-items: center; gap: 8px; }
+.gc-search-field > span { font-size: 11px; text-align: right; }
+.gc-search-toggles, .gc-search-filters {
+  display: flex; flex-wrap: wrap; gap: 10px; font-size: 11px; align-items: center;
+  margin-left: 82px;
+}
+.gc-search-toggles label, .gc-search-filters label { display: inline-flex; align-items: center; gap: 3px; }
+.gc-search-filters input { width: 92px; padding: 1px 4px; font-family: Menlo, monospace; font-size: 11px; }
+.gc-search-scope {
+  margin: 0 0 0 82px; font-size: 10px; opacity: 0.75;
+  font-family: Menlo, monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.gc-search-error { padding: 4px 6px; font-size: 11px; background: var(--gc-error-bg, #b00020); color: var(--gc-error-fg, #fff); }
+.gc-search-status { padding: 4px 6px; font-size: 11px; background: var(--gc-bg); border: 1px solid var(--gc-border); }
+
+/* A virtual panel's path bar is a label, not a folder — say so. */
+.gc-pathbar.is-virtual { font-style: italic; opacity: 0.9; }

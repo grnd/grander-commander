@@ -50,6 +50,8 @@ const SECTIONS: { title: string; rows: [string, string][] }[] = [
       ['Ctrl+M / Cmd+Shift+M', 'Multi-rename selected files'],
       ['Cmd+D', 'Compare two files by content'],
       ['Cmd+Y', 'Synchronize the two panel folders'],
+      ['Cmd+F / Alt+F7', 'Find files (name, content, size, date)'],
+      ['Cmd+Enter', 'Reveal cursor item in its folder'],
     ],
   },
   {

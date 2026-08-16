@@ -57,7 +57,13 @@ export function Panel({
           onNew={() => onNewTab?.()}
         />
       )}
-      <PathBar path={panel.path} onCommit={onPathCommit} active={isActive} inputRef={pathBarRef} />
+      <PathBar
+        path={panel.path}
+        onCommit={onPathCommit}
+        active={isActive}
+        inputRef={pathBarRef}
+        virtual={panel.source.kind !== 'fs'}
+      />
       <ColumnHeader sort={panel.sort} onSort={onSort} />
       {panel.error && <div className="gc-panel-error" role="alert">{panel.error}</div>}
       <div className="gc-panel-body" ref={bodyRef}>

@@ -22,6 +22,8 @@ const api: GCApi = {
     complete: (prefix, cwd, kind) => ipcRenderer.invoke('fs:complete', prefix, cwd, kind),
     compare: (left, right) => ipcRenderer.invoke('fs:compare', left, right),
     syncScan: (left, right, opts) => ipcRenderer.invoke('fs:syncScan', left, right, opts),
+    search: (token, query) => ipcRenderer.invoke('fs:search', token, query),
+    cancelSearch: (token) => ipcRenderer.invoke('fs:searchCancel', token),
   },
   volumes: {
     list: () => ipcRenderer.invoke('volumes:list'),
