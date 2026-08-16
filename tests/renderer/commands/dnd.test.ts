@@ -1,12 +1,19 @@
 import { describe, it, expect } from 'vitest';
-import {
-  decodePaths, dragPaths, dropTarget, encodePaths, externalPaths, resolveDrop,
-} from '@renderer/commands/dnd';
+import { dragPaths, dropTarget, externalPaths, resolveDrop } from '@renderer/commands/dnd';
 import { initialPanelState, type PanelState } from '@renderer/state/panelSlice';
 import type { FileEntry } from '@shared/types';
 
-const file = (name: string, ext = '', isDir = false): FileEntry =>
-  ({ name, ext, isDir, isSymlink: false, isAppBundle: false, isHidden: false, size: 1, mtime: 0, mode: 0 });
+const file = (name: string, ext = '', isDir = false): FileEntry => ({
+  name,
+  ext,
+  isDir,
+  isSymlink: false,
+  isAppBundle: false,
+  isHidden: false,
+  size: 1,
+  mtime: 0,
+  mode: 0,
+});
 
 const dotDot = file('..', '', true);
 
@@ -43,7 +50,7 @@ describe('dragPaths', () => {
     expect(dragPaths(panel(), 99)).toEqual([]);
   });
 
-  it('uses a search hit\'s real location', () => {
+  it("uses a search hit's real location", () => {
     const hit = { ...file('deep/a', 'txt'), srcPath: '/root/deep/a.txt' };
     const p = panel({
       source: { kind: 'search', label: 'Search', roots: ['/root'] },
@@ -51,22 +58,6 @@ describe('dragPaths', () => {
       cursor: 1,
     });
     expect(dragPaths(p, 1)).toEqual(['/root/deep/a.txt']);
-  });
-});
-
-describe('encode / decode', () => {
-  it('round-trips a path list', () => {
-    expect(decodePaths(encodePaths(['/a', '/b']))).toEqual(['/a', '/b']);
-  });
-
-  it('returns nothing for a payload from some other app', () => {
-    expect(decodePaths('')).toEqual([]);
-    expect(decodePaths('not json')).toEqual([]);
-    expect(decodePaths('{"a":1}')).toEqual([]);
-  });
-
-  it('drops non-string members rather than trusting the payload', () => {
-    expect(decodePaths('["/a", 3, null]')).toEqual(['/a']);
   });
 });
 
@@ -95,8 +86,11 @@ describe('dropTarget', () => {
 
 describe('resolveDrop', () => {
   it('copies on a plain drop', () => {
-    expect(resolveDrop(['/a/x.txt'], '/b', { shiftKey: false }))
-      .toEqual({ kind: 'copy', sources: ['/a/x.txt'], dest: '/b' });
+    expect(resolveDrop(['/a/x.txt'], '/b', { shiftKey: false })).toEqual({
+      kind: 'copy',
+      sources: ['/a/x.txt'],
+      dest: '/b',
+    });
   });
 
   it('moves when Shift is held', () => {
@@ -136,7 +130,10 @@ describe('resolveDrop', () => {
 describe('externalPaths', () => {
   it('reads the location Electron puts on a dropped File', () => {
     const files = [{ path: '/Users/me/a.txt' }, { path: '/Users/me/b.txt' }];
-    expect(externalPaths(files as unknown as FileList)).toEqual(['/Users/me/a.txt', '/Users/me/b.txt']);
+    expect(externalPaths(files as unknown as FileList)).toEqual([
+      '/Users/me/a.txt',
+      '/Users/me/b.txt',
+    ]);
   });
 
   it('skips anything with no real location, such as dragged text', () => {

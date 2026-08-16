@@ -33,10 +33,11 @@ const SECTIONS: { title: string; rows: [string, string][] }[] = [
     title: 'Drag and drop',
     rows: [
       ['Drag to other panel', 'Copy there'],
+      ['Drag to Finder', 'Copy there'],
       ['Shift+drag', 'Move instead of copy'],
       ['Drop on a folder row', 'Into that folder'],
-      ['Alt+drag', 'Drag out to Finder'],
-      ['Drop from Finder', 'Copy in'],
+      ['Drop from Finder', 'Copy in (Shift to move)'],
+      ['Drag inside an archive', 'Extract to where you drop'],
     ],
   },
   {

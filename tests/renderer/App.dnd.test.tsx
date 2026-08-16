@@ -7,7 +7,7 @@ vi.mock('@renderer/components/Terminal', () => ({ Terminal: () => null }));
 import { App } from '@renderer/App';
 import { useStore } from '@renderer/state/store';
 import { initialPanelState } from '@renderer/state/panelSlice';
-import { GC_ARCHIVE, GC_PATHS } from '@renderer/commands/dnd';
+import { GC_ARCHIVE } from '@renderer/commands/dnd';
 
 beforeAll(() => {
   globalThis.ResizeObserver = class {
@@ -176,7 +176,7 @@ describe('App drag and drop', () => {
   // The bug: mousedown cleared the selection before dragstart fired, so a
   // multi-file drag carried exactly one file.
   it('keeps the marked set when the drag starts on a marked row', async () => {
-    await renderApp();
+    const gc = await renderApp();
     markLeft('alpha.txt', 'zeta.txt');
 
     fireEvent.mouseDown(row('alpha'));
@@ -184,7 +184,7 @@ describe('App drag and drop', () => {
 
     const dt = dataTransfer();
     fireDrag(row('alpha'), 'dragStart', { dataTransfer: dt });
-    expect(JSON.parse(dt.getData(GC_PATHS))).toEqual(['/home/u/alpha.txt', '/home/u/zeta.txt']);
+    expect(gc.shell.startDrag).toHaveBeenCalledWith(['/home/u/alpha.txt', '/home/u/zeta.txt']);
   });
 
   it('still clears the selection on a plain click that is not a drag', async () => {
@@ -204,37 +204,37 @@ describe('App drag and drop', () => {
     expect(useStore.getState().panels.left.selection.size).toBe(0);
   });
 
-  // Finder accepts text/plain and writes a "Text Clipping" named after the
-  // path, which reads as a broken copy. Out-of-app drags are Alt+drag.
-  it('puts no plain-text payload on the drag', async () => {
+  // A text/plain payload made Finder write a "Text Clipping" named after the
+  // path. Nothing rides an HTML5 drag now — the files themselves are handed to
+  // the OS instead.
+  it('puts no payload on the drag at all', async () => {
     await renderApp();
     const dt = dataTransfer();
     fireDrag(row('zeta'), 'dragStart', { dataTransfer: dt });
     expect(dt.getData('text/plain')).toBe('');
+    expect(dt.getData('text/gc-paths')).toBe('');
   });
 
   it('drags just the grabbed row when nothing is marked', async () => {
-    await renderApp();
+    const gc = await renderApp();
     const dt = dataTransfer();
     fireDrag(row('zeta'), 'dragStart', { dataTransfer: dt });
-    expect(JSON.parse(dt.getData(GC_PATHS))).toEqual(['/home/u/zeta.txt']);
+    expect(gc.shell.startDrag).toHaveBeenCalledWith(['/home/u/zeta.txt']);
   });
 
-  it('hands the whole marked set to the OS on Alt+drag, without an HTML5 payload', async () => {
+  // Finder has to accept a plain drag, so there is no modifier to remember —
+  // Alt is neither required nor special any more.
+  it('needs no modifier to hand files to the OS', async () => {
     const gc = await renderApp();
     markLeft('alpha.txt', 'zeta.txt');
 
-    const dt = dataTransfer();
-    fireDrag(row('alpha'), 'dragStart', { dataTransfer: dt, altKey: true });
-
+    fireDrag(row('alpha'), 'dragStart', { dataTransfer: dataTransfer() });
     expect(gc.shell.startDrag).toHaveBeenCalledWith(['/home/u/alpha.txt', '/home/u/zeta.txt']);
-    expect(dt.getData(GC_PATHS)).toBe('');
   });
 
   it('copies a drop from the other panel', async () => {
     const gc = await renderApp();
-    const dt = dataTransfer();
-    dt.setData(GC_PATHS, JSON.stringify(['/other/one.txt', '/other/two.txt']));
+    const dt = dataTransfer([{ path: '/other/one.txt' }, { path: '/other/two.txt' }]);
 
     fireDrag(panelBody(1), 'dragOver', { dataTransfer: dt });
     fireDrag(panelBody(1), 'drop', { dataTransfer: dt });
@@ -250,8 +250,7 @@ describe('App drag and drop', () => {
 
   it('moves instead when Shift is held', async () => {
     const gc = await renderApp();
-    const dt = dataTransfer();
-    dt.setData(GC_PATHS, JSON.stringify(['/other/one.txt']));
+    const dt = dataTransfer([{ path: '/other/one.txt' }]);
 
     fireDrag(panelBody(1), 'drop', { dataTransfer: dt, shiftKey: true });
     await waitFor(() =>
@@ -261,8 +260,7 @@ describe('App drag and drop', () => {
 
   it('drops into the folder row under the pointer', async () => {
     const gc = await renderApp();
-    const dt = dataTransfer();
-    dt.setData(GC_PATHS, JSON.stringify(['/other/one.txt']));
+    const dt = dataTransfer([{ path: '/other/one.txt' }]);
 
     fireDrag(row('photos'), 'drop', { dataTransfer: dt });
     await waitFor(() =>
@@ -284,15 +282,15 @@ describe('App drag and drop', () => {
     );
   });
 
-  // Taking a file out from under another app on a plain drag is not a call to
-  // make for the user.
-  it('never moves a drop that came from outside, even with Shift', async () => {
+  // Our own drags and Finder's are indistinguishable on arrival now, so the
+  // modifier has to mean the same thing for both.
+  it('honours Shift on a drop from another app too', async () => {
     const gc = await renderApp();
     const dt = dataTransfer([{ path: '/Users/me/from-finder.txt' }]);
 
     fireDrag(panelBody(1), 'drop', { dataTransfer: dt, shiftKey: true });
     await waitFor(() =>
-      expect(gc.ops.start).toHaveBeenCalledWith(expect.objectContaining({ kind: 'copy' })),
+      expect(gc.ops.start).toHaveBeenCalledWith(expect.objectContaining({ kind: 'move' })),
     );
   });
 
@@ -364,7 +362,7 @@ describe('App drag out of an archive', () => {
 
   // Previously the drag was refused outright, so F5 was the only way out.
   it('carries the grabbed member as an extraction request', async () => {
-    await renderApp();
+    const gc = await renderApp();
     browseArchive();
 
     const dt = dataTransfer();
@@ -375,8 +373,9 @@ describe('App drag out of an archive', () => {
       stripPrefix: 'payload',
       members: [{ path: 'payload/hello.txt', isDir: false }],
     });
-    // Never the filesystem payload: these paths do not exist on disk.
-    expect(dt.getData(GC_PATHS)).toBe('');
+    // Never a native drag: these paths do not exist on disk yet, so there is
+    // nothing for the OS to carry.
+    expect(gc.shell.startDrag).not.toHaveBeenCalled();
   });
 
   it('carries the whole marked set when the grabbed row is part of it', async () => {

@@ -17,8 +17,8 @@ import { applyRenamePlan, type RenamePreviewRow } from './commands/multirename';
 import { SYNC_LABELS, type SyncAction, type SyncPlan } from './commands/sync';
 import { archiveDragMembers, archiveTargets } from './commands/archive';
 import {
-  GC_ARCHIVE, GC_PATHS, decodeArchiveDrag, decodePaths, dragPaths, dropTarget, encodeArchiveDrag,
-  encodePaths, externalPaths, resolveDrop,
+  GC_ARCHIVE, decodeArchiveDrag, dragPaths, dropTarget, encodeArchiveDrag,
+  externalPaths, resolveDrop,
 } from './commands/dnd';
 
 import { eventToCombo, lookup, allowedFromInput } from './keybindings';
@@ -752,16 +752,13 @@ export function App() {
     const paths = dragPaths(panel, index);
     if (paths.length === 0) { ev.preventDefault(); return; }
 
-    if (ev.altKey) {
-      ev.preventDefault();
-      void api.shell.startDrag(paths);
-      return;
-    }
-    // Deliberately no text/plain: Finder accepts it and writes a "Text
-    // Clipping" file named after the path, which looks like a broken copy.
-    // Dragging out to another app is Alt+drag, which hands over real files.
-    ev.dataTransfer.setData(GC_PATHS, encodePaths(paths));
-    ev.dataTransfer.effectAllowed = 'copyMove';
+    // Every drag of real files is a native OS drag, so it can land in Finder
+    // without a modifier. Electron's startDrag takes the gesture over
+    // completely — an HTML5 drag cannot coexist with it — so panel-to-panel
+    // drops arrive back through the same door a Finder drop uses, as files on
+    // the drop event.
+    ev.preventDefault();
+    void api.shell.startDrag(paths);
   };
 
   const onDragOverTarget = (side: PanelSide) => (index: number | null, ev: React.DragEvent) => {
@@ -793,19 +790,18 @@ export function App() {
       return;
     }
 
-    const internal = decodePaths(ev.dataTransfer.getData(GC_PATHS));
-    const sources = internal.length > 0 ? internal : externalPaths(ev.dataTransfer.files);
+    // Our own drags and Finder's now look identical on arrival, so Shift means
+    // move for both. A drag out of this app that the user explicitly modified
+    // is a request, not a guess.
+    const sources = externalPaths(ev.dataTransfer.files);
     const dest = dropTarget(panel, index);
     const intent = resolveDrop(sources, dest, { shiftKey: ev.shiftKey });
     if (!intent) return;
 
-    // Files arriving from Finder are always copied: moving them out from under
-    // another app on a plain drag is not a decision to make for the user.
-    const kind = internal.length > 0 ? intent.kind : 'copy';
     const other: PanelSide = side === 'left' ? 'right' : 'left';
     void runOp(
-      { kind, sources: intent.sources, dst: intent.dest },
-      `${kind === 'copy' ? 'Copying' : 'Moving'} ${intent.sources.length} item(s)…`,
+      { kind: intent.kind, sources: intent.sources, dst: intent.dest },
+      `${intent.kind === 'copy' ? 'Copying' : 'Moving'} ${intent.sources.length} item(s)…`,
       side, other,
     );
   };

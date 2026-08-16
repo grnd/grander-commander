@@ -8,12 +8,6 @@ import type { PanelState } from '@renderer/state/panelSlice';
 import { entryKey, entryPath, targetPaths } from '@renderer/state/panelSlice';
 
 /**
- * Private MIME type carrying the dragged paths. External apps never see it,
- * which is how a drop is told apart from one coming out of Finder.
- */
-export const GC_PATHS = 'text/gc-paths';
-
-/**
  * Members dragged out of an archive. They have no path on disk, so a drop
  * has to become an extraction rather than a copy.
  */
@@ -64,20 +58,6 @@ export function dragPaths(panel: PanelState, index: number): string[] {
   return [entryPath(panel, entry)];
 }
 
-export function encodePaths(paths: string[]): string {
-  return JSON.stringify(paths);
-}
-
-export function decodePaths(raw: string): string[] {
-  try {
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter((p): p is string => typeof p === 'string');
-  } catch {
-    return [];
-  }
-}
-
 /** Destination for a drop: the folder under the pointer, else the panel itself. */
 export function dropTarget(panel: PanelState, overIndex: number | null): string | null {
   if (panel.source.kind !== 'fs') return null;
@@ -92,7 +72,11 @@ export function dropTarget(panel: PanelState, overIndex: number | null): string 
  * What a drop should do.
  *
  * Plain drag copies and Shift makes it a move, which is Total Commander's
- * rule. Sources already inside the destination are dropped from the list, so
+ * rule. It applies to drops from other apps too: our own drags travel as
+ * native OS drags now and arrive looking identical to Finder's, and a user
+ * holding Shift is asking for a move either way.
+ *
+ * Sources already inside the destination are dropped from the list, so
  * dragging a file onto its own folder is a no-op rather than a conflict
  * prompt; a folder dragged into itself is refused for the same reason.
  */
@@ -112,9 +96,10 @@ export function resolveDrop(
 }
 
 /**
- * Paths from a drop that came from outside the app. Electron exposes the real
- * location on the File object; anything without one (a dragged text selection,
- * a browser image) is skipped rather than guessed at.
+ * Paths carried by a file drop — from Finder, or from this app's own native
+ * drag. Electron exposes the real location on the File object; anything
+ * without one (a dragged text selection, a browser image) is skipped rather
+ * than guessed at.
  */
 export function externalPaths(files: ArrayLike<File>): string[] {
   const out: string[] = [];
