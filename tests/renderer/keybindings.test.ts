@@ -1,6 +1,6 @@
 // tests/renderer/keybindings.test.ts
 import { describe, it, expect } from 'vitest';
-import { eventToCombo, lookup } from '@renderer/keybindings';
+import { eventToCombo, lookup, allowedFromInput } from '@renderer/keybindings';
 
 const mkEvent = (init: Partial<KeyboardEvent>): KeyboardEvent => {
   return new KeyboardEvent('keydown', {
@@ -27,4 +27,39 @@ describe('lookup', () => {
   it('ArrowDown maps to cursorDown', () => expect(lookup('ArrowDown')).toBe('cursorDown'));
   it('Cmd+A maps to selectAll', () => expect(lookup('Cmd+A')).toBe('selectAll'));
   it('unknown combo returns null', () => expect(lookup('Ctrl+Z')).toBeNull());
+});
+
+describe('allowedFromInput', () => {
+  // The global router redirects any unmapped printable key into the command
+  // line, so typing one letter used to kill every shortcut until you clicked
+  // back into a panel. App shortcuts must survive a focused input.
+  it('lets the terminal toggle through', () =>
+    expect(allowedFromInput('Ctrl+`')).toBe(true));
+  it('lets function keys through', () => {
+    expect(allowedFromInput('F5')).toBe(true);
+    expect(allowedFromInput('F8')).toBe(true);
+    expect(allowedFromInput('Shift+F8')).toBe(true);
+  });
+  it('lets other modifier combos through', () => {
+    expect(allowedFromInput('Cmd+R')).toBe(true);
+    expect(allowedFromInput('Ctrl+H')).toBe(true);
+    expect(allowedFromInput('Cmd+G')).toBe(true);
+  });
+
+  // These mean something else entirely inside a text field. Hijacking them
+  // would make Cmd+C copy files instead of text, and Cmd+Backspace pop a
+  // delete-files confirm while the user is editing a path.
+  it('leaves macOS text-editing combos to the input', () => {
+    for (const c of ['Cmd+A', 'Cmd+C', 'Cmd+X', 'Cmd+V', 'Cmd+Backspace', 'Cmd+Delete',
+                     'Cmd+ArrowLeft', 'Cmd+ArrowRight', 'Cmd+ArrowUp', 'Cmd+ArrowDown',
+                     'Alt+ArrowLeft', 'Alt+Backspace']) {
+      expect(allowedFromInput(c), `${c} must stay with the input`).toBe(false);
+    }
+  });
+
+  it('leaves plain keys to the input', () => {
+    for (const c of ['Enter', 'Escape', 'ArrowUp', 'ArrowDown', 'Space', '/', 'Tab', 'Backspace']) {
+      expect(allowedFromInput(c), `${c} must stay with the input`).toBe(false);
+    }
+  });
 });

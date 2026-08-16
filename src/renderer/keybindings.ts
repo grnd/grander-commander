@@ -80,3 +80,31 @@ export function lookup(combo: KeyCombo): CommandName | null {
   const found = bindings.find((b) => b.combo === combo);
   return found?.command ?? null;
 }
+
+/**
+ * Combos that mean something else inside a text field. Cmd+C must copy text,
+ * not files; Cmd+Backspace must delete to line start, not pop a delete-files
+ * confirm. These stay with the input.
+ */
+const INPUT_RESERVED: ReadonlySet<string> = new Set([
+  'Cmd+A', 'Cmd+C', 'Cmd+V', 'Cmd+X', 'Cmd+Z', 'Cmd+Shift+Z',
+  'Cmd+Backspace', 'Cmd+Delete',
+  'Cmd+ArrowLeft', 'Cmd+ArrowRight', 'Cmd+ArrowUp', 'Cmd+ArrowDown',
+  'Alt+ArrowLeft', 'Alt+ArrowRight', 'Alt+Backspace', 'Alt+Delete',
+]);
+
+/**
+ * Whether a combo should still reach the app while a text input has focus.
+ *
+ * The router sends unmapped printable keys to the command line, so without
+ * this a single letter would disable every shortcut until the user clicked
+ * back into a panel. Modifier combos and function keys are app shortcuts and
+ * come through; bare keys are typing and belong to the input.
+ */
+export function allowedFromInput(combo: KeyCombo): boolean {
+  if (INPUT_RESERVED.has(combo)) return false;
+  const parts = combo.split('+');
+  const key = parts[parts.length - 1];
+  if (/^F\d+$/.test(key)) return true;
+  return parts.slice(0, -1).some((m) => m === 'Cmd' || m === 'Ctrl' || m === 'Alt');
+}

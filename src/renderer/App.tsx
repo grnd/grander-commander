@@ -8,7 +8,7 @@ import { CommandLine } from './components/CommandLine';
 import { FKeyBar } from './components/FKeyBar';
 import { Terminal } from './components/Terminal';
 import type { PanelSide } from './state/panelSlice';
-import { eventToCombo, lookup } from './keybindings';
+import { eventToCombo, lookup, allowedFromInput } from './keybindings';
 import type { CommandName } from './commands';
 import { sortEntries } from './commands/sort';
 import {
@@ -272,12 +272,24 @@ export function App() {
         if (e.key === 'Escape' || e.key === 'Enter') setCmdOutput(null);
         return;
       }
-      // Don't steal keys when an input is focused (PathBar / cmdline)
-      const tag = (e.target as HTMLElement).tagName;
-      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
       // Don't route panel shortcuts while a modal/picker owns the keyboard
       const s = useStore.getState();
       if (s.dialog || s.favoritePickerOpen) return;
+
+      // An input has focus (PathBar / cmdline). Plain typing belongs to it, but
+      // app shortcuts must still work: the fallback below sends unmapped
+      // printable keys to the command line, so one letter would otherwise
+      // disable every shortcut until the user clicked back into a panel.
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') {
+        const inputCombo = eventToCombo(e);
+        if (!inputCombo || !allowedFromInput(inputCombo)) return;
+        const inputCmd = lookup(inputCombo);
+        if (!inputCmd) return;
+        e.preventDefault();
+        dispatch(inputCmd);
+        return;
+      }
 
       // Escape clears active quick search before falling through to clearSelection
       if (e.key === 'Escape' && s.quickSearch) {
