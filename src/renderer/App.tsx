@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useStore } from './state/store';
 import { Cheatsheet } from './components/Cheatsheet';
 import { FavoritesBar } from './components/FavoritesBar';
+import { BookmarkBar } from './components/BookmarkBar';
 import { FavoritePicker } from './components/FavoritePicker';
 import { CommandLine } from './components/CommandLine';
 import { FKeyBar } from './components/FKeyBar';
@@ -115,6 +116,20 @@ export function App() {
 
     const navCtx = { panel: active, setPanel: setActive, api, requestKey: s.activeSide };
     const selCtx = { panel: active, setPanel: setActive };
+
+    // Bookmark commands are generated per slot (gotoBookmark1..9 /
+    // setBookmark1..9), so they are matched rather than listed in the switch.
+    const bookmark = /^(goto|set)Bookmark([1-9])$/.exec(cmd);
+    if (bookmark) {
+      const slot = Number(bookmark[2]);
+      if (bookmark[1] === 'set') {
+        useStore.getState().setBookmark(slot, active.path);
+        return;
+      }
+      const target = useStore.getState().bookmarks[slot - 1];
+      if (!target) return;
+      return navigateTo({ panel: active, setPanel: setActive, api, path: target, requestKey: s.activeSide });
+    }
 
     switch (cmd) {
       case 'cursorUp':        return cursorMove({ panel: active, delta: -1, setPanel: setActive });
@@ -503,6 +518,15 @@ export function App() {
     applySort(panel, col, (patch) => setPanel(side, patch));
   };
 
+  /** Navigate whichever panel is active to `path`. Shared by every place that
+   *  offers a destination: drive bar, bookmarks, favorites bar and picker. */
+  const goTo = (path: string) => {
+    const side = useStore.getState().activeSide;
+    const panel = useStore.getState().panels[side];
+    const setSide = (patch: Partial<typeof panel>) => setPanel(side, patch);
+    void navigateTo({ panel, setPanel: setSide, api, path, requestKey: side });
+  };
+
   const refreshSide = (side: PanelSide) => {
     const panel = useStore.getState().panels[side];
     const setSide = (p: Partial<typeof panel>) => setPanel(side, p);
@@ -658,18 +682,15 @@ export function App() {
   return (
     <div className="gc-app">
       <UpdateBanner />
-      <DriveBar volumes={state.volumes} currentPath={active.path} onPick={(p) => {
-        const panel = useStore.getState().panels[state.activeSide];
-        const setSide = (patch: Partial<typeof panel>) => setPanel(state.activeSide, patch);
-        void navigateTo({ panel, setPanel: setSide, api, path: p, requestKey: state.activeSide });
-      }} />
+      <DriveBar volumes={state.volumes} currentPath={active.path} onPick={goTo} />
+      <BookmarkBar
+        bookmarks={state.bookmarks}
+        onPick={goTo}
+        onClear={(slot) => useStore.getState().setBookmark(slot, null)}
+      />
       <FavoritesBar
         favorites={state.favorites}
-        onPick={(p) => {
-          const panel = useStore.getState().panels[state.activeSide];
-          const setSide = (patch: Partial<typeof panel>) => setPanel(state.activeSide, patch);
-          void navigateTo({ panel, setPanel: setSide, api, path: p, requestKey: state.activeSide });
-        }}
+        onPick={goTo}
         onEdit={(f) => useStore.getState().setDialog({
           kind: 'favoriteEdit', path: f.path, label: f.label ?? '',
         })}
@@ -745,10 +766,7 @@ export function App() {
           favorites={state.favorites}
           onPick={(p) => {
             useStore.getState().setFavoritePickerOpen(false);
-            const side = useStore.getState().activeSide;
-            const panel = useStore.getState().panels[side];
-            const setSide = (patch: Partial<typeof panel>) => setPanel(side, patch);
-            void navigateTo({ panel, setPanel: setSide, api, path: p, requestKey: side });
+            goTo(p);
           }}
           onCancel={() => useStore.getState().setFavoritePickerOpen(false)}
         />

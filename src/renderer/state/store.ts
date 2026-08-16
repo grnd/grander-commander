@@ -6,6 +6,35 @@ const DEFAULT_LEFT = '/';
 const DEFAULT_RIGHT = '/';
 
 const FAVORITES_KEY = 'gc.favorites';
+const BOOKMARKS_KEY = 'gc.bookmarks';
+
+/** Ctrl+1..9 address these slots; index 0 is slot 1. */
+export const BOOKMARK_COUNT = 9;
+
+export type Bookmarks = (string | null)[];
+
+function emptyBookmarks(): Bookmarks {
+  return Array.from({ length: BOOKMARK_COUNT }, () => null);
+}
+
+function loadBookmarks(): Bookmarks {
+  const slots = emptyBookmarks();
+  try {
+    const raw = localStorage.getItem(BOOKMARKS_KEY);
+    if (!raw) return slots;
+    const arr = JSON.parse(raw);
+    if (!Array.isArray(arr)) return slots;
+    for (let i = 0; i < BOOKMARK_COUNT; i++) {
+      const v = arr[i];
+      if (typeof v === 'string' && v.length > 0) slots[i] = v;
+    }
+  } catch { /* corrupt storage falls back to empty slots */ }
+  return slots;
+}
+
+function saveBookmarks(b: Bookmarks): void {
+  try { localStorage.setItem(BOOKMARKS_KEY, JSON.stringify(b)); } catch { /* ignore */ }
+}
 
 function loadFavorites(): Favorite[] {
   try {
@@ -39,6 +68,8 @@ export type AppState = {
   volumes: Volume[];
   dialog: DialogState | null;
   favorites: Favorite[];
+  /** Nine numbered slots, independent of the favorites bar. */
+  bookmarks: Bookmarks;
   favoritePickerOpen: boolean;
   quickSearch: { buffer: string; side: PanelSide } | null;
   terminalOpen: boolean;
@@ -58,6 +89,8 @@ export type AppState = {
   setFavoritePickerOpen: (open: boolean) => void;
   setQuickSearch: (qs: { buffer: string; side: PanelSide } | null) => void;
   setTerminalOpen: (open: boolean) => void;
+  /** `slot` is 1-based. Passing null clears it. */
+  setBookmark: (slot: number, path: string | null) => void;
   setViewer: (v: { path: string } | null) => void;
   setQuickView: (open: boolean) => void;
 };
@@ -74,6 +107,7 @@ export const useStore = create<AppState>((set) => ({
   volumes: [],
   dialog: null,
   favorites: loadFavorites(),
+  bookmarks: loadBookmarks(),
   favoritePickerOpen: false,
   quickSearch: null,
   terminalOpen: false,
@@ -119,6 +153,13 @@ export const useStore = create<AppState>((set) => ({
   setFavoritePickerOpen: (open) => set({ favoritePickerOpen: open }),
   setQuickSearch: (qs) => set({ quickSearch: qs }),
   setTerminalOpen: (open) => set({ terminalOpen: open }),
+  setBookmark: (slot, path) => set((s) => {
+    if (slot < 1 || slot > BOOKMARK_COUNT) return s;
+    const next = s.bookmarks.slice();
+    next[slot - 1] = path;
+    saveBookmarks(next);
+    return { bookmarks: next };
+  }),
   setViewer: (viewer) => set({ viewer }),
   setQuickView: (quickView) => set({ quickView }),
 }));

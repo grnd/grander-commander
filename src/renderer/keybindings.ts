@@ -5,6 +5,17 @@ export type KeyCombo = string; // canonical string: "F5", "Cmd+C", "Ctrl+Shift+H
 
 export type Binding = { combo: KeyCombo; command: CommandName };
 
+export const BOOKMARK_SLOTS = [1, 2, 3, 4, 5, 6, 7, 8, 9] as const;
+
+/**
+ * Ctrl+N jumps to bookmark N, Ctrl+Shift+N sets it to the active folder.
+ * Generated rather than written out so the two halves cannot fall out of sync.
+ */
+const bookmarkBindings: Binding[] = BOOKMARK_SLOTS.flatMap((n): Binding[] => [
+  { combo: `Ctrl+${n}`, command: `gotoBookmark${n}` },
+  { combo: `Ctrl+Shift+${n}`, command: `setBookmark${n}` },
+]);
+
 export const bindings: Binding[] = [
   { combo: 'ArrowUp', command: 'cursorUp' },
   { combo: 'ArrowDown', command: 'cursorDown' },
@@ -60,6 +71,7 @@ export const bindings: Binding[] = [
   { combo: 'Ctrl+Q', command: 'toggleQuickView' },
   { combo: 'Ctrl+M', command: 'multiRename' },
   { combo: 'Cmd+Shift+M', command: 'multiRename' },
+  ...bookmarkBindings,
 ];
 
 // Convert a KeyboardEvent to its canonical combo string.
@@ -73,6 +85,14 @@ export function eventToCombo(e: KeyboardEvent): KeyCombo | null {
   const key = e.key;
   // Ignore bare modifiers
   if (['Meta', 'Control', 'Alt', 'Shift'].includes(key)) return null;
+
+  // Digits come from the physical key, not the character: Shift+1 reports "!"
+  // on a US layout (and something else again elsewhere), which would make
+  // Ctrl+Shift+1 unbindable.
+  if (/^Digit[0-9]$/.test(e.code)) {
+    parts.push(e.code.slice(5));
+    return parts.join('+');
+  }
 
   // Normalize space
   const normKey = key === ' ' ? 'Space' : key.length === 1 ? key.toUpperCase() : key;

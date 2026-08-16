@@ -61,6 +61,14 @@ const SECTIONS: { title: string; rows: [string, string][] }[] = [
     ],
   },
   {
+    title: 'Bookmarks',
+    rows: [
+      ['Ctrl+1 … Ctrl+9', 'Jump to bookmarked folder'],
+      ['Ctrl+Shift+1 … 9', 'Set bookmark to current folder'],
+      ['Right-click bookmark', 'Clear that slot'],
+    ],
+  },
+  {
     title: 'Viewer',
     rows: [
       ['F3', 'Internal viewer (text / hex / image)'],

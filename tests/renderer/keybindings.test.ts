@@ -1,10 +1,11 @@
 // tests/renderer/keybindings.test.ts
 import { describe, it, expect } from 'vitest';
-import { eventToCombo, lookup, allowedFromInput } from '@renderer/keybindings';
+import { eventToCombo, lookup, allowedFromInput, bindings, BOOKMARK_SLOTS } from '@renderer/keybindings';
 
 const mkEvent = (init: Partial<KeyboardEvent>): KeyboardEvent => {
   return new KeyboardEvent('keydown', {
     key: init.key ?? '',
+    code: init.code ?? '',
     ctrlKey: init.ctrlKey ?? false,
     metaKey: init.metaKey ?? false,
     shiftKey: init.shiftKey ?? false,
@@ -20,6 +21,36 @@ describe('eventToCombo', () => {
   it('Space', () => expect(eventToCombo(mkEvent({ key: ' ' }))).toBe('Space'));
   it('bare modifier returns null', () =>
     expect(eventToCombo(mkEvent({ key: 'Meta', metaKey: true }))).toBeNull());
+
+  // Shift+1 reports key "!" on a US layout and something else on others, so a
+  // digit combo has to come from the physical key or Ctrl+Shift+1 is unbindable.
+  it('reads digits from the physical key, not the shifted character', () => {
+    expect(eventToCombo(mkEvent({ key: '!', code: 'Digit1', ctrlKey: true, shiftKey: true })))
+      .toBe('Ctrl+Shift+1');
+  });
+
+  it('reads an unshifted digit the same way', () => {
+    expect(eventToCombo(mkEvent({ key: '3', code: 'Digit3', ctrlKey: true }))).toBe('Ctrl+3');
+  });
+});
+
+describe('bookmark bindings', () => {
+  it('binds jump and set for every slot', () => {
+    for (const n of BOOKMARK_SLOTS) {
+      expect(lookup(`Ctrl+${n}`)).toBe(`gotoBookmark${n}`);
+      expect(lookup(`Ctrl+Shift+${n}`)).toBe(`setBookmark${n}`);
+    }
+  });
+
+  it('does not double-bind any combo', () => {
+    const combos = bindings.map((b) => b.combo);
+    expect(new Set(combos).size).toBe(combos.length);
+  });
+
+  it('lets bookmark combos through while an input has focus', () => {
+    expect(allowedFromInput('Ctrl+1')).toBe(true);
+    expect(allowedFromInput('Ctrl+Shift+1')).toBe(true);
+  });
 });
 
 describe('lookup', () => {

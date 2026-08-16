@@ -357,3 +357,23 @@ body {
 }
 .gc-mr-summary { font-size: 11px; }
 .gc-mr-blocked { color: #b00020; font-weight: 600; }
+
+/* ---- M3: numbered bookmarks (Ctrl+1..9) ---- */
+.gc-bookmarks {
+  display: flex; align-items: center; gap: 2px; padding: 2px 6px;
+  background: var(--gc-chrome); border-bottom: 1px solid var(--gc-border);
+  overflow-x: auto;
+}
+.gc-bookmarks-label {
+  font-size: 11px; color: var(--gc-status-active-bg, #0a5fcf);
+  margin-right: 4px; font-weight: 600;
+}
+.gc-bookmark-btn {
+  display: inline-flex; align-items: center; gap: 4px;
+  max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.gc-bookmark-slot {
+  display: inline-block; min-width: 12px; text-align: center;
+  background: var(--gc-status-active-bg, #0a5fcf); color: var(--gc-status-active-fg, #fff);
+  font-size: 9px; font-weight: 700; border-radius: 2px; padding: 0 2px;
+}
