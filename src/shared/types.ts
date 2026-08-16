@@ -77,7 +77,8 @@ export type DialogState =
   | { kind: 'deleteConfirm'; paths: string[] }
   | { kind: 'overwrite'; opId: OpId; srcPath: string; dstPath: string }
   | { kind: 'progress'; opId: OpId; title: string; filesDone: number; filesTotal: number; bytesDone: number; bytesTotal: number; currentFile: string }
-  | { kind: 'favoriteEdit'; path: string; label: string };
+  | { kind: 'favoriteEdit'; path: string; label: string }
+  | { kind: 'multiRename'; side: 'left' | 'right'; dir: string; names: string[]; existingNames: string[] };
 
 export type UpdateStatus =
   | { kind: 'idle' }

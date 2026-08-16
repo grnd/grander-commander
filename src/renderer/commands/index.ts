@@ -14,4 +14,5 @@ export type CommandName =
   | 'addToFavorites' | 'pickFavorite'
   | 'quickLook' | 'openTerminal' | 'quitApp' | 'runShellCommand'
   | 'toggleTerminal'
-  | 'viewFile' | 'toggleQuickView';
+  | 'viewFile' | 'toggleQuickView'
+  | 'multiRename';

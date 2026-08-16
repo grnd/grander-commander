@@ -55,10 +55,20 @@ export function cursorPath(panel: PanelState): string | null {
  * is marked — just the row under the cursor. This is Total Commander's rule and
  * every mutation command follows it.
  */
-export function targetPaths(panel: PanelState): string[] {
+export function targetNames(panel: PanelState): string[] {
   if (panel.selection.size > 0) {
-    return [...panel.selection].map((k) => joinPath(panel.path, k));
+    // Panel order, not Set insertion order: the multi-rename counter has to
+    // follow what the user sees.
+    const marked = panel.selection;
+    return panel.entries
+      .filter((e) => e.name !== '..' && marked.has(entryKey(e)))
+      .map(entryKey);
   }
-  const single = cursorPath(panel);
-  return single ? [single] : [];
+  const cur = panel.entries[panel.cursor];
+  if (!cur || cur.name === '..') return [];
+  return [entryKey(cur)];
+}
+
+export function targetPaths(panel: PanelState): string[] {
+  return targetNames(panel).map((n) => joinPath(panel.path, n));
 }

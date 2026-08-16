@@ -4,9 +4,11 @@ type Props = {
   title: string;
   onClose: () => void;
   children: React.ReactNode;
+  /** `wide` is for the table-shaped tools (multi-rename, compare, sync, search). */
+  size?: 'normal' | 'wide';
 };
 
-export function DialogShell({ title, onClose, children }: Props) {
+export function DialogShell({ title, onClose, children, size = 'normal' }: Props) {
   const rootRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -23,7 +25,11 @@ export function DialogShell({ title, onClose, children }: Props) {
 
   return (
     <div className="gc-modal-backdrop" onMouseDown={onClose}>
-      <div className="gc-modal" ref={rootRef} onMouseDown={(e) => e.stopPropagation()}>
+      <div
+        className={`gc-modal${size === 'wide' ? ' is-wide' : ''}`}
+        ref={rootRef}
+        onMouseDown={(e) => e.stopPropagation()}
+      >
         <div className="gc-modal-title">{title}</div>
         <div className="gc-modal-body">{children}</div>
       </div>

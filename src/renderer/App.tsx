@@ -9,7 +9,8 @@ import { FKeyBar } from './components/FKeyBar';
 import { Terminal } from './components/Terminal';
 import { Viewer } from './components/Viewer';
 import type { PanelSide } from './state/panelSlice';
-import { cursorPath } from './state/panelSlice';
+import { cursorPath, entryKey, targetNames } from './state/panelSlice';
+import { applyRenamePlan, type RenamePreviewRow } from './commands/multirename';
 import { eventToCombo, lookup, allowedFromInput } from './keybindings';
 import type { CommandName } from './commands';
 import { sortEntries } from './commands/sort';
@@ -268,6 +269,20 @@ export function App() {
       case 'toggleQuickView':
         useStore.getState().setQuickView(!useStore.getState().quickView);
         return;
+      case 'multiRename': {
+        const names = targetNames(active);
+        if (names.length === 0) return;
+        useStore.getState().setDialog({
+          kind: 'multiRename',
+          side: s.activeSide,
+          dir: active.path,
+          names,
+          // Everything in the folder, so a new name that lands on an untouched
+          // neighbour is caught in the preview instead of at rename time.
+          existingNames: active.entries.filter((e) => e.name !== '..').map(entryKey),
+        });
+        return;
+      }
       case 'openTerminal':
         void api.shell.openTerminal(active.path);
         return;
@@ -579,6 +594,18 @@ export function App() {
     },
     onFavoriteRemoved: (path: string) => {
       useStore.getState().removeFavorite(path);
+    },
+    onMultiRename: async (side: PanelSide, dir: string, rows: RenamePreviewRow[]) => {
+      const outcome = await applyRenamePlan(api, dir, rows);
+      await refreshSide(side);
+      if (outcome.failures.length > 0) {
+        const detail = outcome.failures
+          .slice(0, 8)
+          .map((f) => `${f.name}: ${f.reason}`)
+          .join('\n');
+        const more = outcome.failures.length > 8 ? `\n…and ${outcome.failures.length - 8} more` : '';
+        alert(`Renamed ${outcome.renamed}, failed ${outcome.failures.length}:\n${detail}${more}`);
+      }
     },
   };
 

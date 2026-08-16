@@ -8,6 +8,8 @@ import { MoveDialog } from './MoveDialog';
 import { OverwritePrompt } from './OverwritePrompt';
 import { ProgressDialog } from './ProgressDialog';
 import { EditFavoritePrompt } from './EditFavoritePrompt';
+import { MultiRename } from './MultiRename';
+import type { RenamePreviewRow } from '@renderer/commands/multirename';
 
 type Handlers = {
   onMkdir: (side: 'left' | 'right', name: string) => void;
@@ -19,6 +21,7 @@ type Handlers = {
   onCancelOp: (opId: string) => void;
   onFavoriteSaved: (path: string, label: string) => void;
   onFavoriteRemoved: (path: string) => void;
+  onMultiRename: (side: 'left' | 'right', dir: string, rows: RenamePreviewRow[]) => void;
 };
 
 export function Dialogs(h: Handlers) {
@@ -66,6 +69,14 @@ export function Dialogs(h: Handlers) {
         <EditFavoritePrompt path={dialog.path} initialLabel={dialog.label}
           onSave={(label) => { h.onFavoriteSaved(dialog.path, label); close(); }}
           onRemove={() => { h.onFavoriteRemoved(dialog.path); close(); }}
+          onCancel={close} />
+      </DialogShell>;
+    case 'multiRename':
+      return <DialogShell title={`Multi-rename — ${dialog.names.length} item(s)`} onClose={close} size="wide">
+        <MultiRename
+          names={dialog.names}
+          existingNames={dialog.existingNames}
+          onApply={(rows) => { h.onMultiRename(dialog.side, dialog.dir, rows); close(); }}
           onCancel={close} />
       </DialogShell>;
   }

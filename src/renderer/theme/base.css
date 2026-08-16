@@ -320,3 +320,40 @@ body {
   color: var(--gc-fg); font: inherit; padding: 1px 8px; cursor: pointer;
 }
 .gc-viewer-pager button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* ---- M3: multi-rename tool ---- */
+.gc-modal.is-wide { min-width: 720px; max-width: 92vw; }
+.gc-multirename { display: flex; flex-direction: column; gap: 8px; }
+.gc-mr-form { display: grid; grid-template-columns: 1fr; gap: 4px; }
+.gc-mr-field { display: grid; grid-template-columns: 84px 1fr; align-items: center; gap: 8px; }
+.gc-mr-field > span { font-size: 11px; text-align: right; }
+.gc-mr-field input[type='text'], .gc-mr-field > input { width: 100%; }
+.gc-mr-toggles > div { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; font-size: 11px; }
+.gc-mr-toggles label { display: inline-flex; align-items: center; gap: 3px; }
+.gc-mr-toggles input[type='number'] { width: 58px; padding: 1px 3px; font-family: Menlo, monospace; }
+.gc-mr-hint { margin: 2px 0 0 92px; font-size: 10px; opacity: 0.75; }
+.gc-mr-hint code { font-family: Menlo, monospace; background: var(--gc-bg); padding: 0 3px; }
+.gc-mr-regex-error {
+  padding: 4px 6px; font-size: 11px;
+  background: var(--gc-error-bg, #b00020); color: var(--gc-error-fg, #fff);
+}
+.gc-mr-preview {
+  width: 100%; border-collapse: collapse;
+  font-family: Menlo, monospace; font-size: 11px;
+  display: block; max-height: 42vh; overflow: auto;
+  border: 1px solid var(--gc-border); background: var(--gc-panel);
+}
+.gc-mr-preview th, .gc-mr-preview td {
+  text-align: left; padding: 1px 6px; white-space: nowrap;
+  border-bottom: 1px solid var(--gc-border);
+}
+.gc-mr-preview thead th { position: sticky; top: 0; background: var(--gc-chrome); }
+.gc-mr-num { opacity: 0.55; text-align: right !important; width: 3em; }
+.gc-mr-preview tr.is-changed .gc-mr-new { font-weight: 700; color: var(--gc-status-active-bg, #0a5fcf); }
+.gc-mr-preview tr.is-error .gc-mr-new { color: #b00020; }
+.gc-mr-badge {
+  margin-left: 8px; padding: 0 4px; font-size: 10px;
+  background: #b00020; color: #fff; border-radius: 2px;
+}
+.gc-mr-summary { font-size: 11px; }
+.gc-mr-blocked { color: #b00020; font-weight: 600; }
