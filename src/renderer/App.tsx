@@ -14,6 +14,7 @@ import {
   cursorPath, entryKey, entryPath, targetNames, targetPaths, workingDir,
 } from './state/panelSlice';
 import { applyRenamePlan, type RenamePreviewRow } from './commands/multirename';
+import { applyTextEditing } from './commands/textEditing';
 import { SYNC_LABELS, type SyncAction, type SyncPlan } from './commands/sync';
 import { archiveDragMembers, archiveTargets } from './commands/archive';
 import {
@@ -25,8 +26,8 @@ import { eventToCombo, lookup, allowedFromInput } from './keybindings';
 import type { CommandName } from './commands';
 import { sortEntries } from './commands/sort';
 import {
-  cursorMove, cursorTo, navigateInto, navigateUp, navigateTo, openArchive, revealPath,
-  showSearchResults,
+  cursorMove, cursorTo, navigateInto, navigateUp, navigateTo, openArchive, refreshPanel,
+  revealPath, showSearchResults,
 } from './commands/navigation';
 import {
   toggleMark, selectAll, clearSelection, rangeSelect,
@@ -144,8 +145,8 @@ export function App() {
   const refreshSide = useCallback(async (side: PanelSide) => {
     const panel = useStore.getState().panels[side];
     if (panel.source.kind !== 'fs') return false;
-    return navigateTo({
-      panel, setPanel: (patch) => setPanel(side, patch), api, path: panel.path, requestKey: side,
+    return refreshPanel({
+      panel, setPanel: (patch) => setPanel(side, patch), api, requestKey: side,
     });
   }, [api, setPanel]);
 
@@ -294,7 +295,7 @@ export function App() {
           return openArchive(navCtx, active.source.archivePath, active.source.innerPath).then(() => {});
         }
         if (active.source.kind !== 'fs') return;
-        return navigateTo({ panel: active, setPanel: setActive, api, path: active.path, requestKey: s.activeSide });
+        return refreshSide(s.activeSide).then(() => {});
       }
       case 'focusPathBar': {
         const el = (s.activeSide === 'left' ? leftPathRef : rightPathRef).current;
@@ -357,10 +358,7 @@ export function App() {
       case 'trash':
         void requestTrash({
           panel: active, api,
-          afterDone: () => {
-            const setSide = (p: Partial<typeof active>) => setPanel(s.activeSide, p);
-            void navigateTo({ panel: active, setPanel: setSide, api, path: active.path, requestKey: s.activeSide });
-          },
+          afterDone: () => { void refreshSide(s.activeSide); },
         }).then((result) => {
           if (result && !result.ok) alert(`Move to Trash failed: ${describeOpError(result.error)}`);
         });
@@ -380,12 +378,7 @@ export function App() {
         void (async () => {
           const r = await api.fs.duplicate(full);
           if (!r.ok) { alert(`Duplicate failed: ${r.error.kind}`); return; }
-          await (async () => {
-            const side = useStore.getState().activeSide;
-            const panel = useStore.getState().panels[side];
-            const setSide = (p: Partial<typeof panel>) => setPanel(side, p);
-            await navigateTo({ panel, setPanel: setSide, api, path: panel.path, requestKey: side });
-          })();
+          await refreshSide(useStore.getState().activeSide);
         })();
         return;
       }
@@ -507,7 +500,7 @@ export function App() {
         // Invoked inline with command string from CommandLine; no-op from key dispatch.
         return;
     }
-  }, [api, setPanel, runArchive]);
+  }, [api, setPanel, runArchive, refreshSide]);
 
   // Global keyboard router
   useEffect(() => {
@@ -545,7 +538,14 @@ export function App() {
       const tag = (e.target as HTMLElement).tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA') {
         const inputCombo = eventToCombo(e);
-        if (!inputCombo || !allowedFromInput(inputCombo)) return;
+        if (!inputCombo) return;
+        // Cmd+C / Cmd+X / Cmd+A are the panels' file shortcuts, so the menu
+        // never claims them; inside a text field they have to mean editing.
+        if (applyTextEditing(inputCombo, e.target as HTMLInputElement)) {
+          e.preventDefault();
+          return;
+        }
+        if (!allowedFromInput(inputCombo)) return;
         const inputCmd = lookup(inputCombo);
         if (!inputCmd) return;
         e.preventDefault();
@@ -882,8 +882,13 @@ export function App() {
       const from = panel.path === '/' ? `/${oldName}` : `${panel.path}/${oldName}`;
       const to = panel.path === '/' ? `/${newName}` : `${panel.path}/${newName}`;
       const r = await api.fs.rename(from, to);
-      if (r.ok) await refreshSide(side);
-      else alert(`Could not rename: ${r.error.kind}`);
+      if (!r.ok) { alert(`Could not rename: ${r.error.kind}`); return; }
+      await refreshSide(side);
+      // A rename usually moves the row, so follow it to its new position
+      // rather than leaving the cursor on whatever took its old slot.
+      const refreshed = useStore.getState().panels[side];
+      const idx = refreshed.entries.findIndex((e) => entryKey(e) === newName);
+      if (idx >= 0) setPanel(side, { cursor: idx });
     },
     onDeleteConfirmed: async (paths: string[]) => {
       const r = await api.fs.delete(paths);

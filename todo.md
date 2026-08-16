@@ -23,14 +23,13 @@ Follow-ups this milestone left behind:
 - [ ] **Pack/extract progress**: the busy dialog is indeterminate because the tools report nothing parseable on stdout.
 - [ ] **Tabs do not persist** across restarts.
 
-
 ## M4 — Release
 
 - [x] **Proper update mechanism**, like orca: electron-updater with a generic feed pointed at GitHub Releases, re-pinned per check to a concrete tag URL to avoid redirect drift. Supersedes the S3 idea. **Not yet exercised against a real signed release** — needs the Apple secrets set in the repo and one tag pushed to confirm end to end.
 - [x] **Code signing + notarization** for `.dmg` (Developer ID) — configured (hardened runtime, entitlements, notarize) but requires `CSC_LINK`, `CSC_KEY_PASSWORD`, `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID` as repo secrets.
 - [ ] **Crash reporting** (Sentry or Crashpad).
 - [ ] **CI**: GitHub Actions — typecheck + lint + test on PRs; release job on tags.
-- [ ] **Icon + DMG background polish**: current icon is a dog-with-shield placeholder.
+- [x] **Icon + DMG background polish**: current icon is a dog-with-shield placeholder.
 - [ ] **App Store-ready build**? (Evaluate sandbox restrictions on fs access.)
 - [ ] **Keyboard-configurable shortcuts** (`settings.json`).
 - [ ] Add a settings screen. among other things, should have a keyboard shortcuts configuration tab

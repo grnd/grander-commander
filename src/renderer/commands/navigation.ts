@@ -60,7 +60,17 @@ function describeError(e: OpError): string {
   }
 }
 
-async function loadInto(ctx: NavCtx, newPath: string, cursorOnName?: string): Promise<boolean> {
+async function loadInto(
+  ctx: NavCtx,
+  newPath: string,
+  cursorOnName?: string,
+  /**
+   * Where to leave the cursor when `cursorOnName` is gone from the listing.
+   * A refresh after a delete or a move wants the row that took its place, not
+   * the top of the panel.
+   */
+  fallbackIndex?: number,
+): Promise<boolean> {
   const requestKey = ctx.requestKey ?? '__default__';
   const requestId = (latestNavRequest.get(requestKey) ?? 0) + 1;
   latestNavRequest.set(requestKey, requestId);
@@ -74,14 +84,13 @@ async function loadInto(ctx: NavCtx, newPath: string, cursorOnName?: string): Pr
   const sorted = sortEntries(r.value, ctx.panel.sort);
   // Add synthetic ".." when not at root
   const entries = newPath === '/' ? sorted : [dotDotEntry(), ...sorted];
+  const clamp = (i: number) => Math.max(0, Math.min(i, entries.length - 1));
   let cursor = 0;
-  if (cursorOnName) {
-    const idx = entries.findIndex((e) => {
-      const full = e.ext ? `${e.name}.${e.ext}` : e.name;
-      return full === cursorOnName;
-    });
-    if (idx >= 0) cursor = idx;
-  }
+  const named = cursorOnName
+    ? entries.findIndex((e) => (e.ext ? `${e.name}.${e.ext}` : e.name) === cursorOnName)
+    : -1;
+  if (named >= 0) cursor = named;
+  else if (fallbackIndex !== undefined) cursor = clamp(fallbackIndex);
   ctx.setPanel({
     path: newPath,
     // Any successful listing lands the panel back on the real filesystem, which
@@ -243,4 +252,21 @@ export function showSearchResults(
 
 export async function navigateTo(ctx: NavCtx & { path: string }): Promise<boolean> {
   return loadInto(ctx, ctx.path);
+}
+
+/**
+ * Re-list the folder a panel is already showing, keeping the cursor where the
+ * user left it.
+ *
+ * The row it was on is found by name, so a copy leaves the cursor on the same
+ * file. When that row is gone — after a delete or a move — the cursor holds its
+ * *index* instead, which lands it on whatever moved up into that slot. Both are
+ * what a file manager should do; resetting to ".." is what it should never do.
+ */
+export async function refreshPanel(ctx: NavCtx): Promise<boolean> {
+  const current = ctx.panel.entries[ctx.panel.cursor];
+  const key = current && current.name !== '..'
+    ? (current.ext ? `${current.name}.${current.ext}` : current.name)
+    : undefined;
+  return loadInto(ctx, ctx.panel.path, key, ctx.panel.cursor);
 }
