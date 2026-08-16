@@ -189,6 +189,18 @@ export type SyncEntry = {
    * before copying.
    */
   typeConflict: boolean;
+  /** A symlink on either side. The scan never descends one. */
+  isLink: boolean;
+};
+
+export type SyncScan = {
+  entries: SyncEntry[];
+  /**
+   * Folders the scan could not read, plus anything it gave up on. A tree it
+   * could not see looks empty, which would make Mirror delete the other side's
+   * copies — so while this is non-empty the destructive actions are refused.
+   */
+  unreadable: string[];
 };
 
 export type SyncOptions = {

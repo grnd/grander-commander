@@ -113,7 +113,20 @@ export function buildSyncPlan(
     });
   }
 
-  return { copies, deletes, skipped };
+  // Deleting a folder takes its contents with it, so a descendant scheduled
+  // separately would be gone by the time its turn came. That second delete
+  // fails with ENOENT and aborts the run — after the folder is destroyed and
+  // before its replacement is copied.
+  const deletedRoots = deletes.map(fromRoot(dstRoot));
+  const prunedDeletes = deletes.filter((path) => !isUnder(fromRoot(dstRoot)(path), deletedRoots));
+
+  return { copies, deletes: prunedDeletes, skipped };
+}
+
+/** Strip the destination root back off a full path, for ancestor comparisons. */
+function fromRoot(root: string): (path: string) => string {
+  const prefix = root === '/' ? '/' : `${root}/`;
+  return (path) => (path.startsWith(prefix) ? path.slice(prefix.length) : path);
 }
 
 /** Rows an action would touch, for the count on its button. */

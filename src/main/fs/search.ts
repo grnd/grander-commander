@@ -6,6 +6,7 @@ import type { FileEntry, Result, SearchOutcome, SearchQuery } from '@shared/type
 import { NOISE_FILENAMES } from '@shared/types';
 import { decodeText, isProbablyBinary } from '@shared/text';
 import { nameMatcher } from './glob';
+import { createTimedRegex, type TimedRegex } from './regexProbe';
 import { mapFsError } from './errors';
 
 export const MAX_SEARCH_RESULTS = 5000;
@@ -21,19 +22,37 @@ export function cancelSearch(token: string): void {
   controllers.get(token)?.abort();
 }
 
-function contentMatcher(q: SearchQuery): ((text: string) => boolean) | null {
+type ContentMatcher = {
+  /** null means "could not decide" — a runaway pattern; the file is skipped. */
+  test(text: string): Promise<boolean | null>;
+  dispose(): void;
+};
+
+function contentMatcher(q: SearchQuery): ContentMatcher | null {
   if (q.contentPattern === '') return null;
   const flags = q.caseSensitive ? '' : 'i';
+
   if (q.contentIsRegex) {
+    // A user regex runs in a worker so a catastrophic one can be killed; see
+    // regexProbe. A plain substring search cannot backtrack, so it stays here.
+    let probe: TimedRegex | null = null;
     try {
-      const re = new RegExp(q.contentPattern, flags);
-      return (text) => re.test(text);
+      new RegExp(q.contentPattern, flags);
+      probe = createTimedRegex(q.contentPattern, flags);
     } catch {
-      return () => false;
+      return { test: async () => false, dispose: () => {} };
     }
+    return {
+      test: (text) => (probe as TimedRegex).test(text),
+      dispose: () => probe?.dispose(),
+    };
   }
+
   const needle = q.caseSensitive ? q.contentPattern : q.contentPattern.toLowerCase();
-  return (text) => (q.caseSensitive ? text : text.toLowerCase()).includes(needle);
+  return {
+    test: async (text) => (q.caseSensitive ? text : text.toLowerCase()).includes(needle),
+    dispose: () => {},
+  };
 }
 
 /**
@@ -127,10 +146,17 @@ export async function search(token: string, q: SearchQuery): Promise<Result<Sear
           scanned++;
 
           let isDir = st.isDirectory();
+          // Tracked separately from lstat: a symlink to /dev/zero or a FIFO
+          // looks like an ordinary link, and reading one hangs or never ends.
+          let isRegular = st.isFile();
           if (st.isSymbolicLink()) {
             // Follow to classify, but never descend: a symlink loop would walk
             // forever, and the target is reachable through its real parent.
-            try { isDir = (await statFollow(full)).isDirectory(); } catch { isDir = false; }
+            try {
+              const target = await statFollow(full);
+              isDir = target.isDirectory();
+              isRegular = target.isFile();
+            } catch { isDir = false; isRegular = false; }
           }
           if (isDir && !st.isSymbolicLink()) stack.push({ dir: full, depth: depth + 1 });
 
@@ -142,7 +168,9 @@ export async function search(token: string, q: SearchQuery): Promise<Result<Sear
 
           if (matchesContent) {
             // A folder has no content to grep, so a content filter excludes it.
-            if (isDir || st.size > MAX_CONTENT_BYTES) continue;
+            // Nor does anything that is not a regular file: a device or a FIFO
+            // reports size 0, slips past the cap, and then reads forever.
+            if (isDir || !isRegular || st.size > MAX_CONTENT_BYTES) continue;
             let bytes: Buffer;
             try {
               bytes = await readFile(full);
@@ -150,7 +178,10 @@ export async function search(token: string, q: SearchQuery): Promise<Result<Sear
               continue;
             }
             if (isProbablyBinary(bytes.subarray(0, 8000))) continue;
-            if (!matchesContent(decodeText(bytes))) continue;
+            const hit = await matchesContent.test(decodeText(bytes));
+            // null = the pattern ran away on this file. Skip it rather than
+            // claiming a match either way.
+            if (hit !== true) continue;
           }
 
           entries.push(toEntry(root, full, st, isDir));
@@ -159,6 +190,7 @@ export async function search(token: string, q: SearchQuery): Promise<Result<Sear
     }
   } finally {
     controllers.delete(token);
+    matchesContent?.dispose();
   }
 
   entries.sort((a, b) => (a.srcPath ?? '').localeCompare(b.srcPath ?? ''));

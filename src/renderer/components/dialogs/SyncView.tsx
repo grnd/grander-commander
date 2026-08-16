@@ -1,6 +1,6 @@
 // src/renderer/components/dialogs/SyncView.tsx
 import { useEffect, useMemo, useState } from 'react';
-import type { OpError, Result, SyncEntry, SyncOptions, SyncStatus } from '@shared/types';
+import type { OpError, Result, SyncEntry, SyncOptions, SyncScan, SyncStatus } from '@shared/types';
 import { formatBytes } from '@shared/text';
 import {
   buildSyncPlan, countFor, isDestructive, SYNC_LABELS, type SyncAction, type SyncPlan,
@@ -12,7 +12,7 @@ type Props = {
   onRun: (action: SyncAction, plan: SyncPlan) => void;
   onClose: () => void;
   /** Injected in tests; defaults to the preload bridge. */
-  scan?: (left: string, right: string, opts: SyncOptions) => Promise<Result<SyncEntry[]>>;
+  scan?: (left: string, right: string, opts: SyncOptions) => Promise<Result<SyncScan>>;
 };
 
 const STATUS_LABEL: Record<SyncStatus, string> = {
@@ -51,6 +51,7 @@ function when(ms: number | null): string {
 export function SyncView({ leftRoot, rightRoot, onRun, onClose, scan }: Props) {
   const [opts, setOpts] = useState<SyncOptions>({ showHidden: false, byContent: false, recursive: true });
   const [entries, setEntries] = useState<SyncEntry[] | null>(null);
+  const [unreadable, setUnreadable] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [showSame, setShowSame] = useState(false);
   const [excluded, setExcluded] = useState<ReadonlySet<string>>(new Set());
@@ -60,13 +61,14 @@ export function SyncView({ leftRoot, rightRoot, onRun, onClose, scan }: Props) {
   useEffect(() => {
     let cancelled = false;
     setEntries(null);
+    setUnreadable([]);
     setError(null);
     setExcluded(new Set());
     setConfirming(null);
     void (async () => {
       const r = await (scan ?? window.gc.fs.syncScan)(leftRoot, rightRoot, opts);
       if (cancelled) return;
-      if (r.ok) setEntries(r.value);
+      if (r.ok) { setEntries(r.value.entries); setUnreadable(r.value.unreadable); }
       else setError(describe(r.error));
     })();
     return () => { cancelled = true; };
@@ -102,7 +104,10 @@ export function SyncView({ leftRoot, rightRoot, onRun, onClose, scan }: Props) {
     };
   }, [entries]);
 
+  const blocked = unreadable.length > 0;
+
   const trigger = (action: SyncAction) => {
+    if (isDestructive(action) && blocked) return;
     if (isDestructive(action) && confirming !== action) { setConfirming(action); return; }
     setConfirming(null);
     onRun(action, buildSyncPlan(entries ?? [], leftRoot, rightRoot, action, selected));
@@ -154,6 +159,15 @@ export function SyncView({ leftRoot, rightRoot, onRun, onClose, scan }: Props) {
             {summary.leftOnly} left only · {summary.rightOnly} right only ·{' '}
             {summary.differ} differ · {summary.same} equal
           </div>
+
+          {blocked && (
+            <div className="gc-sync-blocked" role="alert">
+              {unreadable.length} folder{unreadable.length === 1 ? '' : 's'} could not be read, so
+              this comparison is incomplete — a tree the scan cannot see looks empty, and Mirror
+              would delete the other side&apos;s copies of files that do exist. Mirroring is
+              disabled; copy-missing is still safe. First: {unreadable[0]}
+            </div>
+          )}
 
           {summary.conflicts > 0 && (
             <div className="gc-sync-note">
@@ -231,7 +245,7 @@ export function SyncView({ leftRoot, rightRoot, onRun, onClose, scan }: Props) {
               key={a}
               type="button"
               className={confirming === a ? 'is-confirming' : ''}
-              disabled={!entries || total === 0}
+              disabled={!entries || total === 0 || (isDestructive(a) && blocked)}
               onClick={() => trigger(a)}
             >
               {SYNC_LABELS[a]}{total > 0 ? ` (${total})` : ''}

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtemp, rm, writeFile, mkdir, utimes } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile, mkdir, utimes, chmod, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { syncScan, MTIME_TOLERANCE_MS } from '@main/fs/syncScan';
@@ -20,6 +20,13 @@ const write = async (dir: string, rel: string, content: string, mtime?: Date) =>
 };
 
 const scan = async (opts: Partial<SyncOptions> = {}) => {
+  const r = await syncScan(left, right, { ...OPTS, ...opts });
+  if (!r.ok) throw new Error(`scan failed: ${JSON.stringify(r.error)}`);
+  return r.value.entries;
+};
+
+/** The full scan result, for the completeness assertions. */
+const scanFull = async (opts: Partial<SyncOptions> = {}) => {
   const r = await syncScan(left, right, { ...OPTS, ...opts });
   if (!r.ok) throw new Error(`scan failed: ${JSON.stringify(r.error)}`);
   return r.value;
@@ -157,5 +164,47 @@ describe('syncScan', () => {
     expect(r.ok).toBe(false);
     if (r.ok) return;
     expect(r.error.kind).toBe('not-found');
+  });
+});
+// Both found by the pre-release review; both let Mirror destroy data.
+describe('syncScan safety', () => {
+  it('reports a clean scan as complete', async () => {
+    await write(left, 'a.txt', 'x');
+    expect((await scanFull()).unreadable).toEqual([]);
+  });
+
+  // A tree the scan cannot read looks empty, so Mirror would trash the other
+  // side's perfectly good copies of files it simply could not see.
+  it('records an unreadable folder instead of reporting it empty', async () => {
+    await write(left, 'locked/secret.txt', 'x');
+    await chmod(join(left, 'locked'), 0o000);
+    try {
+      const result = await scanFull();
+      expect(result.unreadable.length).toBeGreaterThan(0);
+      expect(result.unreadable.some((p) => p.endsWith('/locked'))).toBe(true);
+    } finally {
+      await chmod(join(left, 'locked'), 0o755);
+    }
+  });
+
+  // Following one takes the comparison outside the folder the user picked, and
+  // Mirror would then copy into and delete out of wherever it points.
+  it('never descends a symlinked directory', async () => {
+    const outside = join(root, 'outside');
+    await mkdir(outside, { recursive: true });
+    await writeFile(join(outside, 'private.txt'), 'do not touch');
+    await symlink(outside, join(left, 'link'));
+
+    const entries = await scan();
+    expect(entries.map((e) => e.relPath)).toEqual(['link']);
+    expect(entries.map((e) => e.relPath)).not.toContain('link/private.txt');
+  });
+
+  it('marks the link so the plan can see what it is', async () => {
+    const outside = join(root, 'outside2');
+    await mkdir(outside, { recursive: true });
+    await symlink(outside, join(left, 'link2'));
+    const entry = (await scan()).find((e) => e.relPath === 'link2');
+    expect(entry?.isLink).toBe(true);
   });
 });

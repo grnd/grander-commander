@@ -16,7 +16,7 @@ import {
 import { applyRenamePlan, type RenamePreviewRow } from './commands/multirename';
 import { applyTextEditing } from './commands/textEditing';
 import { parseCdCommand } from './commands/cd';
-import { SYNC_LABELS, type SyncAction, type SyncPlan } from './commands/sync';
+import { SYNC_LABELS, isDestructive, type SyncAction, type SyncPlan } from './commands/sync';
 import { archiveDragMembers, archiveTargets } from './commands/archive';
 import {
   GC_ARCHIVE, decodeArchiveDrag, dragPaths, dropTarget, encodeArchiveDrag,
@@ -956,7 +956,15 @@ export function App() {
         return;
       }
       await runOp(
-        { kind: 'syncCopy', pairs: plan.copies.map(({ src, dst }) => ({ src, dst })), overwrite: true },
+        {
+          kind: 'syncCopy',
+          pairs: plan.copies.map(({ src, dst }) => ({ src, dst })),
+          // Only a mirror is allowed to overwrite. Copy-missing promises to add
+          // what is absent, and the scan it was planned from may be stale — so
+          // anything that turned up in between raises the conflict prompt
+          // instead of being silently replaced.
+          overwrite: isDestructive(action),
+        },
         `${SYNC_LABELS[action]} — ${plan.copies.length} item(s)…`,
         'left', 'right',
       );
