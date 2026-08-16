@@ -12,6 +12,10 @@ import { Viewer } from './components/Viewer';
 import type { PanelSide } from './state/panelSlice';
 import { cursorPath, entryKey, targetNames, targetPaths } from './state/panelSlice';
 import { applyRenamePlan, type RenamePreviewRow } from './commands/multirename';
+import { SYNC_LABELS, type SyncAction, type SyncPlan } from './commands/sync';
+
+/** fs:trash validates at most 1024 paths per call; a mirror can plan more. */
+const TRASH_CHUNK = 1000;
 import { eventToCombo, lookup, allowedFromInput } from './keybindings';
 import type { CommandName } from './commands';
 import { sortEntries } from './commands/sort';
@@ -35,6 +39,7 @@ import {
   requestTrash, requestDeleteConfirm, selectionForContextTarget,
 } from './commands/mutations';
 import { Dialogs } from './components/dialogs';
+import { opItemCount } from '@shared/types';
 import type { FileOp, OpEvent, OpId, ConflictAnswer, OpError, MenuCommand } from '@shared/types';
 
 function applySort(
@@ -49,6 +54,12 @@ function applySort(
   const entries = dotDot ? [dotDot, ...sorted] : sorted;
   setPanel({ sort: { col, dir }, entries });
 }
+
+const OP_LABEL: Record<FileOp['kind'], string> = {
+  copy: 'Copy',
+  move: 'Move',
+  syncCopy: 'Sync',
+};
 
 function describeOpError(error: unknown): string {
   if (!error || typeof error !== 'object' || !('kind' in error)) return 'Unknown error';
@@ -283,6 +294,11 @@ export function App() {
       }
       case 'toggleQuickView':
         useStore.getState().setQuickView(!useStore.getState().quickView);
+        return;
+      case 'syncFolders':
+        useStore.getState().setDialog({
+          kind: 'sync', leftRoot: s.panels.left.path, rightRoot: s.panels.right.path,
+        });
         return;
       case 'compareFiles': {
         // Two marked files in one panel is the explicit gesture; otherwise fall
@@ -555,7 +571,7 @@ export function App() {
     const id: OpId = await api.ops.start(op);
     setDialog({
       kind: 'progress', opId: id, title,
-      filesDone: 0, filesTotal: op.sources.length, bytesDone: 0, bytesTotal: 0, currentFile: '',
+      filesDone: 0, filesTotal: opItemCount(op), bytesDone: 0, bytesTotal: 0, currentFile: '',
     });
     let settled = false;
     const subscription: { unsubscribe: null | (() => void) } = { unsubscribe: null };
@@ -579,7 +595,7 @@ export function App() {
         setDialog({ kind: 'overwrite', opId: id, srcPath: ev.srcPath, dstPath: ev.dstPath });
       } else if (ev.kind === 'error') {
         await closeAndRefresh();
-        alert(`${op.kind === 'copy' ? 'Copy' : 'Move'} failed: ${describeOpError(ev.error)}`);
+        alert(`${OP_LABEL[op.kind]} failed: ${describeOpError(ev.error)}`);
       } else if (ev.kind === 'complete' || ev.kind === 'cancelled') {
         await closeAndRefresh();
       }
@@ -635,6 +651,27 @@ export function App() {
     },
     onFavoriteRemoved: (path: string) => {
       useStore.getState().removeFavorite(path);
+    },
+    onSyncRun: async (action: SyncAction, plan: SyncPlan) => {
+      // Deletions first: mirroring a folder over a file needs the file gone
+      // before the copy can land.
+      for (let i = 0; i < plan.deletes.length; i += TRASH_CHUNK) {
+        const r = await api.fs.trash(plan.deletes.slice(i, i + TRASH_CHUNK));
+        if (!r.ok) {
+          alert(`${SYNC_LABELS[action]} failed while deleting: ${describeOpError(r.error)}`);
+          await Promise.all([refreshSide('left'), refreshSide('right')]);
+          return;
+        }
+      }
+      if (plan.copies.length === 0) {
+        await Promise.all([refreshSide('left'), refreshSide('right')]);
+        return;
+      }
+      await runOp(
+        { kind: 'syncCopy', pairs: plan.copies.map(({ src, dst }) => ({ src, dst })), overwrite: true },
+        `${SYNC_LABELS[action]} — ${plan.copies.length} item(s)…`,
+        'left', 'right',
+      );
     },
     onMultiRename: async (side: PanelSide, dir: string, rows: RenamePreviewRow[]) => {
       const outcome = await applyRenamePlan(api, dir, rows);

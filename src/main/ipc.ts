@@ -12,6 +12,7 @@ import { duplicate } from './fs/duplicate';
 import { readChunk, MAX_CHUNK_BYTES } from './fs/readChunk';
 import { complete } from './fs/complete';
 import { compareFiles } from './fs/compare';
+import { syncScan } from './fs/syncScan';
 import { quickLook } from './shell/quickLook';
 import { openTerminal } from './shell/openTerminal';
 import { runCommand } from './shell/runCommand';
@@ -19,7 +20,7 @@ import { checkForUpdates, downloadUpdate, quitAndInstall, getUpdateStatus, openR
 import { spawnTerminal, writeTerminal, resizeTerminal, killTerminal, killAllForContents } from './shell/terminal';
 import { popupFileContext, type FileContextArgs } from './menu/fileContext';
 import { OpRunner } from './ops/runner';
-import type { ConflictAnswer, FileOp, ListDirOptions, OpEvent, OpId } from '@shared/types';
+import type { ConflictAnswer, FileOp, ListDirOptions, OpEvent, OpId, SyncOptions } from '@shared/types';
 
 const runner = new OpRunner();
 type OpBridge = {
@@ -33,6 +34,9 @@ type OpBridge = {
 const MAX_PATH_LENGTH = 4096;
 const MAX_BASENAME_LENGTH = 255;
 const MAX_PATHS_PER_REQUEST = 1024;
+// A folder sync legitimately plans thousands of items in one go, unlike the
+// hand-made selections every other channel carries.
+const MAX_SYNC_PAIRS = 50_000;
 const MAX_COMMAND_LENGTH = 8000;
 const MAX_TERMINAL_DATA_LENGTH = 64_000;
 const MAX_TERMINAL_DIMENSION = 1000;
@@ -157,11 +161,37 @@ export function validateFileContextArgs(value: unknown): FileContextArgs {
 export function validateFileOpPayload(value: unknown): FileOp {
   if (!isRecord(value)) throw new TypeError('op must be an object');
   const kind = value.kind;
-  if (kind !== 'copy' && kind !== 'move') throw new TypeError('op.kind must be copy or move');
+  if (kind === 'syncCopy') {
+    if (!Array.isArray(value.pairs)) throw new TypeError('op.pairs must be an array');
+    if (value.pairs.length > MAX_SYNC_PAIRS) throw new RangeError('op.pairs has too many items');
+    return {
+      kind,
+      pairs: value.pairs.map((pair, index) => {
+        if (!isRecord(pair)) throw new TypeError(`op.pairs[${index}] must be an object`);
+        return {
+          src: expectString(pair.src, `op.pairs[${index}].src`),
+          dst: expectString(pair.dst, `op.pairs[${index}].dst`),
+        };
+      }),
+      overwrite: expectBoolean(value.overwrite, 'op.overwrite'),
+    };
+  }
+  if (kind !== 'copy' && kind !== 'move') {
+    throw new TypeError('op.kind must be copy, move or syncCopy');
+  }
   return {
     kind,
     sources: expectStringArray(value.sources, 'op.sources'),
     dst: expectString(value.dst, 'op.dst'),
+  };
+}
+
+export function validateSyncOptions(value: unknown): SyncOptions {
+  if (!isRecord(value)) throw new TypeError('opts must be an object');
+  return {
+    showHidden: expectBoolean(value.showHidden, 'opts.showHidden'),
+    byContent: expectBoolean(value.byContent, 'opts.byContent'),
+    recursive: expectBoolean(value.recursive, 'opts.recursive'),
   };
 }
 
@@ -350,6 +380,14 @@ export function registerIpc() {
     expectArgs(args, 'fs:compare', 2);
     return [expectString(args[0], 'left'), expectString(args[1], 'right')];
   }, (_e, left, right) => compareFiles(left, right));
+  handleValidated('fs:syncScan', (args): [string, string, SyncOptions] => {
+    expectArgs(args, 'fs:syncScan', 3);
+    return [
+      expectString(args[0], 'left'),
+      expectString(args[1], 'right'),
+      validateSyncOptions(args[2]),
+    ];
+  }, (_e, left, right, opts) => syncScan(left, right, opts));
   handleValidated('volumes:list', (args): [] => {
     expectArgs(args, 'volumes:list', 0);
     return [];

@@ -125,7 +125,7 @@ describe('ipc validation and trust checks', () => {
       dst: '/tmp/b',
     });
     expect(() => validateFileOpPayload({ kind: 'delete', sources: [], dst: '/tmp' }))
-      .toThrow(/op\.kind must be copy or move/);
+      .toThrow(/op\.kind must be copy, move or syncCopy/);
 
     expect(validateConflictAnswerPayload({ action: 'rename', newName: 'renamed.txt' }))
       .toEqual({ action: 'rename', newName: 'renamed.txt', applyToAll: false });

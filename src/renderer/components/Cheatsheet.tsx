@@ -49,6 +49,7 @@ const SECTIONS: { title: string; rows: [string, string][] }[] = [
       ['Cmd+Backspace', 'Delete cursor item (confirm)'],
       ['Ctrl+M / Cmd+Shift+M', 'Multi-rename selected files'],
       ['Cmd+D', 'Compare two files by content'],
+      ['Cmd+Y', 'Synchronize the two panel folders'],
     ],
   },
   {

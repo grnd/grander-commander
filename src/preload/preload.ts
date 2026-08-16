@@ -21,6 +21,7 @@ const api: GCApi = {
     readChunk: (path, offset, length) => ipcRenderer.invoke('fs:readChunk', path, offset, length),
     complete: (prefix, cwd, kind) => ipcRenderer.invoke('fs:complete', prefix, cwd, kind),
     compare: (left, right) => ipcRenderer.invoke('fs:compare', left, right),
+    syncScan: (left, right, opts) => ipcRenderer.invoke('fs:syncScan', left, right, opts),
   },
   volumes: {
     list: () => ipcRenderer.invoke('volumes:list'),

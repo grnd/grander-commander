@@ -72,6 +72,7 @@ export const bindings: Binding[] = [
   { combo: 'Ctrl+M', command: 'multiRename' },
   { combo: 'Cmd+Shift+M', command: 'multiRename' },
   { combo: 'Cmd+D', command: 'compareFiles' },
+  { combo: 'Cmd+Y', command: 'syncFolders' },
   ...bookmarkBindings,
 ];
 

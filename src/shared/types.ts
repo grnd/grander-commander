@@ -52,7 +52,15 @@ export type OpId = string;
 
 export type FileOp =
   | { kind: 'copy'; sources: string[]; dst: string }   // dst is destination DIR
-  | { kind: 'move'; sources: string[]; dst: string };
+  | { kind: 'move'; sources: string[]; dst: string }
+  // Folder sync needs a destination *path* per item so relative subtrees are
+  // preserved, which the sources+dst-dir shape cannot express.
+  | { kind: 'syncCopy'; pairs: { src: string; dst: string }[]; overwrite: boolean };
+
+/** How many items an op will process — its sources, or its sync pairs. */
+export function opItemCount(op: FileOp): number {
+  return op.kind === 'syncCopy' ? op.pairs.length : op.sources.length;
+}
 
 export type ConflictAnswer =
   | { action: 'overwrite'; applyToAll: boolean }
@@ -79,7 +87,38 @@ export type DialogState =
   | { kind: 'progress'; opId: OpId; title: string; filesDone: number; filesTotal: number; bytesDone: number; bytesTotal: number; currentFile: string }
   | { kind: 'favoriteEdit'; path: string; label: string }
   | { kind: 'multiRename'; side: 'left' | 'right'; dir: string; names: string[]; existingNames: string[] }
-  | { kind: 'compare'; left: string; right: string };
+  | { kind: 'compare'; left: string; right: string }
+  | { kind: 'sync'; leftRoot: string; rightRoot: string };
+
+// ---- M3: folder sync ----
+
+export type SyncStatus = 'left-only' | 'right-only' | 'differ' | 'same';
+
+export type SyncEntry = {
+  /** Path relative to both roots, using '/' separators. */
+  relPath: string;
+  isDir: boolean;
+  status: SyncStatus;
+  leftSize: number | null;
+  rightSize: number | null;
+  leftMtime: number | null;
+  rightMtime: number | null;
+  /** Which side has the newer mtime; only meaningful for `differ`. */
+  newer: 'left' | 'right' | null;
+  /**
+   * The path is a folder on one side and a file on the other. Such a
+   * destination cannot be overwritten in place, so mirroring has to remove it
+   * before copying.
+   */
+  typeConflict: boolean;
+};
+
+export type SyncOptions = {
+  showHidden: boolean;
+  /** Hash files of equal size instead of trusting their timestamps. */
+  byContent: boolean;
+  recursive: boolean;
+};
 
 // ---- M3: file compare ----
 

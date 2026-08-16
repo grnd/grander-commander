@@ -21,4 +21,4 @@ export type CommandName =
   | 'quickLook' | 'openTerminal' | 'quitApp' | 'runShellCommand'
   | 'toggleTerminal'
   | 'viewFile' | 'toggleQuickView'
-  | 'multiRename' | 'compareFiles';
+  | 'multiRename' | 'compareFiles' | 'syncFolders';

@@ -442,3 +442,46 @@ body {
   background: var(--gc-chrome); text-align: center;
   opacity: 0.7; font-style: italic; user-select: none;
 }
+
+/* ---- M3: folder sync ---- */
+.gc-sync { display: flex; flex-direction: column; gap: 6px; min-height: 0; }
+.gc-sync-roots {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+  font-family: Menlo, monospace; font-size: 11px; font-weight: 700;
+}
+.gc-sync-roots span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gc-sync-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; font-size: 11px; }
+.gc-sync-toolbar label { display: inline-flex; align-items: center; gap: 3px; }
+.gc-sync-toolbar button {
+  padding: 1px 8px; border: 1px solid var(--gc-border); background: var(--gc-btn);
+  color: var(--gc-fg); font: inherit; cursor: pointer;
+}
+.gc-sync-error { padding: 6px; background: var(--gc-error-bg, #b00020); color: var(--gc-error-fg, #fff); font-size: 11px; }
+.gc-sync-empty { padding: 12px; font-size: 11px; }
+.gc-sync-summary { font-size: 11px; opacity: 0.85; }
+.gc-sync-body { max-height: 52vh; overflow: auto; border: 1px solid var(--gc-border); background: var(--gc-panel); }
+.gc-sync-table {
+  width: 100%; border-collapse: collapse;
+  font-family: Menlo, monospace; font-size: 11px;
+}
+.gc-sync-table th, .gc-sync-table td { padding: 1px 6px; text-align: left; white-space: nowrap; }
+.gc-sync-table thead th { position: sticky; top: 0; background: var(--gc-chrome); border-bottom: 1px solid var(--gc-border); }
+.gc-sync-name { width: 100%; overflow: hidden; text-overflow: ellipsis; max-width: 0; }
+.gc-sync-cell { text-align: right !important; opacity: 0.85; }
+.gc-sync-mark { text-align: center !important; font-weight: 700; }
+.gc-sync-mark.is-left-only { color: #2e7d32; }
+.gc-sync-mark.is-right-only { color: #0a5fcf; }
+.gc-sync-mark.is-differ { color: #a06000; }
+.gc-sync-mark.is-same { opacity: 0.4; font-weight: 400; }
+.gc-sync-newer { font-size: 9px; opacity: 0.8; margin-left: 1px; }
+.gc-sync-table tr.is-same { opacity: 0.6; }
+.gc-sync-badge {
+  margin-left: 8px; padding: 0 4px; font-size: 10px;
+  background: #b00020; color: #fff; border-radius: 2px;
+}
+.gc-sync-confirm {
+  padding: 6px 8px; font-size: 11px;
+  background: #fdf3dd; border-left: 3px solid #a06000; color: #4a3400;
+}
+.gc-sync-actions { flex-wrap: wrap; }
+.gc-sync-actions button.is-confirming { background: #b00020; color: #fff; font-weight: 700; }
