@@ -1,6 +1,14 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import type { GCApi } from './api';
 
+const opSubscriptions = new Map<string, (notifyMain: boolean) => void>();
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeunload', () => {
+    for (const teardown of [...opSubscriptions.values()]) teardown(true);
+  });
+}
+
 const api: GCApi = {
   fs: {
     listDir: (path, opts) => ipcRenderer.invoke('fs:listDir', path, opts),
@@ -19,10 +27,22 @@ const api: GCApi = {
     cancel: (id) => ipcRenderer.invoke('ops:cancel', id),
     answerConflict: (id, a) => ipcRenderer.invoke('ops:answerConflict', id, a),
     subscribe: (id, cb) => {
+      const existing = opSubscriptions.get(id);
+      existing?.(true);
       const chan = `ops:event:${id}`;
       const listener = (_: unknown, ev: unknown) => cb(ev as import('@shared/types').OpEvent);
+      let active = true;
+      const teardown = (notifyMain: boolean) => {
+        if (!active) return;
+        active = false;
+        ipcRenderer.removeListener(chan, listener);
+        if (opSubscriptions.get(id) === teardown) opSubscriptions.delete(id);
+        if (notifyMain) void ipcRenderer.invoke('ops:unsubscribe', id).catch(() => {});
+      };
+      opSubscriptions.set(id, teardown);
       ipcRenderer.on(chan, listener);
-      return () => ipcRenderer.removeListener(chan, listener);
+      void ipcRenderer.invoke('ops:subscribe', id).catch(() => teardown(false));
+      return () => teardown(true);
     },
   },
   shell: {
@@ -51,7 +71,7 @@ const api: GCApi = {
   },
   menu: {
     onCommand: (cb) => {
-      const listener = (_: unknown, cmd: unknown) => cb(String(cmd));
+      const listener = (_: unknown, cmd: unknown) => cb(cmd as import('@shared/types').MenuCommand);
       ipcRenderer.on('menu:command', listener);
       return () => ipcRenderer.removeListener('menu:command', listener);
     },

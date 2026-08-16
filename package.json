@@ -116,5 +116,8 @@
     "react-dom": "^18.3.0",
     "react-window": "^1.8.10",
     "zustand": "^4.5.0"
+  },
+  "overrides": {
+    "js-yaml": "^4.3.1"
   }
 }

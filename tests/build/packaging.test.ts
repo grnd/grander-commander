@@ -48,4 +48,8 @@ describe('electron-builder packaging config', () => {
       expect.stringContaining('node-pty'),
     );
   });
+
+  it('overrides js-yaml to a patched release', () => {
+    expect(pkg.overrides?.['js-yaml']).toBe('^4.3.1');
+  });
 });

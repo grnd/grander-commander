@@ -26,7 +26,7 @@ const mkCtx = () => {
     },
     shell: { openPath: vi.fn().mockResolvedValue(undefined) },
   };
-  return { panel, setPanel, api };
+  return { panel, setPanel, api, requestKey: 'left' as const };
 };
 
 describe('cursorMove', () => {
@@ -49,7 +49,7 @@ describe('navigateInto', () => {
   it('reads new dir and replaces entries when cursor is on a directory', async () => {
     const { panel, setPanel, api } = mkCtx();
     panel.cursor = 1; // 'sub' directory
-    await navigateInto({ panel, setPanel, api });
+    await navigateInto({ panel, setPanel, api, requestKey: 'left' });
     expect(api.fs.listDir).toHaveBeenCalledWith('/tmp/sub', { showHidden: false });
     expect(setPanel).toHaveBeenCalledWith(expect.objectContaining({
       path: '/tmp/sub',
@@ -66,7 +66,7 @@ describe('navigateInto', () => {
       mkEntry({ name: 'GoogleDrive-danny.grander@gmail', ext: 'com', isDir: true }),
     ];
     panel.cursor = 0;
-    await navigateInto({ panel, setPanel, api });
+    await navigateInto({ panel, setPanel, api, requestKey: 'left' });
     expect(api.fs.listDir).toHaveBeenCalledWith(
       '/tmp/GoogleDrive-danny.grander@gmail.com',
       { showHidden: false },
@@ -76,7 +76,7 @@ describe('navigateInto', () => {
   it('opens non-directory via shell.openPath and does NOT navigate', async () => {
     const { panel, setPanel, api } = mkCtx();
     panel.cursor = 2; // readme.md
-    await navigateInto({ panel, setPanel, api });
+    await navigateInto({ panel, setPanel, api, requestKey: 'left' });
     expect(api.shell.openPath).toHaveBeenCalledWith('/tmp/readme.md');
     expect(api.fs.listDir).not.toHaveBeenCalled();
   });
@@ -84,7 +84,7 @@ describe('navigateInto', () => {
   it('on ".." entry, navigates to parent', async () => {
     const { panel, setPanel, api } = mkCtx();
     panel.cursor = 0; // '..'
-    await navigateInto({ panel, setPanel, api });
+    await navigateInto({ panel, setPanel, api, requestKey: 'left' });
     expect(api.fs.listDir).toHaveBeenCalledWith('/', { showHidden: false });
   });
 });
@@ -96,7 +96,7 @@ describe('failed navigation', () => {
       ok: false,
       error: { kind: 'not-found', path: '/tmp/gone' },
     });
-    const ok = await navigateTo({ panel, setPanel, api, path: '/tmp/gone' });
+    const ok = await navigateTo({ panel, setPanel, api, path: '/tmp/gone', requestKey: 'left' });
     expect(ok).toBe(false);
     expect(setPanel).toHaveBeenCalledWith({
       loading: false,
@@ -110,11 +110,35 @@ describe('failed navigation', () => {
       ok: false,
       error: { kind: 'permission', path: '/tmp/secret' },
     });
-    await navigateTo({ panel, setPanel, api, path: '/tmp/secret' });
+    await navigateTo({ panel, setPanel, api, path: '/tmp/secret', requestKey: 'left' });
     expect(setPanel).toHaveBeenCalledWith({
       loading: false,
       error: 'Permission denied: /tmp/secret',
     });
+  });
+
+  it('ignores an older in-flight response after a newer destination starts loading', async () => {
+    const { panel, setPanel, api } = mkCtx();
+    let resolveFirst!: (value: { ok: true; value: FileEntry[] }) => void;
+    let resolveSecond!: (value: { ok: true; value: FileEntry[] }) => void;
+    api.fs.listDir
+      .mockImplementationOnce(() => new Promise((resolve) => { resolveFirst = resolve; }))
+      .mockImplementationOnce(() => new Promise((resolve) => { resolveSecond = resolve; }));
+
+    const first = navigateTo({ panel, setPanel, api, path: '/tmp/older', requestKey: 'left' });
+    const second = navigateTo({ panel, setPanel, api, path: '/tmp/newer', requestKey: 'left' });
+
+    resolveSecond({ ok: true, value: [mkEntry({ name: 'fresh' })] });
+    await expect(second).resolves.toBe(true);
+    resolveFirst({ ok: true, value: [mkEntry({ name: 'stale' })] });
+    await expect(first).resolves.toBe(false);
+
+    const pathUpdates = setPanel.mock.calls
+      .map(([patch]) => patch as Partial<ReturnType<typeof initialPanelState>>)
+      .filter((patch) => typeof patch.path === 'string');
+    expect(pathUpdates).toEqual([
+      expect.objectContaining({ path: '/tmp/newer' }),
+    ]);
   });
 });
 
@@ -122,14 +146,14 @@ describe('navigateUp', () => {
   it('navigates to parent of current path', async () => {
     const { panel, setPanel, api } = mkCtx();
     panel.path = '/tmp/foo';
-    await navigateUp({ panel, setPanel, api });
+    await navigateUp({ panel, setPanel, api, requestKey: 'left' });
     expect(api.fs.listDir).toHaveBeenCalledWith('/tmp', { showHidden: false });
   });
 
   it('is a no-op at root', async () => {
     const { panel, setPanel, api } = mkCtx();
     panel.path = '/';
-    await navigateUp({ panel, setPanel, api });
+    await navigateUp({ panel, setPanel, api, requestKey: 'left' });
     expect(api.fs.listDir).not.toHaveBeenCalled();
     expect(setPanel).not.toHaveBeenCalled();
   });

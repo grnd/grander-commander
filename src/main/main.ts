@@ -1,12 +1,16 @@
 // src/main/main.ts
-import { app, BrowserWindow, Menu } from 'electron';
+import { app, BrowserWindow, Menu, type MenuItemConstructorOptions } from 'electron';
 import { registerIpc } from './ipc';
 import { checkForUpdates, initUpdater } from './updater';
 import { join } from 'node:path';
 
-function buildMenu() {
+function sendMenuCommand(win: BrowserWindow | undefined, command: string): void {
+  win?.webContents.send('menu:command', command);
+}
+
+export function buildMenuTemplate(): MenuItemConstructorOptions[] {
   const isMac = process.platform === 'darwin';
-  const template: Electron.MenuItemConstructorOptions[] = [
+  return [
     ...(isMac
       ? [{
           label: 'GranderCommander',
@@ -26,31 +30,53 @@ function buildMenu() {
       label: 'Files',
       submenu: [
         { label: 'New Folder', accelerator: 'CmdOrCtrl+N',
-          click: (_i, w) => w?.webContents.send('menu:command', 'mkdir') },
+          click: (_i, w) => sendMenuCommand(w, 'mkdir') },
         { label: 'Rename', accelerator: 'CmdOrCtrl+Shift+R',
-          click: (_i, w) => w?.webContents.send('menu:command', 'rename') },
+          click: (_i, w) => sendMenuCommand(w, 'rename') },
         { type: 'separator' as const },
         { label: 'Copy', accelerator: 'F5',
-          click: (_i, w) => w?.webContents.send('menu:command', 'copy') },
+          click: (_i, w) => sendMenuCommand(w, 'copy') },
         { label: 'Move', accelerator: 'F6',
-          click: (_i, w) => w?.webContents.send('menu:command', 'move') },
+          click: (_i, w) => sendMenuCommand(w, 'move') },
         { label: 'Move to Trash', accelerator: 'F8',
-          click: (_i, w) => w?.webContents.send('menu:command', 'trash') },
+          click: (_i, w) => sendMenuCommand(w, 'trash') },
         { label: 'Delete Permanently…', accelerator: 'Shift+F8',
-          click: (_i, w) => w?.webContents.send('menu:command', 'deleteConfirm') },
+          click: (_i, w) => sendMenuCommand(w, 'deleteConfirm') },
       ],
     },
     {
       label: 'Show',
       submenu: [
-        { label: 'Toggle Hidden Files', accelerator: 'Ctrl+H', click: () => {} },
+        { label: 'Toggle Hidden Files', accelerator: 'Ctrl+H',
+          click: (_i, w) => sendMenuCommand(w, 'toggleHidden') },
         { role: 'reload' as const },
         { role: 'toggleDevTools' as const },
       ],
     },
     { role: 'windowMenu' as const },
   ];
-  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+}
+
+function buildMenu() {
+  Menu.setApplicationMenu(Menu.buildFromTemplate(buildMenuTemplate()));
+}
+
+export function installProductionWindowGuards(win: BrowserWindow): void {
+  if (!app.isPackaged) return;
+
+  win.webContents.on('will-navigate', (event) => {
+    event.preventDefault();
+  });
+  win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+}
+
+export function getRendererLoadTarget(): { kind: 'url'; target: string } | { kind: 'file'; target: string } {
+  const devUrl = process.env.ELECTRON_RENDERER_URL;
+  if (!app.isPackaged && devUrl) {
+    return { kind: 'url', target: devUrl };
+  }
+
+  return { kind: 'file', target: join(__dirname, '../renderer/index.html') };
 }
 
 async function createWindow() {
@@ -64,14 +90,16 @@ async function createWindow() {
       preload: join(__dirname, '../preload/preload.mjs'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false,
+      sandbox: true,
     },
   });
+  installProductionWindowGuards(win);
 
-  if (process.env.ELECTRON_RENDERER_URL) {
-    await win.loadURL(process.env.ELECTRON_RENDERER_URL);
+  const target = getRendererLoadTarget();
+  if (target.kind === 'url') {
+    await win.loadURL(target.target);
   } else {
-    await win.loadFile(join(__dirname, '../renderer/index.html'));
+    await win.loadFile(target.target);
   }
 }
 

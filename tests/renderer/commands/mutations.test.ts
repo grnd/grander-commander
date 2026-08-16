@@ -1,5 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
-import { openMkdirDialog, openRenameDialog, openCopyDialog, openMoveDialog, requestTrash, requestDeleteConfirm }
+import {
+  openMkdirDialog, openRenameDialog, openCopyDialog, openMoveDialog,
+  requestTrash, requestDeleteConfirm, selectionForContextTarget,
+}
   from '@renderer/commands/mutations';
 import { initialPanelState, entryKey } from '@renderer/state/panelSlice';
 
@@ -22,6 +25,9 @@ const mkCtx = () => {
   };
   return { active, inactive, setDialog, api };
 };
+
+const asTrashApi = (api: ReturnType<typeof mkCtx>['api']) =>
+  api as unknown as Parameters<typeof requestTrash>[0]['api'];
 
 describe('openMkdirDialog', () => {
   it('opens mkdir dialog for active side', () => {
@@ -63,10 +69,40 @@ describe('requestTrash', () => {
     const { active, api } = mkCtx();
     active.selection = new Set([entryKey(active.entries[1])]);
     const afterDone = vi.fn();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await requestTrash({ panel: active, api: api as any, afterDone });
+    await requestTrash({ panel: active, api: asTrashApi(api), afterDone });
     expect(api.fs.trash).toHaveBeenCalledWith(['/tmp/a.txt']);
     expect(afterDone).toHaveBeenCalled();
+  });
+
+  it('does not treat a failed trash call as success', async () => {
+    const { active, api } = mkCtx();
+    active.selection = new Set([entryKey(active.entries[1])]);
+    api.fs.trash.mockResolvedValue({ ok: false, error: { kind: 'permission', path: '/tmp/a.txt' } });
+    const afterDone = vi.fn();
+
+    await requestTrash({ panel: active, api: asTrashApi(api), afterDone });
+
+    expect(afterDone).not.toHaveBeenCalled();
+  });
+});
+
+describe('selectionForContextTarget', () => {
+  it('retargets to the clicked row when it is outside the current selection', () => {
+    const { active } = mkCtx();
+    active.selection = new Set([entryKey(active.entries[1])]);
+
+    const selection = selectionForContextTarget(active, active.entries[2]);
+
+    expect([...selection]).toEqual([entryKey(active.entries[2])]);
+  });
+
+  it('preserves the full selection when right-clicking inside it', () => {
+    const { active } = mkCtx();
+    active.selection = new Set([entryKey(active.entries[1]), entryKey(active.entries[2])]);
+
+    const selection = selectionForContextTarget(active, active.entries[2]);
+
+    expect([...selection].sort()).toEqual([entryKey(active.entries[1]), entryKey(active.entries[2])].sort());
   });
 });
 

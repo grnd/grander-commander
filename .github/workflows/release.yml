@@ -15,6 +15,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Verify tag matches package version
+        run: |
+          node -e 'const pkg = require("./package.json"); const actual = process.env.GITHUB_REF_NAME; const expected = `v${pkg.version}`; if (actual !== expected) { console.error(`Release tag ${actual} does not match package.json version ${expected}`); process.exit(1); }'
+
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
