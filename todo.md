@@ -23,6 +23,42 @@ Follow-ups this milestone left behind:
 - [ ] **Pack/extract progress**: the busy dialog is indeterminate because the tools report nothing parseable on stdout.
 - [ ] **Tabs do not persist** across restarts.
 
+## Open decisions — raised by M3 hands-on testing
+
+Both are "we have two things that overlap"; neither is urgent, both delete or
+avoid code once decided.
+
+- [ ] **Terminal: one per folder, addressable?** The reload bug is fixed (the
+  pty now survives pane switches and `Ctrl+\``), which was most of the pain.
+  The remaining ask is several shells, reachable by number.
+  - *Rejected approach*: making the terminal a **panel** tab. A panel tab is a
+    snapshot — only the active one renders, state is swapped in and out — and
+    that only works because a folder listing is data. A terminal cannot be a
+    snapshot: xterm and the pty must stay mounted or it reloads again. So it
+    would mean `PanelState` becoming a folder|terminal union, and every
+    consumer of `panels[side]` (command line, F-keys, mutations, drag/drop,
+    sync, compare, path bar) learning to handle "the active tab is not a
+    folder" — the same surface already patched three times for virtual panels.
+    The tab machinery would buy the *strip*, not the lifecycle.
+  - *Preferred if we do it*: the terminal pane gets **its own** tab strip.
+    `Cmd+T` while it has focus adds a shell at the active panel's folder;
+    `Cmd+1..9` addresses terminal tabs when the terminal is focused and panel
+    tabs otherwise. Context-sensitive shortcuts already exist here (`Cmd+C` is
+    copy-files in a panel, copy-text in a field).
+
+- [ ] **Favorites and bookmarks are the same feature.** Recommendation: keep
+  favorites, drop the bookmarks slice, and give the **first nine favorites**
+  automatic `Ctrl+1..9` with a small number badge on the chip.
+  - Favorites are the richer half: unbounded, labelled, drag-reorderable, with
+    a `Cmd+G` picker. Bookmarks contribute exactly one column — the hotkeys.
+    Folding them in keeps everything, removes a bar's worth of chrome, and
+    makes drag-to-reorder mean drag-to-reassign-hotkey. It is also the browser
+    bookmarks-bar model, so it needs no explaining. Net deletion: the
+    bookmarks slice, bar, persistence and tests.
+  - *Cost, honestly*: sparse stable slots go away. Today slot 3 can be set with
+    2 empty, and adding a bookmark renumbers nothing; merged, inserting a
+    favorite at the front shifts every hotkey below it.
+
 ## M4 — Release
 
 - [x] **Proper update mechanism**, like orca: electron-updater with a generic feed pointed at GitHub Releases, re-pinned per check to a concrete tag URL to avoid redirect drift. Supersedes the S3 idea. **Not yet exercised against a real signed release** — needs the Apple secrets set in the repo and one tag pushed to confirm end to end.
