@@ -15,6 +15,7 @@ import {
 } from './state/panelSlice';
 import { applyRenamePlan, type RenamePreviewRow } from './commands/multirename';
 import { applyTextEditing } from './commands/textEditing';
+import { parseCdCommand } from './commands/cd';
 import { SYNC_LABELS, type SyncAction, type SyncPlan } from './commands/sync';
 import { archiveDragMembers, archiveTargets } from './commands/archive';
 import {
@@ -978,6 +979,7 @@ export function App() {
   // Shell, terminal and drive bar all need a real folder; in a virtual panel
   // `path` is a label.
   const activeDir = workingDir(active);
+  const homeDir = state.volumes.find((v) => v.kind === 'home')?.path ?? '/';
 
   // Archive rows have no path on disk, so there is nothing for the viewer to
   // read; search hits carry their real location and preview normally.
@@ -1093,17 +1095,21 @@ export function App() {
       )}
       <CommandLine
         cwd={activeDir}
-        label={(() => {
-          const home = state.volumes.find((v) => v.kind === 'home')?.path;
-          if (home && (activeDir === home || activeDir.startsWith(home + '/'))) {
-            return '~' + activeDir.slice(home.length);
-          }
-          return activeDir;
-        })()}
+        label={
+          activeDir === homeDir || activeDir.startsWith(`${homeDir}/`)
+            ? `~${activeDir.slice(homeDir.length)}`
+            : activeDir
+        }
         inputRef={cmdRef}
         onCursorUp={() => void dispatch('cursorUp')}
         onCursorDown={() => void dispatch('cursorDown')}
         onRun={async (cmd) => {
+          // `cd` moves the panel. Running it in a subshell would change that
+          // process's directory and then exit, leaving the panel put and
+          // showing an empty output box.
+          const target = parseCdCommand(cmd, activeDir, homeDir);
+          if (target !== null) { goTo(target); return; }
+
           const r = await api.shell.runCommand(cmd, activeDir);
           setCmdOutput({ cmd, ...r });
           // Refresh both panels in case the command changed files.

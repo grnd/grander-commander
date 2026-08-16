@@ -107,6 +107,9 @@ const SECTIONS: { title: string; rows: [string, string][] }[] = [
     rows: [
       ['F3', 'Internal viewer (text / hex / image)'],
       ['Ctrl+Q', 'Quick view in the other panel'],
+      ['↑ ↓ / PgUp / PgDn / Space', 'Scroll; turns the page at the edges'],
+      ['Home / End', 'Top / bottom of the page'],
+      ['Cmd+Home / Cmd+End', 'First / last page of the file'],
       ['Escape / F3', 'Close the viewer'],
     ],
   },
@@ -117,6 +120,7 @@ const SECTIONS: { title: string; rows: [string, string][] }[] = [
       ['Ctrl+`', 'Toggle embedded bash terminal'],
       ['Tab (command line)', 'Complete path / executable'],
       ['Tab again / Shift+Tab', 'Cycle candidates'],
+      ['cd <folder>', 'Moves the panel, not a subshell'],
     ],
   },
   {

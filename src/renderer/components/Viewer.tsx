@@ -41,6 +41,8 @@ export function Viewer({ path, variant, onClose }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [wrap, setWrap] = useState(false);
   const bodyRef = useRef<HTMLDivElement>(null);
+  /** Set when the next page load should land at the bottom, not the top. */
+  const landAtEndRef = useRef(false);
 
   // A new target is a new document: forget the page and the resolved mode so
   // the next load re-sniffs. Quick view swaps `path` on every cursor move.
@@ -71,9 +73,20 @@ export function Viewer({ path, variant, onClose }: Props) {
     return () => { cancelled = true; };
   }, [path, offset, wantsWholeFile, name]);
 
-  // Scroll back to the top when a page is turned; the browser would otherwise
-  // keep the old scrollTop and show the middle of the new window.
-  useEffect(() => { if (bodyRef.current) bodyRef.current.scrollTop = 0; }, [offset, path, mode]);
+  // Scroll to the edge of the new page; the browser would otherwise keep the
+  // old scrollTop and show the middle of the new window. Paging *backwards*
+  // lands at the bottom, so reading up through a file stays continuous.
+  useEffect(() => {
+    const host = bodyRef.current;
+    if (!host) return;
+    host.scrollTop = landAtEndRef.current ? host.scrollHeight : 0;
+    landAtEndRef.current = false;
+  }, [offset, path, mode, chunk]);
+
+  // The overlay owns the keyboard, so it has to actually hold focus.
+  useEffect(() => {
+    if (variant === 'overlay') bodyRef.current?.focus({ preventScroll: true });
+  }, [variant, path]);
 
   const imageUrl = useMemo(() => {
     if (mode !== 'image' || !chunk) return null;
@@ -101,8 +114,67 @@ export function Viewer({ path, variant, onClose }: Props) {
   const hasMore = mode !== 'image' && loadedEnd < size;
   const hasPrev = mode !== 'image' && offset > 0;
 
+  const toPrevPage = () => {
+    // Turning back should land at the *end* of the previous page, so paging up
+    // reads as one continuous document rather than jumping to its top.
+    landAtEndRef.current = true;
+    setOffset(Math.max(0, offset - TEXT_WINDOW));
+  };
+
+  /**
+   * Scrolling is handled here rather than left to the browser: nothing in the
+   * overlay holds focus by default, so arrow and page keys went to the document
+   * — which does not scroll — and only the trackpad worked.
+   *
+   * At the edges of a page the keys turn it, so the whole file is reachable
+   * from the keyboard without touching the pager buttons.
+   */
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (variant !== 'overlay') return;
+    const host = bodyRef.current;
+    if (!host) return;
+
+    const line = 16;
+    const page = Math.max(host.clientHeight - 40, 40);
+    const atTop = host.scrollTop <= 0;
+    const atBottom = host.scrollTop + host.clientHeight >= host.scrollHeight - 1;
+    let handled = true;
+
+    switch (e.key) {
+      case 'ArrowDown': host.scrollTop += line; break;
+      case 'ArrowUp': host.scrollTop -= line; break;
+      case 'ArrowRight': host.scrollLeft += 40; break;
+      case 'ArrowLeft': host.scrollLeft -= 40; break;
+      case ' ':
+      case 'PageDown':
+        if (atBottom && hasMore) setOffset(loadedEnd);
+        else host.scrollTop += page;
+        break;
+      case 'PageUp':
+        if (atTop && hasPrev) toPrevPage();
+        else host.scrollTop -= page;
+        break;
+      case 'Home':
+        if (e.metaKey && hasPrev) setOffset(0);
+        else host.scrollTop = 0;
+        break;
+      case 'End':
+        if (e.metaKey && hasMore) setOffset(Math.max(0, size - TEXT_WINDOW));
+        else host.scrollTop = host.scrollHeight;
+        break;
+      default: handled = false;
+    }
+    // Escape and F3 have to keep reaching the app's key router, which is what
+    // closes the viewer.
+    if (handled) e.preventDefault();
+  };
+
   return (
-    <div className={`gc-viewer gc-viewer-${variant}`} data-testid="gc-viewer">
+    <div
+      className={`gc-viewer gc-viewer-${variant}`}
+      data-testid="gc-viewer"
+      onKeyDown={onKeyDown}
+    >
       <div className="gc-viewer-head">
         <span className="gc-viewer-name" title={path}>{name}</span>
         <span className="gc-viewer-meta">
@@ -129,7 +201,7 @@ export function Viewer({ path, variant, onClose }: Props) {
         <button type="button" className="gc-viewer-close" onClick={onClose} aria-label="Close viewer">✕</button>
       </div>
 
-      <div className="gc-viewer-body" ref={bodyRef} tabIndex={-1}>
+      <div className="gc-viewer-body" ref={bodyRef} tabIndex={variant === 'overlay' ? 0 : -1}>
         {error && <div className="gc-viewer-error" role="alert">{error}</div>}
         {!error && !chunk && <div className="gc-viewer-empty">Loading…</div>}
         {!error && chunk && mode === 'image' && imageUrl && (
@@ -144,7 +216,7 @@ export function Viewer({ path, variant, onClose }: Props) {
 
       {(hasPrev || hasMore) && (
         <div className="gc-viewer-pager">
-          <button type="button" disabled={!hasPrev} onClick={() => setOffset(Math.max(0, offset - TEXT_WINDOW))}>
+          <button type="button" disabled={!hasPrev} onClick={toPrevPage}>
             ← previous
           </button>
           <span>{Math.floor(offset / TEXT_WINDOW) + 1} / {Math.max(1, Math.ceil(size / TEXT_WINDOW))}</span>
