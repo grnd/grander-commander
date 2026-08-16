@@ -1,5 +1,5 @@
 // src/main/fs/readChunk.ts
-import { open } from 'node:fs/promises';
+import { open, stat } from 'node:fs/promises';
 import type { Result } from '@shared/types';
 import { mapFsError } from './errors';
 
@@ -22,6 +22,22 @@ export async function readChunk(
   length: number,
 ): Promise<Result<Chunk>> {
   const want = Math.max(0, Math.min(length, MAX_CHUNK_BYTES));
+
+  // Checked before open(), not after: opening a FIFO blocks until a writer
+  // appears, which hangs the main process with no way back.
+  let st;
+  try {
+    st = await stat(path);
+  } catch (err) {
+    return { ok: false, error: mapFsError(err, path) };
+  }
+  if (st.isDirectory()) {
+    return { ok: false, error: { kind: 'name-invalid', reason: `${path} is a directory` } };
+  }
+  if (!st.isFile()) {
+    return { ok: false, error: { kind: 'name-invalid', reason: `${path} is not a regular file` } };
+  }
+
   let fh;
   try {
     fh = await open(path, 'r');
@@ -29,10 +45,6 @@ export async function readChunk(
     return { ok: false, error: mapFsError(err, path) };
   }
   try {
-    const st = await fh.stat();
-    if (st.isDirectory()) {
-      return { ok: false, error: { kind: 'name-invalid', reason: `${path} is a directory` } };
-    }
     const start = Math.max(0, Math.min(offset, st.size));
     const buf = Buffer.alloc(Math.min(want, Math.max(0, st.size - start)));
     if (buf.length > 0) await fh.read(buf, 0, buf.length, start);

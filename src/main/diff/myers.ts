@@ -13,11 +13,28 @@ export type EditOp =
   | { kind: 'ins'; b: number };
 
 /**
+ * Memory the trace is allowed to occupy.
+ *
+ * The trace keeps one Int32Array snapshot per edit distance, and each is
+ * `2*maxEdits+3` wide — so its cost grows with the *square* of the edit budget,
+ * not linearly. A flat budget of 20,000 edits quietly meant 20,000 snapshots of
+ * 40,003 elements: about 3 GB, reached before the "too different" fallback ever
+ * triggered, which killed the process instead.
+ */
+export const TRACE_MEMORY_BUDGET_BYTES = 64 * 1024 * 1024;
+
+/** The largest edit budget whose trace fits in `bytes`. */
+export function maxEditsForBudget(bytes: number = TRACE_MEMORY_BUDGET_BYTES): number {
+  // d snapshots × (2d+3) elements × 4 bytes ≈ 8d² bytes.
+  return Math.max(1, Math.floor(Math.sqrt(bytes / 8)));
+}
+
+/**
  * Beyond this many edits the files are not usefully "a diff of" each other and
  * the algorithm's cost starts to bite; callers fall back to a whole-file
- * replacement rather than burning seconds on it.
+ * replacement rather than burning seconds — or gigabytes — on it.
  */
-export const DEFAULT_MAX_EDITS = 20_000;
+export const DEFAULT_MAX_EDITS = maxEditsForBudget();
 
 /**
  * Returns the edit script, or null when `a` and `b` differ by more than
@@ -90,10 +107,17 @@ function backtrack(trace: Int32Array[], offset: number, n: number, m: number): E
  * followed by insertions is the normal shape of an edited line, so those are
  * paired into `change` rows; whatever is left over stays a pure add or delete.
  */
-export function alignRows(ops: readonly EditOp[], a: readonly string[], b: readonly string[]): DiffRow[] {
+export function alignRows(
+  ops: readonly EditOp[],
+  a: readonly string[],
+  b: readonly string[],
+  /** Stop here. The caller only renders so many rows; building millions to
+   *  throw all but the first few away is pure allocation. */
+  limit = Number.MAX_SAFE_INTEGER,
+): DiffRow[] {
   const rows: DiffRow[] = [];
   let i = 0;
-  while (i < ops.length) {
+  while (i < ops.length && rows.length < limit) {
     const op = ops[i];
     if (op.kind === 'eq') {
       rows.push({
@@ -129,16 +153,20 @@ export function alignRows(ops: readonly EditOp[], a: readonly string[], b: reado
 }
 
 /** Rows for the fallback case: two files with nothing useful in common. */
-export function wholeFileRows(a: readonly string[], b: readonly string[]): DiffRow[] {
+export function wholeFileRows(
+  a: readonly string[],
+  b: readonly string[],
+  limit = Number.MAX_SAFE_INTEGER,
+): DiffRow[] {
   const rows: DiffRow[] = [];
-  const paired = Math.min(a.length, b.length);
+  const paired = Math.min(a.length, b.length, limit);
   for (let i = 0; i < paired; i++) {
     rows.push({ leftNo: i + 1, rightNo: i + 1, left: a[i], right: b[i], kind: a[i] === b[i] ? 'same' : 'change' });
   }
-  for (let i = paired; i < a.length; i++) {
+  for (let i = paired; i < a.length && rows.length < limit; i++) {
     rows.push({ leftNo: i + 1, rightNo: null, left: a[i], right: null, kind: 'del' });
   }
-  for (let i = paired; i < b.length; i++) {
+  for (let i = paired; i < b.length && rows.length < limit; i++) {
     rows.push({ leftNo: null, rightNo: i + 1, left: null, right: b[i], kind: 'add' });
   }
   return rows;

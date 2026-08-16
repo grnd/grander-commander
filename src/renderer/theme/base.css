@@ -563,3 +563,7 @@ body {
 }
 /* Hidden, not unmounted — the pty and everything in it survives Ctrl+`. */
 .gc-terminal[hidden] { display: none; }
+.gc-sync-blocked {
+  padding: 6px 8px; font-size: 11px;
+  background: var(--gc-error-bg, #b00020); color: var(--gc-error-fg, #fff);
+}

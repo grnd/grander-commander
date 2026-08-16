@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -311,5 +311,148 @@ describe('extracting relative to the folder being browsed', () => {
     });
     expect(r.ok).toBe(true);
     expect(existsSync(join(dest, 'src', 'a.txt'))).toBe(true);
+  });
+});
+
+// Every one of these is a bug Codex found in the pre-release review.
+describe('archive hardening', () => {
+  // `zip` reads a file named "-m" as its move flag: it packs the other
+  // selected files and then DELETES the originals from disk.
+  it('treats a file named -m as a filename, not the move flag', async () => {
+    await writeFile(join(src, '-m'), 'flag');
+    const archivePath = join(root, 'dash.zip');
+    const r = await runArchiveOp('t', {
+      kind: 'create', format: 'zip', archivePath,
+      sources: [join(src, '-m'), join(src, 'a.txt')],
+    });
+    expect(r.ok, JSON.stringify(r)).toBe(true);
+    expect(await paths(archivePath)).toEqual(['-m', 'a.txt']);
+    // The whole point: the source must still be on disk.
+    expect(existsSync(join(src, 'a.txt'))).toBe(true);
+  });
+
+  // unzip matches members as glob patterns, so a literal name containing a
+  // star used to drag every other match out with it.
+  it('extracts a member literally named *.txt without matching its siblings', async () => {
+    await writeFile(join(src, '*.txt'), 'star');
+    const archivePath = join(root, 'star.zip');
+    await runArchiveOp('t', {
+      kind: 'create', format: 'zip', archivePath, sources: [join(src, '*.txt'), join(src, 'a.txt')],
+    });
+
+    const dest = join(root, 'star-out');
+    await mkdir(dest);
+    const r = await runArchiveOp('t', {
+      kind: 'extract', archivePath, members: [{ path: '*.txt', isDir: false }], dest, stripPrefix: '',
+    });
+    expect(r.ok).toBe(true);
+    expect(await readdir(dest)).toEqual(['*.txt']);
+  });
+
+  // unzip has no `--`, so a member starting with a dash cannot be passed as an
+  // argument at all; it has to come out of a whole-archive staging pass.
+  it('extracts a member whose name starts with a dash', async () => {
+    await writeFile(join(src, '-x'), 'dashy');
+    const archivePath = join(root, 'dashmem.zip');
+    await runArchiveOp('t', {
+      kind: 'create', format: 'zip', archivePath, sources: [join(src, '-x'), join(src, 'a.txt')],
+    });
+
+    const dest = join(root, 'dashmem-out');
+    await mkdir(dest);
+    const r = await runArchiveOp('t', {
+      kind: 'extract', archivePath, members: [{ path: '-x', isDir: false }], dest, stripPrefix: '',
+    });
+    expect(r.ok, JSON.stringify(r)).toBe(true);
+    expect(await readFile(join(dest, '-x'), 'utf8')).toBe('dashy');
+    expect(existsSync(join(dest, 'a.txt'))).toBe(false);
+  });
+
+  it('refuses to overwrite on a root-level extraction, not just a stripped one', async () => {
+    const archivePath = await pack('zip', 'clobber.zip');
+    const dest = join(root, 'clobber-out');
+    await mkdir(dest);
+    await mkdir(join(dest, 'src'));
+    await writeFile(join(dest, 'src', 'precious.txt'), 'keep me');
+
+    const r = await runArchiveOp('t', {
+      kind: 'extract', archivePath, members: [{ path: 'src', isDir: true }], dest, stripPrefix: '',
+    });
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.error.kind).toBe('exists');
+    expect(await readFile(join(dest, 'src', 'precious.txt'), 'utf8')).toBe('keep me');
+  });
+
+  it('refuses a whole-archive extraction that would clobber', async () => {
+    const archivePath = await pack('tar.gz', 'whole.tar.gz');
+    const dest = join(root, 'whole-out');
+    await mkdir(dest);
+    await mkdir(join(dest, 'src'));
+
+    const r = await runArchiveOp('t', {
+      kind: 'extract', archivePath, members: [], dest, stripPrefix: '',
+    });
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.error.kind).toBe('exists');
+  });
+
+  // Extraction has to be all-or-nothing: a clash on the second member must not
+  // leave the first one already sitting in the destination.
+  it('moves nothing when any member would clash', async () => {
+    const archivePath = await pack('zip', 'partial.zip');
+    const dest = join(root, 'partial-out');
+    await mkdir(dest);
+    await writeFile(join(dest, 'sub'), 'in the way');
+
+    const r = await runArchiveOp('t', {
+      kind: 'extract',
+      archivePath,
+      members: [{ path: 'src/a.txt', isDir: false }, { path: 'src/sub', isDir: true }],
+      dest,
+      stripPrefix: 'src',
+    });
+    expect(r.ok).toBe(false);
+    expect(existsSync(join(dest, 'a.txt')), 'a.txt must not have been moved').toBe(false);
+  });
+
+  it('leaves no staging directory behind when it refuses', async () => {
+    const archivePath = await pack('zip', 'leftover.zip');
+    const dest = join(root, 'leftover-out');
+    await mkdir(dest);
+    await writeFile(join(dest, 'a.txt'), 'here');
+    await runArchiveOp('t', {
+      kind: 'extract', archivePath, members: [{ path: 'src/a.txt', isDir: false }], dest, stripPrefix: 'src',
+    });
+    expect(await readdir(dest)).toEqual(['a.txt']);
+  });
+
+  it('rejects a member path that escapes the destination', async () => {
+    const archivePath = await pack('zip', 'trav.zip');
+    const dest = join(root, 'trav-out');
+    await mkdir(dest);
+    const r = await runArchiveOp('t', {
+      kind: 'extract',
+      archivePath,
+      members: [{ path: '../../escaped.txt', isDir: false }],
+      dest,
+      stripPrefix: 'src',
+    });
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.error).toMatchObject({ kind: 'name-invalid' });
+  });
+
+  // tar truncates an existing archive; zip and 7z merge into it and keep
+  // unrelated old members. None of those is a good guess.
+  it('refuses to pack onto an archive that already exists', async () => {
+    const archivePath = await pack('zip', 'twice.zip');
+    const r = await runArchiveOp('t', {
+      kind: 'create', format: 'zip', archivePath, sources: [join(src, 'a.txt')],
+    });
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.error.kind).toBe('exists');
   });
 });

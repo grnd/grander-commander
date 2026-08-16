@@ -10,6 +10,7 @@ const entry = (over: Partial<SyncEntry> & { relPath: string; status: SyncEntry['
   rightMtime: 1,
   newer: null,
   typeConflict: false,
+  isLink: false,
   ...over,
 });
 
@@ -164,5 +165,48 @@ describe('buildSyncPlan — folder/file conflicts', () => {
     ];
     const plan = buildSyncPlan(siblings, L, R, 'copy-missing-right');
     expect(plan.copies.map((c) => c.relPath).sort()).toEqual(['dir', 'dirty.txt']);
+  });
+});
+
+// Deleting a folder takes its contents with it. A descendant scheduled
+// separately fails with ENOENT and aborts the run — after the folder is gone
+// and before its replacement is copied.
+describe('buildSyncPlan — no delete under a delete', () => {
+  it('drops descendant deletes when the folder above is already going', () => {
+    const nested: SyncEntry[] = [
+      entry({ relPath: 'thing', status: 'differ', isDir: true, typeConflict: true }),
+      entry({ relPath: 'thing/sub.txt', status: 'right-only' }),
+      entry({ relPath: 'thing/deep/x.txt', status: 'right-only' }),
+    ];
+    const plan = buildSyncPlan(nested, L, R, 'mirror-right');
+    expect(plan.deletes).toEqual(['/r/thing']);
+    // And the replacement still gets copied, which is the half that was lost.
+    expect(plan.copies.map((c) => c.relPath)).toEqual(['thing']);
+  });
+
+  it('keeps independent deletes', () => {
+    const two: SyncEntry[] = [
+      entry({ relPath: 'a.txt', status: 'right-only' }),
+      entry({ relPath: 'b.txt', status: 'right-only' }),
+    ];
+    expect(buildSyncPlan(two, L, R, 'mirror-right').deletes.sort())
+      .toEqual(['/r/a.txt', '/r/b.txt']);
+  });
+
+  it('does not mistake a sibling sharing a prefix for a child', () => {
+    const siblings: SyncEntry[] = [
+      entry({ relPath: 'dir', status: 'right-only', isDir: true }),
+      entry({ relPath: 'dirty.txt', status: 'right-only' }),
+    ];
+    expect(buildSyncPlan(siblings, L, R, 'mirror-right').deletes.sort())
+      .toEqual(['/r/dir', '/r/dirty.txt']);
+  });
+
+  it('handles a destination root of /', () => {
+    const nested: SyncEntry[] = [
+      entry({ relPath: 'thing', status: 'right-only', isDir: true }),
+      entry({ relPath: 'thing/sub.txt', status: 'right-only' }),
+    ];
+    expect(buildSyncPlan(nested, '/l', '/', 'mirror-right').deletes).toEqual(['/thing']);
   });
 });

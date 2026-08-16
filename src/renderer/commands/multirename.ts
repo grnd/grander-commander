@@ -252,18 +252,48 @@ export async function applyRenamePlan(
 
   const stamp = `gcmr-${Date.now().toString(36)}`;
   const staged: { temp: string; final: string; oldName: string }[] = [];
+
+  const unstage = async () => {
+    for (const s of staged) {
+      const back = await api.fs.rename(joinPath(dir, s.temp), joinPath(dir, s.oldName));
+      if (!back.ok) {
+        // The worst outcome in this whole routine: a file left under a hidden
+        // temporary name. Say exactly where it is rather than losing it.
+        failures.push({
+          name: s.oldName,
+          reason: `left as ${s.temp} — could not restore: ${describeReason(back.error)}`,
+        });
+      }
+    }
+  };
+
+  // Staging is all-or-nothing. A half-staged batch has originals sitting under
+  // dotted temporary names with nothing to complete them.
   for (const [i, m] of moves.entries()) {
     const temp = `.${stamp}-${i}`;
     const r = await api.fs.rename(joinPath(dir, m.oldName), joinPath(dir, temp));
-    if (r.ok) staged.push({ temp, final: m.newName, oldName: m.oldName });
-    else failures.push({ name: m.oldName, reason: describeReason(r.error) });
+    if (!r.ok) {
+      failures.push({ name: m.oldName, reason: describeReason(r.error) });
+      await unstage();
+      return { renamed: 0, failures };
+    }
+    staged.push({ temp, final: m.newName, oldName: m.oldName });
   }
-  for (const s of staged) {
+
+  for (const s of staged.slice()) {
     const r = await api.fs.rename(joinPath(dir, s.temp), joinPath(dir, s.final));
+    staged.shift();
     if (r.ok) { renamed++; continue; }
     failures.push({ name: s.oldName, reason: describeReason(r.error) });
-    // Put it back under its original name rather than leaving a dotfile behind.
-    await api.fs.rename(joinPath(dir, s.temp), joinPath(dir, s.oldName));
+    // Put it back under its original name rather than leaving a dotfile
+    // behind — and if even that fails, name the temporary in the report.
+    const back = await api.fs.rename(joinPath(dir, s.temp), joinPath(dir, s.oldName));
+    if (!back.ok) {
+      failures.push({
+        name: s.oldName,
+        reason: `left as ${s.temp} — could not restore: ${describeReason(back.error)}`,
+      });
+    }
   }
   return { renamed, failures };
 }

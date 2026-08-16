@@ -6,8 +6,8 @@
 // channel was added on one side only.
 import type {
   FileEntry, ListDirOptions, Result, Volume, FileOp, OpId, OpEvent, ConflictAnswer,
-  UpdateStatus, MenuCommand, Completion, DiffResult, SyncEntry, SyncOptions,
-  SearchQuery, SearchOutcome, ArchiveEntry, ArchiveOp,
+  UpdateStatus, MenuCommand, Completion, DiffResult, SyncOptions,
+  SearchQuery, SearchOutcome, ArchiveEntry, ArchiveOp, SyncScan,
 } from './types';
 
 export type GCApi = {
@@ -22,7 +22,7 @@ export type GCApi = {
     readChunk(path: string, offset: number, length: number): Promise<Result<{ bytes: Uint8Array; size: number }>>;
     complete(prefix: string, cwd: string, kind: 'command' | 'path'): Promise<Completion[]>;
     compare(left: string, right: string): Promise<Result<DiffResult>>;
-    syncScan(left: string, right: string, opts: SyncOptions): Promise<Result<SyncEntry[]>>;
+    syncScan(left: string, right: string, opts: SyncOptions): Promise<Result<SyncScan>>;
     /** `token` is the caller's handle for cancelSearch; any unique string. */
     search(token: string, query: SearchQuery): Promise<Result<SearchOutcome>>;
     cancelSearch(token: string): Promise<void>;

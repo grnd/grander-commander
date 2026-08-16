@@ -11,6 +11,7 @@ const entry = (over: Partial<SyncEntry> & { relPath: string; status: SyncEntry['
   rightMtime: 1_700_000_000_000,
   newer: null,
   typeConflict: false,
+  isLink: false,
   ...over,
 });
 
@@ -21,12 +22,12 @@ const ENTRIES: SyncEntry[] = [
   entry({ relPath: 'equal.txt', status: 'same' }),
 ];
 
-function setup(entries: SyncEntry[] | 'error' = ENTRIES) {
+function setup(entries: SyncEntry[] | 'error' = ENTRIES, unreadable: string[] = []) {
   const onRun = vi.fn();
   const scan = vi.fn(async () =>
     entries === 'error'
       ? { ok: false as const, error: { kind: 'permission' as const, path: '/l' } }
-      : { ok: true as const, value: entries });
+      : { ok: true as const, value: { entries, unreadable } });
   render(<SyncView leftRoot="/l" rightRoot="/r" onRun={onRun} onClose={() => {}} scan={scan} />);
   return { onRun, scan };
 }
@@ -121,5 +122,43 @@ describe('SyncView', () => {
   it('surfaces a scan error', async () => {
     setup('error');
     expect(await screen.findByRole('alert')).toHaveTextContent('Permission denied');
+  });
+});
+
+// A tree the scan could not read looks empty, so Mirror would trash the other
+// side's copies of files that do exist.
+describe('SyncView with an incomplete scan', () => {
+  it('says the comparison is incomplete and names a folder', async () => {
+    setup(ENTRIES, ['/l/locked']);
+    expect(await screen.findByRole('alert')).toHaveTextContent(/incomplete/);
+    expect(screen.getByRole('alert')).toHaveTextContent('/l/locked');
+  });
+
+  it('disables both mirrors', async () => {
+    setup(ENTRIES, ['/l/locked']);
+    await screen.findByRole('alert');
+    expect(button(/Mirror →/)).toBeDisabled();
+    expect(button(/← Mirror/)).toBeDisabled();
+  });
+
+  // Adding what is missing cannot destroy anything, so it stays available.
+  it('leaves copy-missing available', async () => {
+    setup(ENTRIES, ['/l/locked']);
+    await screen.findByRole('alert');
+    expect(button(/Copy missing →/)).toBeEnabled();
+  });
+
+  it('refuses to run a mirror even if the button is reached', async () => {
+    const { onRun } = setup(ENTRIES, ['/l/locked']);
+    await screen.findByRole('alert');
+    fireEvent.click(button(/Mirror →/));
+    fireEvent.click(button(/Mirror →/));
+    expect(onRun).not.toHaveBeenCalled();
+  });
+
+  it('says nothing when the scan was complete', async () => {
+    setup();
+    await screen.findByRole('status');
+    expect(screen.queryByText(/incomplete/)).not.toBeInTheDocument();
   });
 });

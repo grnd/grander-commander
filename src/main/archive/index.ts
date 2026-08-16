@@ -1,5 +1,5 @@
 // src/main/archive/index.ts
-import { mkdtemp, rename, rm, stat } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, rename, rm, stat } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
@@ -61,18 +61,40 @@ export async function listArchive(archivePath: string): Promise<Result<ArchiveEn
 }
 
 /**
+ * Backslash-escape the glob metacharacters Info-ZIP would otherwise expand.
+ * Without this, selecting a member literally named `*.txt` extracts every
+ * `.txt` in the archive and reports success.
+ */
+export function escapeZipPattern(path: string): string {
+  return path.replace(/[\\*?[\]]/g, (m) => `\\${m}`);
+}
+
+/**
  * Members to hand the tool for a requested set of entries.
  *
  * unzip matches members as patterns against the *stored* names, where a folder
  * is `sub/` — so a folder needs both `sub/` (the entry itself) and `sub/*` (its
- * contents). tar and 7z expand a directory to its subtree on their own.
+ * contents), and the literal part of each is escaped. tar and 7z expand a
+ * directory to its subtree on their own and take names literally after `--`.
  */
 export function memberArgs(
   format: ArchiveFormat,
   members: readonly ArchiveMember[],
 ): string[] {
   if (toolFor(format) !== 'zip') return members.map((m) => m.path);
-  return members.flatMap((m) => (m.isDir ? [`${m.path}/`, `${m.path}/*`] : [m.path]));
+  return members.flatMap((m) => {
+    const literal = escapeZipPattern(m.path);
+    return m.isDir ? [`${literal}/`, `${literal}/*`] : [literal];
+  });
+}
+
+/**
+ * unzip has no `--`: it reads one as a filename pattern, so a member whose
+ * name begins with `-` would be parsed as an option. Those archives are
+ * extracted whole into staging instead, and the wanted members lifted out.
+ */
+function zipMembersUnpassable(format: ArchiveFormat, members: readonly ArchiveMember[]): boolean {
+  return toolFor(format) === 'zip' && members.some((m) => m.path.startsWith('-'));
 }
 
 /** Run the format's extractor for `memberPatterns` (empty = everything). */
@@ -123,16 +145,26 @@ async function extract(
   }
 
   const strip = op.stripPrefix.replace(/^\/+/, '').replace(/\/+$/, '');
-  // Whole-archive extraction, or members already at the archive root: the
-  // paths the tool writes are the paths the user expects.
-  if (op.members.length === 0 || strip === '') {
-    return runExtract(format, op.archivePath, memberArgs(format, op.members), op.dest, signal);
+
+  // A crafted archive can carry a member named `../../x`. The extractors
+  // themselves strip those, so the staged file would never be where the member
+  // name says — and `join(staging, '../../x')` points outside staging
+  // entirely, which could move an unrelated file into the destination.
+  const escaping = op.members.find(
+    (m) => m.path.startsWith('/') || m.path.split('/').includes('..'),
+  );
+  if (escaping) {
+    return { ok: false, error: { kind: 'name-invalid', reason: `unsafe member path: ${escaping.path}` } };
   }
 
-  // Otherwise every tool would recreate the member's full inner path under the
-  // destination. Extract into a staging directory *inside* the destination —
-  // same volume, so lifting the members out is a rename, not a copy — then
-  // move each one up to where the user actually asked for it.
+  // Everything is extracted into a staging directory *inside* the destination
+  // first — same volume, so lifting entries out is a rename, not a copy.
+  //
+  // This is uniform on purpose. Extracting straight into the destination means
+  // taking each tool's overwrite behaviour (`unzip -o`, tar's default, 7z `-y`)
+  // and silently replacing whatever is already there. Staging lets every
+  // destination be checked before anything is moved, so an extraction either
+  // lands completely or changes nothing.
   let staging: string;
   try {
     staging = await mkdtemp(join(op.dest, '.gc-extract-'));
@@ -141,25 +173,51 @@ async function extract(
   }
 
   try {
-    const r = await runExtract(format, op.archivePath, memberArgs(format, op.members), staging, signal);
+    // A member unzip cannot be handed safely means extracting the archive whole
+    // and picking the wanted entries out of staging afterwards.
+    const args = zipMembersUnpassable(format, op.members)
+      ? []
+      : memberArgs(format, op.members);
+    const r = await runExtract(format, op.archivePath, args, staging, signal);
     if (!r.ok) return r;
 
-    for (const member of op.members) {
-      const from = join(staging, member.path);
-      const to = join(op.dest, basename(member.path));
-      // Refuse rather than clobber: extraction has no conflict prompt, and
-      // silently replacing a folder is not something to guess at.
-      if (existsSync(to)) return { ok: false, error: { kind: 'exists', path: to } };
+    // What to lift out: the requested members, or — for a whole-archive
+    // extraction — everything staging ended up holding.
+    let moves: { from: string; to: string }[];
+    if (op.members.length > 0) {
+      moves = op.members.map((m) => ({
+        from: join(staging, m.path),
+        // At the archive root the member's inner path *is* what the user sees;
+        // deeper in, it is lifted out of the folder being browsed.
+        to: join(op.dest, strip === '' ? m.path : basename(m.path)),
+      }));
+    } else {
+      const top = await readdir(staging);
+      moves = top.map((name) => ({ from: join(staging, name), to: join(op.dest, name) }));
+    }
+
+    // Preflight every destination before moving any of them, so a clash on the
+    // third member does not leave the first two already extracted.
+    for (const move of moves) {
+      if (existsSync(move.to)) return { ok: false, error: { kind: 'exists', path: move.to } };
+    }
+
+    for (const move of moves) {
       try {
-        await rename(from, to);
+        await mkdirRecursive(dirname(move.to));
+        await rename(move.from, move.to);
       } catch (err) {
-        return { ok: false, error: mapFsError(err, from) };
+        return { ok: false, error: mapFsError(err, move.from) };
       }
     }
     return { ok: true, value: undefined };
   } finally {
     await rm(staging, { recursive: true, force: true }).catch(() => {});
   }
+}
+
+async function mkdirRecursive(dir: string): Promise<void> {
+  await mkdir(dir, { recursive: true }).catch(() => {});
 }
 
 async function create(
@@ -169,6 +227,12 @@ async function create(
   if (op.sources.length === 0) {
     return { ok: false, error: { kind: 'name-invalid', reason: 'nothing selected to pack' } };
   }
+  // Packing onto an existing archive is destructive in a different way per
+  // format — tar truncates, zip and 7z merge and keep unrelated old members —
+  // so none of them are allowed to guess.
+  if (existsSync(op.archivePath)) {
+    return { ok: false, error: { kind: 'exists', path: op.archivePath } };
+  }
   // Sources are added by basename from their shared parent, so the archive
   // holds `photo.jpg`, not `Users/me/pictures/photo.jpg`.
   const cwd = dirname(op.sources[0]);
@@ -176,7 +240,15 @@ async function create(
   const tool = toolFor(op.format);
 
   if (tool === 'zip') {
-    const r = await exec('/usr/bin/zip', ['-r', '-q', op.archivePath, ...names], { cwd, signal });
+    // -nw disables wildcard expansion of the names, and `--` (which zip only
+    // accepts *after* the archive) ends option parsing. Without both, a file
+    // named `-m` is read as the move flag: zip packs the other selected files
+    // and then deletes the originals from disk.
+    const r = await exec(
+      '/usr/bin/zip',
+      ['-r', '-q', '-nw', op.archivePath, '--', ...names],
+      { cwd, signal },
+    );
     if (r.code !== 0) return failed(r.stderr || r.stdout, r.code);
     return { ok: true, value: undefined };
   }

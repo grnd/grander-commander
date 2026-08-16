@@ -3,7 +3,7 @@ import { createReadStream } from 'node:fs';
 import { lstat, readdir, stat as statFollow } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { join } from 'node:path';
-import type { Result, SyncEntry, SyncOptions } from '@shared/types';
+import type { Result, SyncEntry, SyncOptions, SyncScan } from '@shared/types';
 import { NOISE_FILENAMES } from '@shared/types';
 import { mapFsError } from './errors';
 
@@ -20,28 +20,32 @@ export const MAX_HASH_BYTES = 256 * 1024 * 1024;
  */
 export const MTIME_TOLERANCE_MS = 2000;
 
-type Node = { isDir: boolean; size: number; mtime: number };
+type Node = { isDir: boolean; isLink: boolean; size: number; mtime: number };
 
 async function walk(
   root: string,
   opts: SyncOptions,
   into: Map<string, Node>,
+  /** Paths the scan could not read. Mirroring is refused while this is non-empty. */
+  unreadable: string[],
 ): Promise<void> {
   const stack: { dir: string; rel: string; depth: number }[] = [{ dir: root, rel: '', depth: 0 }];
 
   while (stack.length > 0) {
     const { dir, rel, depth } = stack.pop() as { dir: string; rel: string; depth: number };
-    if (depth > MAX_SYNC_DEPTH) continue;
+    if (depth > MAX_SYNC_DEPTH) { unreadable.push(dir); continue; }
     let names: string[];
     try {
       names = await readdir(dir);
     } catch {
-      // An unreadable subtree is reported as absent rather than aborting the
-      // whole scan; the user still gets a usable comparison of the rest.
+      // An unreadable subtree used to be reported as simply absent, which made
+      // Mirror trash the *other* side's perfectly good copies of files it could
+      // not see. It is recorded instead, and blocks the destructive actions.
+      unreadable.push(dir);
       continue;
     }
     for (const name of names) {
-      if (into.size >= MAX_SYNC_ENTRIES) return;
+      if (into.size >= MAX_SYNC_ENTRIES) { unreadable.push(dir); return; }
       if (NOISE_FILENAMES.has(name)) continue;
       if (!opts.showHidden && name.startsWith('.')) continue;
 
@@ -51,15 +55,23 @@ async function walk(
       try {
         st = await lstat(full);
       } catch {
+        unreadable.push(full);
         continue;
       }
+      const isLink = st.isSymbolicLink();
       let isDir = st.isDirectory();
-      if (st.isSymbolicLink()) {
+      if (isLink) {
         // Match listDir: follow the link, and treat a broken one as a file.
         try { isDir = (await statFollow(full)).isDirectory(); } catch { isDir = false; }
       }
-      into.set(childRel, { isDir, size: st.size, mtime: st.mtimeMs });
-      if (isDir && opts.recursive) stack.push({ dir: full, rel: childRel, depth: depth + 1 });
+      into.set(childRel, { isDir, isLink, size: st.size, mtime: st.mtimeMs });
+      // Never descend a symlinked directory. Following one takes the scan
+      // outside the folder the user chose, and Mirror would then copy into and
+      // delete out of wherever it points. The link itself is still compared and
+      // can be copied as a link.
+      if (isDir && !isLink && opts.recursive) {
+        stack.push({ dir: full, rel: childRel, depth: depth + 1 });
+      }
     }
   }
 }
@@ -91,7 +103,7 @@ export async function syncScan(
   leftRoot: string,
   rightRoot: string,
   opts: SyncOptions,
-): Promise<Result<SyncEntry[]>> {
+): Promise<Result<SyncScan>> {
   for (const root of [leftRoot, rightRoot]) {
     try {
       const st = await statFollow(root);
@@ -105,7 +117,11 @@ export async function syncScan(
 
   const left = new Map<string, Node>();
   const right = new Map<string, Node>();
-  await Promise.all([walk(leftRoot, opts, left), walk(rightRoot, opts, right)]);
+  const unreadable: string[] = [];
+  await Promise.all([
+    walk(leftRoot, opts, left, unreadable),
+    walk(rightRoot, opts, right, unreadable),
+  ]);
 
   // A one-sided directory's children are implied by the directory itself.
   const oneSidedDirs = (own: Map<string, Node>, other: Map<string, Node>): Set<string> => {
@@ -137,6 +153,7 @@ export async function syncScan(
     const base = {
       relPath: rel,
       isDir,
+      isLink: (l?.isLink ?? false) || (r?.isLink ?? false),
       leftSize: l ? l.size : null,
       rightSize: r ? r.size : null,
       leftMtime: l ? l.mtime : null,
@@ -174,5 +191,5 @@ export async function syncScan(
   }
 
   entries.sort((a, b) => a.relPath.localeCompare(b.relPath));
-  return { ok: true, value: entries };
+  return { ok: true, value: { entries, unreadable } };
 }
