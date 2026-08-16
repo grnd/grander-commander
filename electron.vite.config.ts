@@ -20,7 +20,15 @@ export default defineConfig({
         '@shared': resolve('src/shared'),
       },
     },
-    build: { rollupOptions: { input: resolve('src/preload/preload.ts') } },
+    build: {
+      rollupOptions: {
+        input: resolve('src/preload/preload.ts'),
+        // Electron only loads ESM preloads when sandbox is false. main.ts runs
+        // the renderer sandboxed, so the preload must be CommonJS — and with
+        // "type": "module" in package.json that requires the .cjs extension.
+        output: { format: 'cjs', entryFileNames: 'preload.cjs' },
+      },
+    },
   },
   renderer: {
     root: resolve('src/renderer'),
