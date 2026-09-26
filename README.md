@@ -73,7 +73,12 @@ Power-user tools:
 | `Ctrl+1..9` | Numbered folder bookmarks (`Ctrl+Shift+N` to set) |
 | `Enter` on an archive | Browse `.zip` / `.tar.gz` / `.7z` in place; `F5` extracts, `Alt+F5` packs |
 | `Tab` in the command line | Complete paths and executables |
+| `Shift+F4` | Create an empty file in the active panel |
+| drag a column edge | Resize that column; widths are per-panel and persist (double-click resets) |
 | drag a row | Copy to the other panel; `Shift` moves, `Alt` drags out to Finder |
+
+Panel listings refresh themselves when something else changes the folder on disk, so a
+download finishing or a `git checkout` in the terminal shows up without `Cmd+R`.
 
 An embedded terminal (`` Ctrl+` ``) opens a real shell in the active panel's directory.
 Cloud folders under `~/Library/CloudStorage` (Google Drive, Dropbox, OneDrive) appear in the

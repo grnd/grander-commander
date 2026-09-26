@@ -52,6 +52,7 @@ const SECTIONS: { title: string; rows: [string, string][] }[] = [
     title: 'Mutations (M2)',
     rows: [
       ['F7 / Cmd+N', 'Create folder'],
+      ['Shift+F4', 'Create empty file'],
       ['F2 / Cmd+Shift+R', 'Rename'],
       ['F5 / Cmd+C', 'Copy'],
       ['F6 / Cmd+X', 'Move'],
