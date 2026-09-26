@@ -103,6 +103,17 @@ function saveFavorites(fav: Favorite[]): void {
  * refreshed at the moment the user switches away. Keeping `panels` as the live
  * view means every existing reader of the active panel is unchanged by tabs.
  */
+/**
+ * The F4 editor. There is no view mode here on purpose: viewing belongs to
+ * Viewer (F3), which pages through a file rather than holding all of it.
+ */
+export type EditorState = {
+  path: string;
+  /** Content as last read or saved; `current !== original` means dirty. */
+  original: string;
+  current: string;
+};
+
 export type AppState = {
   panels: { left: PanelState; right: PanelState };
   tabs: { left: PanelState[]; right: PanelState[] };
@@ -123,6 +134,8 @@ export type AppState = {
   viewer: { path: string } | null;
   /** Ctrl+Q: the inactive panel mirrors the active panel's cursor as a preview. */
   quickView: boolean;
+  /** F4 editor. Owns the keyboard while open. */
+  editor: EditorState | null;
   /** Per-side column widths in px; persisted across launches. */
   columnWidths: SidedColumnWidths;
 
@@ -145,6 +158,8 @@ export type AppState = {
   selectTab: (side: PanelSide, index: number) => void;
   setViewer: (v: { path: string } | null) => void;
   setQuickView: (open: boolean) => void;
+  setEditor: (e: EditorState | null) => void;
+  updateEditorContent: (content: string) => void;
   setColumnWidth: (side: PanelSide, col: ColumnKey, width: number) => void;
   resetColumnWidth: (side: PanelSide, col: ColumnKey) => void;
 };
@@ -171,6 +186,7 @@ export const useStore = create<AppState>((set) => ({
   terminalOpen: false,
   viewer: null,
   quickView: false,
+  editor: null,
   columnWidths: loadColumnWidths(),
 
   setActive: (side) => set({ activeSide: side }),
@@ -267,6 +283,10 @@ export const useStore = create<AppState>((set) => ({
   }),
   setViewer: (viewer) => set({ viewer }),
   setQuickView: (quickView) => set({ quickView }),
+  setEditor: (editor) => set({ editor }),
+  updateEditorContent: (content) => set((s) => (
+    s.editor ? { editor: { ...s.editor, current: content } } : s
+  )),
   setColumnWidth: (side, col, width) => set((s) => {
     const clamped = Math.max(COLUMN_WIDTH_MIN, Math.min(COLUMN_WIDTH_MAX, Math.round(width)));
     if (s.columnWidths[side][col] === clamped) return s;

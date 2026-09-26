@@ -22,6 +22,10 @@ export type GCApi = {
     delete(paths: string[]): Promise<Result<void>>;
     duplicate(path: string): Promise<Result<string>>;
     readChunk(path: string, offset: number, length: number): Promise<Result<{ bytes: Uint8Array; size: number }>>;
+    /** Whole-file UTF-8 read for the F4 editor; refuses binary and oversized files. */
+    readTextFile(path: string): Promise<Result<{ content: string; size: number }>>;
+    /** Writes via a temp file + rename, so a failed write cannot truncate the original. */
+    writeTextFile(path: string, content: string): Promise<Result<void>>;
     complete(prefix: string, cwd: string, kind: 'command' | 'path'): Promise<Completion[]>;
     compare(left: string, right: string): Promise<Result<DiffResult>>;
     syncScan(left: string, right: string, opts: SyncOptions): Promise<Result<SyncScan>>;

@@ -6,6 +6,8 @@ import { stat } from './fs/stat';
 import { listVolumes } from './volumes/list';
 import { mkdir } from './fs/mkdir';
 import { createFile } from './fs/createFile';
+import { readTextFile } from './fs/readTextFile';
+import { writeTextFile } from './fs/writeTextFile';
 import { rename } from './fs/rename';
 import { trashPaths } from './fs/trash';
 import { deletePaths } from './fs/delete';
@@ -44,6 +46,11 @@ type OpBridge = {
 
 const MAX_PATH_LENGTH = 4096;
 const MAX_BASENAME_LENGTH = 255;
+/**
+ * Ceiling on an editor save. readTextFile refuses to open anything over 10MB,
+ * so a save larger than this cannot have come from a file the editor opened.
+ */
+const MAX_TEXT_FILE_CHARS = 10 * 1024 * 1024;
 const MAX_PATHS_PER_REQUEST = 1024;
 // A folder sync legitimately plans thousands of items in one go, unlike the
 // hand-made selections every other channel carries.
@@ -447,6 +454,17 @@ export function registerIpc() {
       expectInteger(args[2], 'length', { min: 0, max: MAX_CHUNK_BYTES }),
     ];
   }, (_e, path, offset, length) => readChunk(path, offset, length));
+  handleValidated('fs:readTextFile', (args): [string] => {
+    expectArgs(args, 'fs:readTextFile', 1);
+    return [expectString(args[0], 'path')];
+  }, (_e, path) => readTextFile(path));
+  handleValidated('fs:writeTextFile', (args): [string, string] => {
+    expectArgs(args, 'fs:writeTextFile', 2);
+    return [
+      expectString(args[0], 'path'),
+      expectString(args[1], 'content', { allowEmpty: true, maxLength: MAX_TEXT_FILE_CHARS }),
+    ];
+  }, (_e, path, content) => writeTextFile(path, content));
   handleValidated('fs:complete', (args): [string, string, 'command' | 'path'] => {
     expectArgs(args, 'fs:complete', 3);
     const kind = args[2];

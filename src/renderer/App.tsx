@@ -9,9 +9,10 @@ import { CommandLine } from './components/CommandLine';
 import { FKeyBar } from './components/FKeyBar';
 import { Terminal } from './components/Terminal';
 import { Viewer } from './components/Viewer';
+import { Editor } from './components/Editor';
 import type { PanelSide } from './state/panelSlice';
 import {
-  cursorPath, entryKey, entryPath, targetNames, targetPaths, workingDir,
+  cursorPath, entryKey, entryPath, joinPath, targetNames, targetPaths, workingDir,
 } from './state/panelSlice';
 import { applyRenamePlan, type RenamePreviewRow } from './commands/multirename';
 import { applyTextEditing } from './commands/textEditing';
@@ -43,6 +44,7 @@ import { Panel } from './components/Panel';
 import { Splitter } from './components/Splitter';
 import type { SortCol } from '@shared/types';
 import type { PanelState } from './state/panelSlice';
+import { openEditor, openEditorAt, saveEditor } from './commands/editor';
 import {
   openMkdirDialog, openNewFileDialog, openRenameDialog, openCopyDialog, openMoveDialog,
   requestTrash, requestDeleteConfirm, selectionForContextTarget,
@@ -323,6 +325,14 @@ export function App() {
       case 'newFile':
         openNewFileDialog({ side: s.activeSide, setDialog: useStore.getState().setDialog });
         return;
+      case 'editFile':
+        void openEditor({
+          active,
+          read: api.fs.readTextFile,
+          setEditor: useStore.getState().setEditor,
+          onError: (m) => alert(m),
+        });
+        return;
       case 'rename':
         openRenameDialog({ side: s.activeSide, panel: active, setDialog: useStore.getState().setDialog });
         return;
@@ -536,6 +546,9 @@ export function App() {
         }
         return;
       }
+
+      // The F4 editor is modal too, and its own onKeyDown handles Esc and save.
+      if (s.editor) return;
 
       // An input has focus (PathBar / cmdline). Plain typing belongs to it, but
       // app shortcuts must still work: the fallback below sends unmapped
@@ -916,6 +929,12 @@ export function App() {
       const refreshed = useStore.getState().panels[side];
       const idx = refreshed.entries.findIndex((e) => entryKey(e) === name);
       if (idx >= 0) setPanel(side, { cursor: idx });
+      await openEditorAt(
+        joinPath(panel.path, name),
+        api.fs.readTextFile,
+        useStore.getState().setEditor,
+        (m) => alert(m),
+      );
     },
     onRename: async (side: PanelSide, oldName: string, newName: string) => {
       const panel = useStore.getState().panels[side];
@@ -964,6 +983,13 @@ export function App() {
         `${sources.length} item(s) → ${name}`,
       );
     },
+    onEditorSave: () => {
+      const ed = useStore.getState().editor;
+      if (!ed) return;
+      void saveEditor(ed, api.fs.writeTextFile, useStore.getState().setEditor, (m) => alert(m))
+        .then((saved) => { if (saved) useStore.getState().setEditor(null); });
+    },
+    onEditorDiscard: () => { useStore.getState().setEditor(null); },
     onCancelArchive: (token: string) => {
       void api.archive.cancel(token);
     },
@@ -1200,6 +1226,11 @@ export function App() {
         </div>
       )}
       <Dialogs {...dialogHandlers} />
+      {state.editor && (
+        <div className="gc-viewer-backdrop">
+          <Editor />
+        </div>
+      )}
       {state.viewer && (
         <div className="gc-viewer-backdrop">
           <Viewer

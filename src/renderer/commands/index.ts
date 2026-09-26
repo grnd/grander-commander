@@ -23,6 +23,6 @@ export type CommandName =
   | 'addToFavorites' | 'pickFavorite'
   | 'quickLook' | 'openTerminal' | 'quitApp' | 'runShellCommand'
   | 'toggleTerminal'
-  | 'viewFile' | 'toggleQuickView'
+  | 'viewFile' | 'editFile' | 'toggleQuickView'
   | 'multiRename' | 'compareFiles' | 'syncFolders'
   | 'openSearch' | 'revealInPanel' | 'packArchive';

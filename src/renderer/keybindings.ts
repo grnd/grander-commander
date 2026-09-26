@@ -74,6 +74,7 @@ export const bindings: Binding[] = [
   { combo: 'Cmd+S', command: 'openTerminal' },
   { combo: 'Ctrl+`', command: 'toggleTerminal' },
   { combo: 'F3', command: 'viewFile' },
+  { combo: 'F4', command: 'editFile' },
   { combo: 'Ctrl+Q', command: 'toggleQuickView' },
   { combo: 'Ctrl+M', command: 'multiRename' },
   { combo: 'Cmd+Shift+M', command: 'multiRename' },

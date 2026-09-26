@@ -65,6 +65,7 @@ Power-user tools:
 | | |
 |---|---|
 | `F3` / `Ctrl+Q` | Internal viewer (text / hex / image), and quick preview in the other pane |
+| `F4` | Edit a text file in place — `Cmd+S` saves, `Esc` closes (prompting if modified) |
 | `Cmd+F` | Find by name, content, size and date — results open as a browsable panel |
 | `Cmd+D` | Compare two files side by side |
 | `Cmd+Y` | Synchronise the two panel folders, with copy-missing and mirror |
@@ -73,7 +74,7 @@ Power-user tools:
 | `Ctrl+1..9` | Numbered folder bookmarks (`Ctrl+Shift+N` to set) |
 | `Enter` on an archive | Browse `.zip` / `.tar.gz` / `.7z` in place; `F5` extracts, `Alt+F5` packs |
 | `Tab` in the command line | Complete paths and executables |
-| `Shift+F4` | Create an empty file in the active panel |
+| `Shift+F4` | Create a file in the active panel and open it in the editor |
 | drag a column edge | Resize that column; widths are per-panel and persist (double-click resets) |
 | drag a row | Copy to the other panel; `Shift` moves, `Alt` drags out to Finder |
 

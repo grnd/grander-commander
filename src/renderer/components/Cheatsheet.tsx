@@ -52,7 +52,7 @@ const SECTIONS: { title: string; rows: [string, string][] }[] = [
     title: 'Mutations (M2)',
     rows: [
       ['F7 / Cmd+N', 'Create folder'],
-      ['Shift+F4', 'Create empty file'],
+      ['Shift+F4', 'Create a file and edit it'],
       ['F2 / Cmd+Shift+R', 'Rename'],
       ['F5 / Cmd+C', 'Copy'],
       ['F6 / Cmd+X', 'Move'],
@@ -107,6 +107,7 @@ const SECTIONS: { title: string; rows: [string, string][] }[] = [
     title: 'Viewer',
     rows: [
       ['F3', 'Internal viewer (text / hex / image)'],
+      ['F4', 'Edit a text file (Cmd+S saves, Esc closes)'],
       ['Ctrl+Q', 'Quick view in the other panel'],
       ['↑ ↓ / PgUp / PgDn / Space', 'Scroll; turns the page at the edges'],
       ['Home / End', 'Top / bottom of the page'],

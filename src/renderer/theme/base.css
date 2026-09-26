@@ -578,3 +578,42 @@ body {
   padding: 6px 8px; font-size: 11px;
   background: var(--gc-error-bg, #b00020); color: var(--gc-error-fg, #fff);
 }
+
+/* F4 editor (spans the panel-row area) */
+.gc-editor {
+  flex: 1; min-height: 0; display: flex; flex-direction: column;
+  background: var(--gc-panel); border: 1px solid var(--gc-border);
+  outline: none;
+}
+.gc-editor-header {
+  display: flex; align-items: center; gap: 8px;
+  padding: 3px 8px;
+  background: var(--gc-status-active-bg, #0a5fcf);
+  color: var(--gc-status-active-fg, #fff);
+  font-size: 11px; font-weight: 600;
+  border-bottom: 1px solid var(--gc-border);
+}
+.gc-editor-mode {
+  padding: 0 6px; background: rgba(255, 255, 255, 0.15);
+  border-radius: 2px;
+  text-transform: uppercase; letter-spacing: 0.5px;
+}
+.gc-editor-path {
+  flex: 1; min-width: 0;
+  font-family: Menlo, monospace; font-weight: 500;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.gc-editor-badge.is-dirty { color: #ffcf5a; font-weight: 700; }
+.gc-editor-hint {
+  font-weight: 400; opacity: 0.75; font-size: 10px;
+  white-space: nowrap;
+}
+.gc-editor-body { flex: 1; min-height: 0; display: flex; }
+.gc-editor-textarea {
+  flex: 1; margin: 0; padding: 6px 8px;
+  font-family: Menlo, monospace; font-size: 12px;
+  color: var(--gc-fg); background: var(--gc-panel);
+  border: none; outline: none; resize: none;
+  white-space: pre; overflow: auto;
+  user-select: text;
+}

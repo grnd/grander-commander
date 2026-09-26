@@ -2,6 +2,7 @@ import { useStore } from '@renderer/state/store';
 import { DialogShell } from './DialogShell';
 import { MkDirPrompt } from './MkDirPrompt';
 import { NewFilePrompt } from './NewFilePrompt';
+import { EditorDirtyClose } from './EditorDirtyClose';
 import { RenamePrompt } from './RenamePrompt';
 import { DeleteConfirm } from './DeleteConfirm';
 import { CopyDialog } from './CopyDialog';
@@ -40,6 +41,8 @@ type Handlers = {
   ) => void;
   onPack: (sources: string[], destDir: string, name: string, format: ArchiveFormat) => void;
   onCancelArchive: (token: string) => void;
+  onEditorSave: () => void;
+  onEditorDiscard: () => void;
 };
 
 export function Dialogs(h: Handlers) {
@@ -134,6 +137,13 @@ export function Dialogs(h: Handlers) {
             close();
             h.onPack(dialog.sources, dialog.destDir, name, format);
           }}
+          onCancel={close} />
+      </DialogShell>;
+    case 'editorDirtyClose':
+      return <DialogShell title="Unsaved changes" onClose={close}>
+        <EditorDirtyClose
+          onSave={() => { close(); h.onEditorSave(); }}
+          onDiscard={() => { close(); h.onEditorDiscard(); }}
           onCancel={close} />
       </DialogShell>;
     case 'busy':

@@ -39,6 +39,8 @@ export type OpError =
   | { kind: 'cross-device'; src: string; dst: string }
   | { kind: 'exists'; path: string }
   | { kind: 'name-invalid'; reason: string }
+  | { kind: 'binary'; path: string }
+  | { kind: 'too-large'; path: string; size: number }
   | { kind: 'unknown'; message: string };
 
 export type Result<T> = { ok: true; value: T } | { ok: false; error: OpError };
@@ -98,7 +100,8 @@ export type DialogState =
   | { kind: 'sync'; leftRoot: string; rightRoot: string }
   | { kind: 'search'; side: 'left' | 'right'; root: string; otherRoot: string }
   | { kind: 'pack'; sources: string[]; destDir: string; defaultName: string }
-  | { kind: 'busy'; title: string; detail: string; token: string };
+  | { kind: 'busy'; title: string; detail: string; token: string }
+  | { kind: 'editorDirtyClose' };
 
 // ---- M3: virtual panels ----
 
