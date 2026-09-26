@@ -54,6 +54,7 @@ export const bindings: Binding[] = [
   { combo: 'Cmd+L', command: 'focusPathBar' },
   { combo: '/', command: 'focusPathBarRoot' },
   { combo: 'F7', command: 'mkdir' },
+  { combo: 'Shift+F4', command: 'newFile' },
   { combo: 'Cmd+N', command: 'mkdir' },
   { combo: 'F5', command: 'copy' },
   { combo: 'F6', command: 'move' },

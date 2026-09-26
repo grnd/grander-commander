@@ -15,6 +15,8 @@ export type GCApi = {
     listDir(path: string, opts: ListDirOptions): Promise<Result<FileEntry[]>>;
     stat(path: string): Promise<Result<FileEntry>>;
     mkdir(parent: string, name: string): Promise<Result<void>>;
+    /** Creates an empty file; fails with `exists` rather than truncating. */
+    createFile(parent: string, name: string): Promise<Result<void>>;
     rename(from: string, to: string): Promise<Result<void>>;
     trash(paths: string[]): Promise<Result<void>>;
     delete(paths: string[]): Promise<Result<void>>;

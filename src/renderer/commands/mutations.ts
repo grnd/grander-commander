@@ -18,6 +18,10 @@ export function openMkdirDialog(ctx: { side: PanelSide; setDialog: SetDialog }) 
   ctx.setDialog({ kind: 'mkdir', side: ctx.side });
 }
 
+export function openNewFileDialog(ctx: { side: PanelSide; setDialog: SetDialog }) {
+  ctx.setDialog({ kind: 'newFile', side: ctx.side });
+}
+
 export function openRenameDialog(ctx: { side: PanelSide; panel: PanelState; setDialog: SetDialog }) {
   const cur = ctx.panel.entries[ctx.panel.cursor];
   if (!cur || cur.name === '..') return;

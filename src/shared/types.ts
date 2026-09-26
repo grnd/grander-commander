@@ -85,6 +85,7 @@ export type OpEvent =
 
 export type DialogState =
   | { kind: 'mkdir'; side: 'left' | 'right' }
+  | { kind: 'newFile'; side: 'left' | 'right' }
   | { kind: 'rename'; side: 'left' | 'right'; oldName: string }
   | { kind: 'copy'; sources: string[]; dstDefault: string }
   | { kind: 'move'; sources: string[]; dstDefault: string }

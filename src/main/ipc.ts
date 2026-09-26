@@ -5,6 +5,7 @@ import { listDir } from './fs/listDir';
 import { stat } from './fs/stat';
 import { listVolumes } from './volumes/list';
 import { mkdir } from './fs/mkdir';
+import { createFile } from './fs/createFile';
 import { rename } from './fs/rename';
 import { trashPaths } from './fs/trash';
 import { deletePaths } from './fs/delete';
@@ -412,6 +413,13 @@ export function registerIpc() {
       expectString(args[1], 'name', { maxLength: MAX_BASENAME_LENGTH }),
     ];
   }, (_e, parent, name) => mkdir(parent, name));
+  handleValidated('fs:createFile', (args): [string, string] => {
+    expectArgs(args, 'fs:createFile', 2);
+    return [
+      expectString(args[0], 'parent'),
+      expectString(args[1], 'name', { maxLength: MAX_BASENAME_LENGTH }),
+    ];
+  }, (_e, parent, name) => createFile(parent, name));
   handleValidated('fs:rename', (args): [string, string] => {
     expectArgs(args, 'fs:rename', 2);
     return [

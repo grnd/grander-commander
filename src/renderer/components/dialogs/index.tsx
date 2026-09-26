@@ -1,6 +1,7 @@
 import { useStore } from '@renderer/state/store';
 import { DialogShell } from './DialogShell';
 import { MkDirPrompt } from './MkDirPrompt';
+import { NewFilePrompt } from './NewFilePrompt';
 import { RenamePrompt } from './RenamePrompt';
 import { DeleteConfirm } from './DeleteConfirm';
 import { CopyDialog } from './CopyDialog';
@@ -20,6 +21,7 @@ import type { SyncAction, SyncPlan } from '@renderer/commands/sync';
 
 type Handlers = {
   onMkdir: (side: 'left' | 'right', name: string) => void;
+  onNewFile: (side: 'left' | 'right', name: string) => void;
   onRename: (side: 'left' | 'right', oldName: string, newName: string) => void;
   onDeleteConfirmed: (paths: string[]) => void;
   onCopyConfirmed: (sources: string[], dst: string) => void;
@@ -50,6 +52,10 @@ export function Dialogs(h: Handlers) {
     case 'mkdir':
       return <DialogShell title="Create folder" onClose={close}>
         <MkDirPrompt onSubmit={(n) => { h.onMkdir(dialog.side, n); close(); }} onCancel={close} />
+      </DialogShell>;
+    case 'newFile':
+      return <DialogShell title="Create file" onClose={close}>
+        <NewFilePrompt onSubmit={(n) => { h.onNewFile(dialog.side, n); close(); }} onCancel={close} />
       </DialogShell>;
     case 'rename':
       return <DialogShell title="Rename" onClose={close}>

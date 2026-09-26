@@ -18,7 +18,7 @@ export type CommandName =
   | 'toggleHidden'
   | 'refresh'
   | 'focusPathBar' | 'focusPathBarRoot'
-  | 'mkdir' | 'rename' | 'copy' | 'move' | 'trash' | 'deleteConfirm' | 'deleteCursorConfirm'
+  | 'mkdir' | 'newFile' | 'rename' | 'copy' | 'move' | 'trash' | 'deleteConfirm' | 'deleteCursorConfirm'
   | 'duplicate' | 'copyPath'
   | 'addToFavorites' | 'pickFavorite'
   | 'quickLook' | 'openTerminal' | 'quitApp' | 'runShellCommand'

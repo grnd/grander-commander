@@ -14,6 +14,7 @@ const api: GCApi = {
     listDir: (path, opts) => ipcRenderer.invoke('fs:listDir', path, opts),
     stat: (path) => ipcRenderer.invoke('fs:stat', path),
     mkdir: (parent, name) => ipcRenderer.invoke('fs:mkdir', parent, name),
+    createFile: (parent, name) => ipcRenderer.invoke('fs:createFile', parent, name),
     rename: (from, to) => ipcRenderer.invoke('fs:rename', from, to),
     trash: (paths) => ipcRenderer.invoke('fs:trash', paths),
     delete: (paths) => ipcRenderer.invoke('fs:delete', paths),

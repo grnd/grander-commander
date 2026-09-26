@@ -44,7 +44,7 @@ import { Splitter } from './components/Splitter';
 import type { SortCol } from '@shared/types';
 import type { PanelState } from './state/panelSlice';
 import {
-  openMkdirDialog, openRenameDialog, openCopyDialog, openMoveDialog,
+  openMkdirDialog, openNewFileDialog, openRenameDialog, openCopyDialog, openMoveDialog,
   requestTrash, requestDeleteConfirm, selectionForContextTarget,
 } from './commands/mutations';
 import { Dialogs } from './components/dialogs';
@@ -319,6 +319,9 @@ export function App() {
       }
       case 'mkdir':
         openMkdirDialog({ side: s.activeSide, setDialog: useStore.getState().setDialog });
+        return;
+      case 'newFile':
+        openNewFileDialog({ side: s.activeSide, setDialog: useStore.getState().setDialog });
         return;
       case 'rename':
         openRenameDialog({ side: s.activeSide, panel: active, setDialog: useStore.getState().setDialog });
@@ -903,6 +906,15 @@ export function App() {
       await refreshSide(side);
       const refreshed = useStore.getState().panels[side];
       const idx = refreshed.entries.findIndex((e) => e.name === name && e.isDir);
+      if (idx >= 0) setPanel(side, { cursor: idx });
+    },
+    onNewFile: async (side: PanelSide, name: string) => {
+      const panel = useStore.getState().panels[side];
+      const r = await api.fs.createFile(panel.path, name);
+      if (!r.ok) { alert(`Could not create file: ${r.error.kind}`); return; }
+      await refreshSide(side);
+      const refreshed = useStore.getState().panels[side];
+      const idx = refreshed.entries.findIndex((e) => entryKey(e) === name);
       if (idx >= 0) setPanel(side, { cursor: idx });
     },
     onRename: async (side: PanelSide, oldName: string, newName: string) => {
