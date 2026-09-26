@@ -21,6 +21,12 @@ export function Editor() {
     if (useStore.getState().dialog) return;
     if (e.key === 'Escape') {
       e.preventDefault();
+      // Consume the keystroke. Closing a dirty buffer opens DialogShell, which
+      // registers its own document-level Escape listener in a layout effect —
+      // and React flushes that effect while THIS event is still propagating up
+      // to document, so without this the prompt would be dismissed by the very
+      // keypress that opened it.
+      e.stopPropagation();
       closeEditor(editor, setEditor, setDialog);
       return;
     }

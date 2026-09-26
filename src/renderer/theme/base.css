@@ -580,6 +580,17 @@ body {
 }
 
 /* F4 editor (spans the panel-row area) */
+/*
+ * Its own layer, deliberately BELOW .gc-modal-backdrop (1000): the editor is
+ * the only overlay that raises a dialog of its own (the dirty-close prompt),
+ * and at the viewer's 1500 that prompt rendered behind the editor — invisible,
+ * while both key handlers stood down for it, so the app looked frozen.
+ */
+.gc-editor-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+  display: flex; align-items: stretch; justify-content: center;
+  padding: 24px; z-index: 950;
+}
 .gc-editor {
   flex: 1; min-height: 0; display: flex; flex-direction: column;
   background: var(--gc-panel); border: 1px solid var(--gc-border);

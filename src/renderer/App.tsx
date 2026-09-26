@@ -1227,7 +1227,7 @@ export function App() {
       )}
       <Dialogs {...dialogHandlers} />
       {state.editor && (
-        <div className="gc-viewer-backdrop">
+        <div className="gc-editor-backdrop">
           <Editor />
         </div>
       )}
