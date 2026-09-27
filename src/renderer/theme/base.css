@@ -18,6 +18,16 @@ body {
 .gc-panel { display: flex; flex-direction: column; height: 100%; border: 1px solid var(--gc-border); background: var(--gc-panel); }
 .gc-panel.is-active { outline: 1px solid var(--gc-active-outline); outline-offset: -1px; }
 .gc-pathbar { width: 100%; background: var(--gc-input-bg); border: 1px inset var(--gc-border); padding: 2px 6px; font-family: Menlo, monospace; font-size: 10px; color: var(--gc-fg); }
+.gc-pathbar-row { display: flex; align-items: stretch; gap: 2px; }
+.gc-pathbar-row .gc-pathbar { flex: 1 1 auto; min-width: 0; width: auto; }
+.gc-pathbar-row.is-drop-target { outline: 2px solid var(--gc-status-active-bg, #0a5fcf); outline-offset: -2px; }
+/* Stands for the folder itself, the way Finder's title-bar icon does. */
+.gc-path-proxy {
+  display: flex; align-items: center; padding: 0 4px; font-size: 11px;
+  background: var(--gc-input-bg); border: 1px inset var(--gc-border);
+  color: inherit; cursor: pointer; user-select: none;
+}
+.gc-path-proxy:active { border-style: outset; }
 .gc-col-header { display: flex; background: var(--gc-chrome); border-bottom: 1px solid var(--gc-border); font-weight: 600; }
 .gc-col-header .gc-col { padding: 2px 6px; border-right: 1px solid var(--gc-border); cursor: pointer; }
 .gc-col-name { flex: 0 0 var(--gc-col-name-width, 260px); width: var(--gc-col-name-width, 260px); position: relative; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -510,6 +520,7 @@ body {
   font-size: 10px; cursor: pointer; white-space: nowrap;
 }
 .gc-tab.is-active { background: var(--gc-panel); font-weight: 700; }
+.gc-tab.is-drop-target, .gc-tab-new.is-drop-target { outline: 2px solid var(--gc-status-active-bg, #0a5fcf); outline-offset: -2px; }
 .gc-tab-label { overflow: hidden; text-overflow: ellipsis; }
 .gc-tab-close {
   background: transparent; border: none; color: inherit; cursor: pointer;

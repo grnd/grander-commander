@@ -11,10 +11,23 @@ function setup(list = tabs, activeIndex = 0) {
   const onSelect = vi.fn();
   const onClose = vi.fn();
   const onNew = vi.fn();
+  const onLocationDrop = vi.fn();
   const view = render(
-    <TabBar tabs={list} activeIndex={activeIndex} onSelect={onSelect} onClose={onClose} onNew={onNew} />,
+    <TabBar
+      tabs={list}
+      activeIndex={activeIndex}
+      onSelect={onSelect}
+      onClose={onClose}
+      onNew={onNew}
+      onLocationDrop={onLocationDrop}
+    />,
   );
-  return { onSelect, onClose, onNew, ...view };
+  return { onSelect, onClose, onNew, onLocationDrop, ...view };
+}
+
+/** jsdom has no DataTransfer, and fireEvent.drop will not invent one. */
+function drop(el: Element) {
+  fireEvent.drop(el, { dataTransfer: { files: [], getData: () => '' } });
 }
 
 describe('TabBar', () => {
@@ -65,5 +78,28 @@ describe('TabBar', () => {
     const { onNew } = setup();
     fireEvent.click(screen.getByLabelText('New tab'));
     expect(onNew).toHaveBeenCalled();
+  });
+});
+
+describe('TabBar as a drop target', () => {
+  it('reports the tab a location was dropped on', () => {
+    const { onLocationDrop } = setup();
+    drop(screen.getAllByRole('tab')[1]);
+    expect(onLocationDrop).toHaveBeenCalledWith(1, expect.anything());
+  });
+
+  // null is "no tab yet" — the caller opens one at whatever was dropped.
+  it('reports a drop on + as a new tab', () => {
+    const { onLocationDrop } = setup();
+    drop(screen.getByLabelText('New tab'));
+    expect(onLocationDrop).toHaveBeenCalledWith(null, expect.anything());
+  });
+
+  it('does not select the tab it was merely dragged over', () => {
+    const { onSelect } = setup();
+    fireEvent.dragOver(screen.getAllByRole('tab')[1], {
+      dataTransfer: { files: [], getData: () => '' },
+    });
+    expect(onSelect).not.toHaveBeenCalled();
   });
 });

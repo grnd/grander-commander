@@ -78,6 +78,7 @@ function mockApi() {
     },
     shell: {
       openPath: vi.fn(),
+      openInFinder: vi.fn().mockResolvedValue(undefined),
       quickLook: vi.fn(),
       openTerminal: vi.fn(),
       runCommand: vi.fn().mockResolvedValue({ stdout: '', stderr: '', exitCode: 0 }),
@@ -422,5 +423,110 @@ describe('App drag out of an archive', () => {
 
     expect(gc.shell.startDrag).not.toHaveBeenCalled();
     expect(dt.getData(GC_ARCHIVE)).toBe('');
+  });
+});
+
+/**
+ * The path bar and the tab strip are *locations*: a folder dropped there is
+ * somewhere to go, not something to copy. Nothing is written to disk, which
+ * is what separates them from a drop on the listing.
+ */
+describe('App location drops', () => {
+  const pathBar = (index: number) =>
+    document.querySelectorAll('.gc-pathbar-row')[index] as HTMLElement;
+
+  const statDir = (gc: ReturnType<typeof mockApi>) =>
+    gc.fs.stat.mockResolvedValue({ ok: true, value: { ...entry('stuff', '', true) } });
+
+  it('navigates the panel to a folder dropped on its path bar', async () => {
+    const gc = await renderApp();
+    statDir(gc);
+    const dt = dataTransfer([{ path: '/Volumes/Data/stuff' }]);
+
+    fireDrag(pathBar(1), 'drop', { dataTransfer: dt });
+
+    await waitFor(() =>
+      expect(useStore.getState().panels.right.path).toBe('/Volumes/Data/stuff'),
+    );
+    // A location drop copies nothing.
+    expect(gc.ops.start).not.toHaveBeenCalled();
+  });
+
+  it('reveals a dropped file in its own folder instead of entering it', async () => {
+    const gc = await renderApp();
+    gc.fs.stat.mockResolvedValue({ ok: true, value: entry('report', 'pdf') });
+    const dt = dataTransfer([{ path: '/Users/me/docs/report.pdf' }]);
+
+    fireDrag(pathBar(0), 'drop', { dataTransfer: dt });
+
+    await waitFor(() => expect(useStore.getState().panels.left.path).toBe('/Users/me/docs'));
+    expect(gc.ops.start).not.toHaveBeenCalled();
+  });
+
+  // Nothing had a File behind it: a path dragged out of a terminal or an editor.
+  it('accepts a path dropped as plain text', async () => {
+    const gc = await renderApp();
+    statDir(gc);
+    const dt = dataTransfer();
+    dt.setData('text/plain', '/Volumes/Data/stuff');
+
+    fireDrag(pathBar(1), 'drop', { dataTransfer: dt });
+
+    await waitFor(() =>
+      expect(useStore.getState().panels.right.path).toBe('/Volumes/Data/stuff'),
+    );
+  });
+
+  it('makes the dropped-on side the active one', async () => {
+    const gc = await renderApp();
+    statDir(gc);
+    expect(useStore.getState().activeSide).toBe('left');
+
+    fireDrag(pathBar(1), 'drop', { dataTransfer: dataTransfer([{ path: '/Volumes/Data/stuff' }]) });
+
+    await waitFor(() => expect(useStore.getState().activeSide).toBe('right'));
+  });
+
+  it('opens the panel folder in Finder when the chip is clicked', async () => {
+    const gc = await renderApp();
+    const proxy = document.querySelectorAll('.gc-path-proxy')[0] as HTMLElement;
+
+    act(() => { proxy.click(); });
+
+    expect(gc.shell.openInFinder).toHaveBeenCalledWith('/home/u');
+    // The chip must never hand the folder to a drag session again: dropped in
+    // a Finder window that copied the whole tree.
+    expect(gc.shell.startDrag).not.toHaveBeenCalled();
+  });
+
+  it('sends the tab a folder was dropped on to that folder', async () => {
+    const gc = await renderApp();
+    statDir(gc);
+    act(() => { useStore.getState().newTab('left'); });
+
+    const tabs = document.querySelectorAll('.gc-tab');
+    fireDrag(tabs[0] as HTMLElement, 'drop', {
+      dataTransfer: dataTransfer([{ path: '/Volumes/Data/stuff' }]),
+    });
+
+    await waitFor(() => {
+      expect(useStore.getState().activeTab.left).toBe(0);
+      expect(useStore.getState().panels.left.path).toBe('/Volumes/Data/stuff');
+    });
+  });
+
+  it('opens a new tab at a folder dropped on +', async () => {
+    const gc = await renderApp();
+    statDir(gc);
+    act(() => { useStore.getState().newTab('left'); });
+
+    fireDrag(document.querySelector('.gc-tab-new') as HTMLElement, 'drop', {
+      dataTransfer: dataTransfer([{ path: '/Volumes/Data/stuff' }]),
+    });
+
+    await waitFor(() => {
+      expect(useStore.getState().tabs.left).toHaveLength(3);
+      expect(useStore.getState().panels.left.path).toBe('/Volumes/Data/stuff');
+    });
   });
 });

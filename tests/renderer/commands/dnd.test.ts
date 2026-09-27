@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { dragPaths, dropTarget, externalPaths, resolveDrop } from '@renderer/commands/dnd';
+import {
+  dragPaths, dropTarget, droppedPaths, externalPaths, locationPath, resolveDrop,
+} from '@renderer/commands/dnd';
 import { initialPanelState, type PanelState } from '@renderer/state/panelSlice';
 import type { FileEntry } from '@shared/types';
 
@@ -143,5 +145,57 @@ describe('externalPaths', () => {
 
   it('handles an empty drop', () => {
     expect(externalPaths([] as unknown as FileList)).toEqual([]);
+  });
+});
+
+describe('droppedPaths', () => {
+  const dt = (over: { files?: { path: string }[]; data?: Record<string, string> } = {}) => ({
+    files: (over.files ?? []) as unknown as FileList,
+    getData: (type: string) => over.data?.[type] ?? '',
+  });
+
+  it('reads the real locations off dropped files', () => {
+    expect(droppedPaths(dt({ files: [{ path: '/a/one' }, { path: '/a/two' }] }))).toEqual([
+      '/a/one', '/a/two',
+    ]);
+  });
+
+  it('falls back to text/uri-list when nothing carries a File', () => {
+    const paths = droppedPaths(dt({
+      data: { 'text/uri-list': '# comment\nfile:///Users/me/My%20Stuff\n' },
+    }));
+    expect(paths).toEqual(['/Users/me/My Stuff']);
+  });
+
+  // A link dragged out of a browser is a place, but not one on this disk.
+  it('skips uris that are not local files', () => {
+    expect(droppedPaths(dt({ data: { 'text/uri-list': 'https://example.com/x' } }))).toEqual([]);
+  });
+
+  it('takes a plain absolute path, as a terminal or an editor hands one over', () => {
+    expect(droppedPaths(dt({ data: { 'text/plain': '  /Users/me/notes.txt ' } })))
+      .toEqual(['/Users/me/notes.txt']);
+  });
+
+  it('ignores dropped prose', () => {
+    expect(droppedPaths(dt({ data: { 'text/plain': 'see you tomorrow' } }))).toEqual([]);
+  });
+
+  it('prefers the files over any text riding along with them', () => {
+    const paths = droppedPaths(dt({
+      files: [{ path: '/real/file' }],
+      data: { 'text/plain': '/decoy' },
+    }));
+    expect(paths).toEqual(['/real/file']);
+  });
+});
+
+describe('locationPath', () => {
+  it('takes the first of several dropped items — a panel is in one folder', () => {
+    expect(locationPath(['/a', '/b'])).toBe('/a');
+  });
+
+  it('is null when the drop carried nothing usable', () => {
+    expect(locationPath([])).toBeNull();
   });
 });

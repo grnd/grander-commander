@@ -25,6 +25,7 @@ import { quickLook } from './shell/quickLook';
 import { openTerminal } from './shell/openTerminal';
 import { runCommand } from './shell/runCommand';
 import { startDrag } from './shell/dragOut';
+import { openInFinder } from './shell/openInFinder';
 import { checkForUpdates, downloadUpdate, quitAndInstall, getUpdateStatus, openReleaseNotes } from './updater';
 import { spawnTerminal, writeTerminal, resizeTerminal, killTerminal, killAllForContents } from './shell/terminal';
 import { watchDir, unwatchDir, unwatchAllForContents, type Side } from './fs/watch';
@@ -540,6 +541,10 @@ export function registerIpc() {
     expectArgs(args, 'shell:openPath', 1);
     return [expectString(args[0], 'path')];
   }, (_e, path) => shell.openPath(path));
+  handleValidated('shell:openInFinder', (args): [string] => {
+    expectArgs(args, 'shell:openInFinder', 1);
+    return [expectString(args[0], 'path')];
+  }, (_e, path) => openInFinder(path));
   handleValidated('shell:quickLook', (args): [string] => {
     expectArgs(args, 'shell:quickLook', 1);
     return [expectString(args[0], 'path')];

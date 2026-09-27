@@ -20,8 +20,8 @@ import { parseCdCommand } from './commands/cd';
 import { SYNC_LABELS, isDestructive, type SyncAction, type SyncPlan } from './commands/sync';
 import { archiveDragMembers, archiveTargets } from './commands/archive';
 import {
-  GC_ARCHIVE, decodeArchiveDrag, dragPaths, dropTarget, encodeArchiveDrag,
-  externalPaths, resolveDrop,
+  GC_ARCHIVE, decodeArchiveDrag, dragPaths, dropTarget, droppedPaths, encodeArchiveDrag,
+  externalPaths, locationPath, resolveDrop,
 } from './commands/dnd';
 
 import { eventToCombo, lookup, allowedFromInput } from './keybindings';
@@ -850,6 +850,65 @@ export function App() {
     );
   };
 
+  /**
+   * A drop on the path bar or a tab is a *location*: the panel goes there
+   * instead of copying anything in. A folder is the destination itself; a
+   * file lands the cursor on it inside its own folder, which is how Finder's
+   * "Reveal" reads from the other direction.
+   *
+   * Nothing is written to disk here, which is the whole distinction from a
+   * drop on the listing — so Shift has no meaning and no op is started.
+   */
+  const goToDropped = async (side: PanelSide, ev: React.DragEvent) => {
+    const target = locationPath(droppedPaths(ev.dataTransfer));
+    if (!target) return;
+    useStore.setState({ activeSide: side });
+    const panel = useStore.getState().panels[side];
+    const ctx = {
+      panel,
+      setPanel: (patch: Partial<PanelState>) => setPanel(side, patch),
+      api,
+      requestKey: side,
+    };
+    // An app bundle stats as a file on purpose, so dropping one reveals it
+    // rather than walking into Contents/.
+    const st = await api.fs.stat(target);
+    if (st.ok && !st.value.isDir) await revealPath(ctx, target);
+    else await navigateTo({ ...ctx, path: target });
+  };
+
+  const onLocationDrop = (side: PanelSide) => (ev: React.DragEvent) => {
+    void goToDropped(side, ev);
+  };
+
+  /**
+   * Same thing aimed at one tab: the tab is selected first so the drop lands
+   * in it, and the "+" button (index null) opens a fresh one at the dropped
+   * folder rather than at the current one.
+   */
+  const onTabLocationDrop = (side: PanelSide) => (index: number | null, ev: React.DragEvent) => {
+    if (locationPath(droppedPaths(ev.dataTransfer)) === null) return;
+    useStore.setState({ activeSide: side });
+    if (index === null) useStore.getState().newTab(side);
+    else useStore.getState().selectTab(side, index);
+    void goToDropped(side, ev);
+  };
+
+  /**
+   * Open the panel's own folder in Finder.
+   *
+   * This chip used to drag the folder out as a native OS drag, which Finder
+   * could only read as a file: dropping it in a window *copied* the whole
+   * folder. Showing the folder is what "the folder, over there" actually
+   * means, and it cannot duplicate anything by accident.
+   */
+  const onOpenInFinder = (side: PanelSide) => () => {
+    const panel = useStore.getState().panels[side];
+    // An archive or a search listing has a label where a path would be.
+    if (panel.source.kind !== 'fs') return;
+    void api.shell.openInFinder(panel.path);
+  };
+
   const onPathCommit = (side: PanelSide) => async (p: string): Promise<boolean> => {
     const panel = useStore.getState().panels[side];
     const setSide = (patch: Partial<typeof panel>) => setPanel(side, patch);
@@ -1127,6 +1186,9 @@ export function App() {
         onDragOverTarget={onDragOverTarget(side)}
         onDropOnTarget={onDropOnTarget(side)}
         onDragLeavePanel={() => setDropHint((h) => (h?.side === side ? null : h))}
+        onLocationDrop={onLocationDrop(side)}
+        onTabLocationDrop={onTabLocationDrop(side)}
+        onOpenInFinder={onOpenInFinder(side)}
         dropTargetIndex={dropHint?.side === side ? dropHint.index : null}
         isDropActive={dropHint?.side === side}
       />

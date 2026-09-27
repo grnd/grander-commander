@@ -53,6 +53,8 @@ export type GCApi = {
   };
   shell: {
     openPath(path: string): Promise<void>;
+    /** Shows a folder in Finder, reusing its front window. */
+    openInFinder(path: string): Promise<void>;
     quickLook(path: string): Promise<void>;
     openTerminal(path: string): Promise<void>;
     runCommand(cmd: string, cwd: string): Promise<{ stdout: string; stderr: string; exitCode: number }>;

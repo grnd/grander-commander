@@ -109,3 +109,60 @@ export function externalPaths(files: ArrayLike<File>): string[] {
   }
   return out;
 }
+
+/** The slice of DataTransfer a drop needs; jsdom has no DataTransfer at all. */
+type DropData = { files: ArrayLike<File>; getData: (type: string) => string };
+
+/**
+ * Turn one `text/uri-list` line into a path. Anything that is not a local
+ * file — an http URL dragged out of a browser — has no path and is skipped.
+ */
+function uriToPath(line: string): string | null {
+  const trimmed = line.trim();
+  // The format allows comment lines, and Finder does emit them.
+  if (trimmed === '' || trimmed.startsWith('#')) return null;
+  if (!trimmed.startsWith('file://')) return null;
+  try {
+    // Strips the (always empty, for Finder) host and un-escapes %20.
+    return decodeURIComponent(new URL(trimmed).pathname) || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Every path a drop carries, whichever channel it came down.
+ *
+ * Finder and our own native drags arrive as files with a real location on
+ * them. A path dragged out of a terminal, an editor or a browser's download
+ * list has no File behind it and arrives as text instead — worth reading for
+ * a *location* drop, where one path is all that is needed.
+ */
+export function droppedPaths(dt: DropData): string[] {
+  const files = externalPaths(dt.files);
+  if (files.length > 0) return files;
+
+  const uris = dt.getData('text/uri-list');
+  if (uris) {
+    const paths = uris.split(/\r?\n/).map(uriToPath).filter((p): p is string => p !== null);
+    if (paths.length > 0) return paths;
+  }
+
+  // Last resort: plain text, and only when it reads as an absolute path.
+  // Dropping a sentence onto the path bar should do nothing at all.
+  const text = dt.getData('text/plain').trim();
+  if (text.startsWith('file://')) {
+    const p = uriToPath(text);
+    return p ? [p] : [];
+  }
+  return text.startsWith('/') && !text.includes('\n') ? [text] : [];
+}
+
+/**
+ * The one place a location drop means. A drop on the path bar or a tab is a
+ * request to *go* somewhere, and a panel can only be in one folder, so extra
+ * dragged items are ignored rather than opening a pile of tabs.
+ */
+export function locationPath(paths: string[]): string | null {
+  return paths[0] ?? null;
+}
