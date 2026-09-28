@@ -34,6 +34,8 @@ type Props = {
   onTabLocationDrop?: (index: number | null, e: React.DragEvent) => void;
   /** Open the panel's own folder in a Finder window. */
   onOpenInFinder?: () => void;
+  /** Finder's icon for that chip, when the system could supply one. */
+  finderIcon?: string | null;
   dropTargetIndex?: number | null;
   isDropActive?: boolean;
 };
@@ -43,7 +45,7 @@ export function Panel({
   onPathCommit, onSort, pathBarRef, searchBuffer,
   tabs, activeTab = 0, onSelectTab, onCloseTab, onNewTab,
   onRowDragStart, onDragOverTarget, onDropOnTarget, onDragLeavePanel,
-  onLocationDrop, onTabLocationDrop, onOpenInFinder,
+  onLocationDrop, onTabLocationDrop, onOpenInFinder, finderIcon = null,
   dropTargetIndex = null, isDropActive = false,
 }: Props) {
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -81,6 +83,7 @@ export function Panel({
         virtual={panel.source.kind !== 'fs'}
         onLocationDrop={onLocationDrop}
         onOpenInFinder={onOpenInFinder}
+        finderIcon={finderIcon}
       />
       <ColumnHeader side={side} sort={panel.sort} onSort={onSort} />
       {panel.error && <div className="gc-panel-error" role="alert">{panel.error}</div>}

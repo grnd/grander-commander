@@ -67,6 +67,8 @@ function mockApi() {
     },
     shell: {
       openPath: vi.fn(),
+      openInFinder: vi.fn().mockResolvedValue(undefined),
+      finderIcon: vi.fn().mockResolvedValue(null),
       quickLook: vi.fn(),
       openTerminal: vi.fn(),
       runCommand: vi.fn().mockResolvedValue({ stdout: '', stderr: '', exitCode: 0 }),

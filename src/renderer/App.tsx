@@ -124,6 +124,9 @@ export function App() {
   const cmdRef = useRef<HTMLInputElement>(null);
   const qsTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [cheatVisible, setCheatVisible] = useState(false);
+  // Finder's own icon for the path bar chip. Null until it arrives, and on
+  // any system where it cannot be read — the chip falls back to a glyph.
+  const [finderIcon, setFinderIcon] = useState<string | null>(null);
   // Which panel, and which folder row inside it, a drag in flight is over.
   const [dropHint, setDropHint] = useState<{ side: PanelSide; index: number | null } | null>(null);
   const [cmdOutput, setCmdOutput] = useState<{ cmd: string; stdout: string; stderr: string; exitCode: number } | null>(null);
@@ -131,6 +134,12 @@ export function App() {
   // can't see this component state directly.
   const cmdOutputRef = useRef(cmdOutput);
   cmdOutputRef.current = cmdOutput;
+
+  useEffect(() => {
+    let alive = true;
+    void api.shell.finderIcon().then((icon) => { if (alive) setFinderIcon(icon); });
+    return () => { alive = false; };
+  }, [api]);
 
   const setPanel = useCallback((side: PanelSide, patch: Partial<typeof state.panels.left>) => {
     useStore.setState((s) => ({ panels: { ...s.panels, [side]: { ...s.panels[side], ...patch } } }));
@@ -1189,6 +1198,7 @@ export function App() {
         onLocationDrop={onLocationDrop(side)}
         onTabLocationDrop={onTabLocationDrop(side)}
         onOpenInFinder={onOpenInFinder(side)}
+        finderIcon={finderIcon}
         dropTargetIndex={dropHint?.side === side ? dropHint.index : null}
         isDropActive={dropHint?.side === side}
       />

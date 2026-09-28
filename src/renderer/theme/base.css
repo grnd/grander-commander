@@ -28,6 +28,8 @@ body {
   color: inherit; cursor: pointer; user-select: none;
 }
 .gc-path-proxy:active { border-style: outset; }
+/* 32px of source art in a 14px box, so it stays sharp on retina. */
+.gc-path-proxy-img { width: 14px; height: 14px; display: block; }
 .gc-col-header { display: flex; background: var(--gc-chrome); border-bottom: 1px solid var(--gc-border); font-weight: 600; }
 .gc-col-header .gc-col { padding: 2px 6px; border-right: 1px solid var(--gc-border); cursor: pointer; }
 .gc-col-name { flex: 0 0 var(--gc-col-name-width, 260px); width: var(--gc-col-name-width, 260px); position: relative; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

@@ -78,6 +78,7 @@ function mockApi() {
     },
     shell: {
       openPath: vi.fn(),
+      finderIcon: vi.fn().mockResolvedValue(null),
       openInFinder: vi.fn().mockResolvedValue(undefined),
       quickLook: vi.fn(),
       openTerminal: vi.fn(),
@@ -497,6 +498,27 @@ describe('App location drops', () => {
     // The chip must never hand the folder to a drag session again: dropped in
     // a Finder window that copied the whole tree.
     expect(gc.shell.startDrag).not.toHaveBeenCalled();
+  });
+
+  it("wears Finder's own icon when the system supplies one", async () => {
+    const gc = window.gc as unknown as ReturnType<typeof mockApi>;
+    gc.shell.finderIcon = vi.fn().mockResolvedValue('data:image/png;base64,iVBORw0KGgo=');
+
+    await renderApp();
+
+    await waitFor(() => {
+      const img = document.querySelector('.gc-path-proxy-img') as HTMLImageElement | null;
+      expect(img?.src).toBe('data:image/png;base64,iVBORw0KGgo=');
+    });
+  });
+
+  // A broken <img> in the path bar would be worse than no icon at all, so a
+  // system that cannot hand one over keeps the glyph.
+  it('falls back to a glyph when Finder has no icon to give', async () => {
+    await renderApp();
+
+    expect(document.querySelector('.gc-path-proxy-img')).toBeNull();
+    expect(document.querySelector('.gc-path-proxy')?.textContent).toBe('🗂');
   });
 
   it('sends the tab a folder was dropped on to that folder', async () => {

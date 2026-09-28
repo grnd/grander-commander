@@ -42,6 +42,8 @@ function mockApi() {
     ops: { start: vi.fn(), cancel: vi.fn(), answerConflict: vi.fn(), subscribe: vi.fn(() => () => {}) },
     shell: {
       openPath: vi.fn(), quickLook: vi.fn(), openTerminal: vi.fn(),
+      openInFinder: vi.fn().mockResolvedValue(undefined),
+      finderIcon: vi.fn().mockResolvedValue(null),
       runCommand: vi.fn().mockResolvedValue({ stdout: 'hello', stderr: '', exitCode: 0 }),
     },
     terminal: {

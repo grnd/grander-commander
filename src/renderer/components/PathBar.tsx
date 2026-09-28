@@ -11,6 +11,8 @@ type Props = {
   onLocationDrop?: (e: React.DragEvent) => void;
   /** Open this panel's folder in a Finder window. */
   onOpenInFinder?: () => void;
+  /** Finder's own icon, when the system could supply one. */
+  finderIcon?: string | null;
 };
 
 /**
@@ -21,7 +23,7 @@ type Props = {
  */
 export function PathBar({
   path, onCommit, active, inputRef, virtual = false,
-  onLocationDrop, onOpenInFinder,
+  onLocationDrop, onOpenInFinder, finderIcon = null,
 }: Props) {
   const [value, setValue] = useState(path);
   const [dropping, setDropping] = useState(false);
@@ -58,7 +60,9 @@ export function PathBar({
           tabIndex={-1}
           onClick={onOpenInFinder}
         >
-          🗂
+          {finderIcon
+            ? <img className="gc-path-proxy-img" src={finderIcon} alt="" draggable={false} />
+            : '🗂'}
         </button>
       )}
       <input
