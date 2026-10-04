@@ -1,5 +1,6 @@
 // src/main/main.ts
 import { app, BrowserWindow, Menu, type MenuItemConstructorOptions } from 'electron';
+import { isSmokeRun, runSmokeCheck } from './smoke';
 import { registerIpc } from './ipc';
 import { checkForUpdates, initUpdater } from './updater';
 import { join } from 'node:path';
@@ -99,7 +100,7 @@ export function getRendererLoadTarget(): { kind: 'url'; target: string } | { kin
   return { kind: 'file', target: join(__dirname, '../renderer/index.html') };
 }
 
-async function createWindow() {
+async function createWindow(): Promise<BrowserWindow> {
   const win = new BrowserWindow({
     width: 1280,
     height: 800,
@@ -121,13 +122,20 @@ async function createWindow() {
   } else {
     await win.loadFile(target.target);
   }
+  return win;
 }
 
 app.whenReady().then(async () => {
   buildMenu();
   registerIpc();
   initUpdater();
-  await createWindow();
+  const win = await createWindow();
+  // A smoke run is not a session: report whether the window really came up
+  // and exit, before the updater or anything else can act.
+  if (isSmokeRun()) {
+    await runSmokeCheck(win);
+    return;
+  }
   // Check shortly after launch so the window exists to receive the result.
   // autoDownload is off, so this costs one request and never installs silently.
   setTimeout(() => void checkForUpdates(), 4000);

@@ -37,11 +37,12 @@ jobs:
       - name: Test
         run: npm test
 
-      # electron-builder publishes the DMG, the ZIP and latest-mac.yml. The
-      # ZIP and the manifest are what electron-updater actually reads; a
-      # DMG-only release cannot be auto-updated from.
-      - name: Build, sign, notarize and publish
-        run: npm run dist:universal -- --publish always
+      # Build only. Publishing is a separate step below so the packaged app
+      # can be started once in between — two releases (v0.1.2, v0.1.6) shipped
+      # an app that opened to a blank window, and nothing stood between the
+      # build and the upload to notice.
+      - name: Build, sign and notarize
+        run: npm run dist:universal -- --publish never
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Developer ID Application cert (base64 .p12) + its password.
@@ -52,14 +53,19 @@ jobs:
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
-      # electron-builder creates the release but leaves the body empty, so fill
-      # it in afterwards.
+      # The gate the two blank-window releases needed: start the artifact that
+      # is about to be published and make it prove its window came up.
+      - name: Smoke-test the packaged app
+        run: npm run smoke
+
+      # Release notes are composed before publishing now, so the release is
+      # created complete instead of created empty and edited afterwards.
       #
       # GitHub's generate-notes lists merged *pull requests*. A release merged
       # straight to master has none, and v0.2.0 shipped with a body containing
       # nothing but a Full Changelog link. So the commit log is the fallback,
       # and the step fails outright rather than publishing empty notes again.
-      - name: Add "What's Changed" release notes
+      - name: Compose "What's Changed" release notes
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -96,7 +102,32 @@ jobs:
             exit 1
           fi
 
-          gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --notes-file /tmp/notes.md
+      # electron-builder is no longer the publisher, so upload what it built:
+      # the DMG, the ZIP, latest-mac.yml and the blockmaps. The ZIP and the
+      # manifest are what electron-updater actually reads; a DMG-only release
+      # cannot be auto-updated from.
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          ASSETS=(dist/*.dmg dist/*.zip dist/latest-mac.yml)
+          # Blockmaps make updates differential; absent on some targets. An
+          # explicit if, not `[ -e ... ] && ...`: under `set -e` a false test
+          # as the last command in the loop body would exit the script.
+          for f in dist/*.blockmap; do
+            if [ -e "$f" ]; then ASSETS+=("$f"); fi
+          done
+          echo "publishing: ${ASSETS[*]}"
+
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --notes-file /tmp/notes.md
+            gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" --clobber "${ASSETS[@]}"
+          else
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" \
+              --title "${TAG#v}" --notes-file /tmp/notes.md "${ASSETS[@]}"
+          fi
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
