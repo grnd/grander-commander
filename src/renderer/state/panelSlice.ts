@@ -19,6 +19,11 @@ export type PanelState = {
   history: string[];
   loading: boolean;
   error: string | null;
+  /**
+   * A remedy the user can act on for the current `error`. Only set when the
+   * error has one; cleared whenever a listing starts.
+   */
+  errorAction: 'full-disk-access' | null;
   width: number;            // percent (0..100), left width; right = 100 - left
 };
 
@@ -35,6 +40,7 @@ export function initialPanelState(path: string): PanelState {
     history: [],
     loading: false,
     error: null,
+    errorAction: null,
     width: 50,
   };
 }

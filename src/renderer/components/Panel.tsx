@@ -74,7 +74,22 @@ export function Panel({
         virtual={panel.source.kind !== 'fs'}
       />
       <ColumnHeader side={side} sort={panel.sort} onSort={onSort} />
-      {panel.error && <div className="gc-panel-error" role="alert">{panel.error}</div>}
+      {panel.error && (
+        <div className="gc-panel-error" role="alert">
+          <span className="gc-panel-error-text">{panel.error}</span>
+          {panel.errorAction === 'full-disk-access' && (
+            <button
+              type="button"
+              className="gc-panel-error-action"
+              // Clicking must not steal focus from the file list.
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => { void window.gc.shell.openFullDiskAccessSettings(); }}
+            >
+              Open Settings
+            </button>
+          )}
+        </div>
+      )}
       <div
         className="gc-panel-body"
         ref={bodyRef}

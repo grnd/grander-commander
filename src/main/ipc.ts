@@ -25,6 +25,7 @@ import { quickLook } from './shell/quickLook';
 import { openTerminal } from './shell/openTerminal';
 import { runCommand } from './shell/runCommand';
 import { startDrag } from './shell/dragOut';
+import { openFullDiskAccessSettings } from './shell/privacySettings';
 import { checkForUpdates, downloadUpdate, quitAndInstall, getUpdateStatus, openReleaseNotes } from './updater';
 import { spawnTerminal, writeTerminal, resizeTerminal, killTerminal, killAllForContents } from './shell/terminal';
 import { watchDir, unwatchDir, unwatchAllForContents, type Side } from './fs/watch';
@@ -548,6 +549,10 @@ export function registerIpc() {
     expectArgs(args, 'shell:openTerminal', 1);
     return [expectString(args[0], 'path')];
   }, (_e, path) => openTerminal(path));
+  handleValidated('shell:openFullDiskAccessSettings', (args): [] => {
+    expectArgs(args, 'shell:openFullDiskAccessSettings', 0);
+    return [];
+  }, () => openFullDiskAccessSettings());
   handleValidated('shell:startDrag', (args): [string[]] => {
     expectArgs(args, 'shell:startDrag', 1);
     return [expectStringArray(args[0], 'paths')];

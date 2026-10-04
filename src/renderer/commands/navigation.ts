@@ -54,7 +54,9 @@ function parentOf(path: string): string | null {
 function describeError(e: OpError): string {
   switch (e.kind) {
     case 'not-found':  return `Not found: ${e.path}`;
-    case 'permission': return `Permission denied: ${e.path}`;
+    case 'permission': return e.tcc
+      ? `macOS is blocking access to ${e.path} — grant GranderCommander Full Disk Access.`
+      : `Permission denied: ${e.path}`;
     case 'unknown':    return e.message;
     default:           return e.kind;
   }
@@ -74,11 +76,13 @@ async function loadInto(
   const requestKey = ctx.requestKey ?? '__default__';
   const requestId = (latestNavRequest.get(requestKey) ?? 0) + 1;
   latestNavRequest.set(requestKey, requestId);
-  ctx.setPanel({ loading: true, error: null });
+  ctx.setPanel({ loading: true, error: null, errorAction: null });
   const r = await ctx.api.fs.listDir(newPath, { showHidden: ctx.panel.showHidden });
   if (latestNavRequest.get(requestKey) !== requestId) return false;
   if (!r.ok) {
-    ctx.setPanel({ loading: false, error: describeError(r.error) });
+    const patch: Partial<PanelState> = { loading: false, error: describeError(r.error) };
+    if (r.error.kind === 'permission' && r.error.tcc) patch.errorAction = 'full-disk-access';
+    ctx.setPanel(patch);
     return false;
   }
   const sorted = sortEntries(r.value, ctx.panel.sort);

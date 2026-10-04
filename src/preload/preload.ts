@@ -73,6 +73,7 @@ const api: GCApi = {
     openPath: (path) => ipcRenderer.invoke('shell:openPath', path),
     quickLook: (path) => ipcRenderer.invoke('shell:quickLook', path),
     openTerminal: (path) => ipcRenderer.invoke('shell:openTerminal', path),
+    openFullDiskAccessSettings: () => ipcRenderer.invoke('shell:openFullDiskAccessSettings'),
     runCommand: (cmd, cwd) => ipcRenderer.invoke('shell:runCommand', cmd, cwd),
     startDrag: (paths) => ipcRenderer.invoke('shell:startDrag', paths),
   },
