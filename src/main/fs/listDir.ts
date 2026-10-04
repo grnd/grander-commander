@@ -2,6 +2,7 @@ import { readdir, lstat, stat as statFollow } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { FileEntry, ListDirOptions, OpError, Result } from '@shared/types';
 import { NOISE_FILENAMES } from '@shared/types';
+import { permissionError } from './errors';
 
 export async function listDir(
   path: string,
@@ -68,7 +69,7 @@ function mapError(err: unknown, path: string): OpError {
   switch (e.code) {
     case 'ENOENT': return { kind: 'not-found', path };
     case 'EACCES':
-    case 'EPERM':  return { kind: 'permission', path };
+    case 'EPERM':  return permissionError(path, e.code);
     case 'ENOSPC': return { kind: 'disk-full' };
     default:       return { kind: 'unknown', message: e.message ?? String(err) };
   }

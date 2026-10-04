@@ -1,6 +1,7 @@
 import { lstat, stat as statFollow } from 'node:fs/promises';
 import { basename } from 'node:path';
 import type { FileEntry, OpError, Result } from '@shared/types';
+import { permissionError } from './errors';
 
 export async function stat(path: string): Promise<Result<FileEntry>> {
   try {
@@ -40,7 +41,7 @@ export async function stat(path: string): Promise<Result<FileEntry>> {
     const e = err as NodeJS.ErrnoException;
     const mapped: OpError =
       e.code === 'ENOENT' ? { kind: 'not-found', path }
-      : e.code === 'EACCES' || e.code === 'EPERM' ? { kind: 'permission', path }
+      : e.code === 'EACCES' || e.code === 'EPERM' ? permissionError(path, e.code)
       : { kind: 'unknown', message: e.message ?? String(err) };
     return { ok: false, error: mapped };
   }

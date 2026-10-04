@@ -117,6 +117,25 @@ describe('failed navigation', () => {
     });
   });
 
+  it('explains a macOS privacy block and offers the Full Disk Access remedy', async () => {
+    const { panel, setPanel, api } = mkCtx();
+    const path = '/Users/u/Pictures/Photos Library.photoslibrary';
+    api.fs.listDir.mockResolvedValue({ ok: false, error: { kind: 'permission', path, tcc: true } });
+    await navigateTo({ panel, setPanel, api, path, requestKey: 'left' });
+    expect(setPanel).toHaveBeenCalledWith({
+      loading: false,
+      error: `macOS is blocking access to ${path} \u2014 grant GranderCommander Full Disk Access.`,
+      errorAction: 'full-disk-access',
+    });
+  });
+
+  it('clears a stale remedy when the next listing starts', async () => {
+    const { panel, setPanel, api } = mkCtx();
+    api.fs.listDir.mockResolvedValue({ ok: true, value: [] });
+    await navigateTo({ panel, setPanel, api, path: '/tmp', requestKey: 'left' });
+    expect(setPanel).toHaveBeenCalledWith({ loading: true, error: null, errorAction: null });
+  });
+
   it('ignores an older in-flight response after a newer destination starts loading', async () => {
     const { panel, setPanel, api } = mkCtx();
     let resolveFirst!: (value: { ok: true; value: FileEntry[] }) => void;

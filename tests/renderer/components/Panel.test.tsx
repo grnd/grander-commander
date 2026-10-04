@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeAll } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { Panel } from '@renderer/components/Panel';
 import { initialPanelState } from '@renderer/state/panelSlice';
 
@@ -34,5 +34,23 @@ describe('Panel', () => {
   it('renders no alert when there is no error', () => {
     render(<Panel {...mkProps()} />);
     expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('offers no remedy button for an error that has no action', () => {
+    const props = mkProps();
+    props.panel.error = 'Permission denied: /tmp/secret';
+    render(<Panel {...props} />);
+    expect(screen.queryByRole('button', { name: 'Open Settings' })).toBeNull();
+  });
+
+  it('opens Full Disk Access settings when macOS privacy blocked the listing', () => {
+    const openFullDiskAccessSettings = vi.fn().mockResolvedValue(undefined);
+    (window as unknown as { gc: unknown }).gc = { shell: { openFullDiskAccessSettings } };
+    const props = mkProps();
+    props.panel.error = 'macOS is blocking access to /Users/u/Pictures/Photos Library.photoslibrary';
+    props.panel.errorAction = 'full-disk-access';
+    render(<Panel {...props} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Open Settings' }));
+    expect(openFullDiskAccessSettings).toHaveBeenCalledTimes(1);
   });
 });

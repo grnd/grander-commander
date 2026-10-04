@@ -55,6 +55,8 @@ export type GCApi = {
     openPath(path: string): Promise<void>;
     quickLook(path: string): Promise<void>;
     openTerminal(path: string): Promise<void>;
+    /** Opens System Settings -> Privacy & Security -> Full Disk Access. */
+    openFullDiskAccessSettings(): Promise<void>;
     runCommand(cmd: string, cwd: string): Promise<{ stdout: string; stderr: string; exitCode: number }>;
     /** Hands `paths` to the OS drag session so they can be dropped into Finder. */
     startDrag(paths: string[]): Promise<void>;

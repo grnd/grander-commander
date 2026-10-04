@@ -33,7 +33,11 @@ export type SortCol = 'name' | 'ext' | 'size' | 'date';
 export type SortDir = 'asc' | 'desc';
 
 export type OpError =
-  | { kind: 'permission'; path: string }
+  /**
+   * `tcc` marks the macOS privacy layer (Full Disk Access) as the thing doing
+   * the blocking rather than the file mode — a different fix for the user.
+   */
+  | { kind: 'permission'; path: string; tcc?: boolean }
   | { kind: 'not-found'; path: string }
   | { kind: 'disk-full' }
   | { kind: 'cross-device'; src: string; dst: string }
