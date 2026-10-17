@@ -8,13 +8,16 @@ speculative. Check off as we ship.
 Safety net first — two releases (v0.1.2, v0.1.6) shipped an app that would not
 start, and both would have been caught by running the thing once.
 
-- [ ] **CI on pull requests**: typecheck + lint + test. There is currently *no*
-  PR-triggered workflow at all — `release.yml` only fires on `v*` tags, so a PR
-  can merge with a red suite and nothing notices until a release is being cut.
-- [ ] **Pre-publish smoke gate**: build with `--publish never`, launch the
-  packaged `.app`, assert `window.gc` and `.gc-app` exist, *then* publish.
-  Requires splitting the single build-and-publish command. This is the check
-  that would have caught both blank-window releases.
+- [x] **CI on pull requests**: typecheck + lint + test + build, on every PR and
+  every push to master (`.github/workflows/ci.yml`). Before this, `release.yml`
+  only fired on `v*` tags, so a PR could merge with a red suite and nothing
+  noticed until a release was being cut.
+- [x] **Pre-publish smoke gate**: release.yml now builds with `--publish
+  never`, starts the packaged `.app` under `GC_SMOKE=1` (the app asserts
+  `window.gc` and `.gc-app` itself — no debugger attaches to a notarized
+  binary), and only then uploads. Verified against a deliberately
+  reintroduced v0.1.6 (ESM preload under a sandboxed renderer): the gate
+  exits 1 on it and 0 on a good build.
 - [ ] **Mutation ops still use `alert()`** — surface failures as the inline
   banner navigation already uses.
 - [ ] **Tabs do not persist** across restarts.
@@ -25,6 +28,7 @@ start, and both would have been caught by running the thing once.
 - [ ] Release notes have a duplicated heading: GitHub emits `## What's Changed`
   and the catch-all category in `.github/release.yml` repeats it as `###`.
   Rename the catch-all to "Other Changes".
+- [ ] Implement folder auto-complete in the editable path above each pane
 
 ### Decisions to make
 
@@ -77,8 +81,8 @@ Real work, just not blocking the next build.
 
 **Correctness / perf**
 
-- [ ] **Watch active directories** with `fs.watch` + debounce; refresh on
-  external changes.
+- [x] **Watch active directories** with `fs.watch` + debounce; refresh on
+  external changes. Shipped in v0.3.0.
 - [ ] **Cloud placeholder files**: Google Drive / iCloud / Dropbox store
   dataless placeholders. Entering the mounts is fixed; still to do is showing
   which files are local vs cloud-only and downloading on open. Designed in
