@@ -1,7 +1,7 @@
 {
   "name": "grandercommander",
   "productName": "GranderCommander",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Total Commander for macOS",
   "main": "out/main/main.js",
   "type": "module",
