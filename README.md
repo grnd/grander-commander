@@ -76,7 +76,9 @@ Power-user tools:
 | `Tab` in the command line | Complete paths and executables |
 | `Shift+F4` | Create a file in the active panel and open it in the editor |
 | drag a column edge | Resize that column; widths are per-panel and persist (double-click resets) |
-| drag a row | Copy to the other panel; `Shift` moves, `Alt` drags out to Finder |
+| drag a row | Copy to the other panel or out to Finder; `Shift` moves |
+| drop on the path bar or a tab | Go there instead of copying — a dropped file parks the cursor on it |
+| click the folder chip in the path bar | Open the panel's folder in a Finder window |
 
 Panel listings refresh themselves when something else changes the folder on disk, so a
 download finishing or a `git checkout` in the terminal shows up without `Cmd+R`.

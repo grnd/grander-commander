@@ -26,6 +26,8 @@ import { openTerminal } from './shell/openTerminal';
 import { runCommand } from './shell/runCommand';
 import { startDrag } from './shell/dragOut';
 import { openFullDiskAccessSettings } from './shell/privacySettings';
+import { openInFinder } from './shell/openInFinder';
+import { finderIcon } from './shell/finderIcon';
 import { checkForUpdates, downloadUpdate, quitAndInstall, getUpdateStatus, openReleaseNotes } from './updater';
 import { spawnTerminal, writeTerminal, resizeTerminal, killTerminal, killAllForContents } from './shell/terminal';
 import { watchDir, unwatchDir, unwatchAllForContents, type Side } from './fs/watch';
@@ -541,6 +543,14 @@ export function registerIpc() {
     expectArgs(args, 'shell:openPath', 1);
     return [expectString(args[0], 'path')];
   }, (_e, path) => shell.openPath(path));
+  handleValidated('shell:openInFinder', (args): [string] => {
+    expectArgs(args, 'shell:openInFinder', 1);
+    return [expectString(args[0], 'path')];
+  }, (_e, path) => openInFinder(path));
+  handleValidated('shell:finderIcon', (args): [] => {
+    expectArgs(args, 'shell:finderIcon', 0);
+    return [];
+  }, () => finderIcon());
   handleValidated('shell:quickLook', (args): [string] => {
     expectArgs(args, 'shell:quickLook', 1);
     return [expectString(args[0], 'path')];

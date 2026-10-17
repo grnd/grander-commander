@@ -71,6 +71,8 @@ const api: GCApi = {
   },
   shell: {
     openPath: (path) => ipcRenderer.invoke('shell:openPath', path),
+    openInFinder: (path) => ipcRenderer.invoke('shell:openInFinder', path),
+    finderIcon: () => ipcRenderer.invoke('shell:finderIcon'),
     quickLook: (path) => ipcRenderer.invoke('shell:quickLook', path),
     openTerminal: (path) => ipcRenderer.invoke('shell:openTerminal', path),
     openFullDiskAccessSettings: () => ipcRenderer.invoke('shell:openFullDiskAccessSettings'),

@@ -29,6 +29,13 @@ type Props = {
   onDragOverTarget?: (index: number | null, e: React.DragEvent) => void;
   onDropOnTarget?: (index: number | null, e: React.DragEvent) => void;
   onDragLeavePanel?: () => void;
+  /** A drop on the path bar or a tab: a place to go, not files to copy. */
+  onLocationDrop?: (e: React.DragEvent) => void;
+  onTabLocationDrop?: (index: number | null, e: React.DragEvent) => void;
+  /** Open the panel's own folder in a Finder window. */
+  onOpenInFinder?: () => void;
+  /** Finder's icon for that chip, when the system could supply one. */
+  finderIcon?: string | null;
   dropTargetIndex?: number | null;
   isDropActive?: boolean;
 };
@@ -38,6 +45,7 @@ export function Panel({
   onPathCommit, onSort, pathBarRef, searchBuffer,
   tabs, activeTab = 0, onSelectTab, onCloseTab, onNewTab,
   onRowDragStart, onDragOverTarget, onDropOnTarget, onDragLeavePanel,
+  onLocationDrop, onTabLocationDrop, onOpenInFinder, finderIcon = null,
   dropTargetIndex = null, isDropActive = false,
 }: Props) {
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -64,6 +72,7 @@ export function Panel({
           onSelect={(i) => onSelectTab?.(i)}
           onClose={(i) => onCloseTab?.(i)}
           onNew={() => onNewTab?.()}
+          onLocationDrop={onTabLocationDrop}
         />
       )}
       <PathBar
@@ -72,6 +81,9 @@ export function Panel({
         active={isActive}
         inputRef={pathBarRef}
         virtual={panel.source.kind !== 'fs'}
+        onLocationDrop={onLocationDrop}
+        onOpenInFinder={onOpenInFinder}
+        finderIcon={finderIcon}
       />
       <ColumnHeader side={side} sort={panel.sort} onSort={onSort} />
       {panel.error && (
