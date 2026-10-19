@@ -9,7 +9,11 @@
 </p>
 
 <p align="center">
-  <img src="docs/screenshot.png" alt="GranderCommander screenshot" width="820" />
+  <img src="docs/demo.gif" alt="Marking three files, copying them to the other pane with F5, then viewing them with F3" width="900" />
+</p>
+
+<p align="center">
+  <sub>Mark with <code>Shift+↓</code>, copy to the other pane with <code>F5</code>, view with <code>F3</code>.</sub>
 </p>
 
 ---
