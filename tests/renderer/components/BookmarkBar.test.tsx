@@ -46,4 +46,12 @@ describe('BookmarkBar', () => {
     render(<BookmarkBar bookmarks={slots('/a/src')} onPick={() => {}} onClear={() => {}} />);
     expect(screen.getByRole('button')).toHaveAttribute('title', expect.stringContaining('Ctrl+1'));
   });
+
+  // The row carried a Cmd glyph while the slots answer to Ctrl, and Cmd+1..9
+  // is taken by tab switching — so the glyph pointed at the wrong modifier.
+  it('labels the row with the Control glyph, not Command', () => {
+    render(<BookmarkBar bookmarks={slots('/a/src')} onPick={() => {}} onClear={() => {}} />);
+    expect(screen.getByText('\u2303')).toBeInTheDocument();
+    expect(screen.queryByText('\u2318')).toBeNull();
+  });
 });

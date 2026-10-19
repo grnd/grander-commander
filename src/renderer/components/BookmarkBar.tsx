@@ -20,7 +20,7 @@ export function BookmarkBar({ bookmarks, onPick, onClear }: Props) {
 
   return (
     <div className="gc-bookmarks">
-      <span className="gc-bookmarks-label" title="Ctrl+1..9 jump · Ctrl+Shift+1..9 set">⌘</span>
+      <span className="gc-bookmarks-label" title="Ctrl+1..9 jump · Ctrl+Shift+1..9 set">⌃</span>
       {bookmarks.map((path, i) => {
         const slot = i + 1;
         if (!path) return null;
