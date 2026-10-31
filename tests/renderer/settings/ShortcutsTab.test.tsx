@@ -128,4 +128,41 @@ describe('ShortcutsTab', () => {
     const copy = await row('Copy to the other pane — Global');
     expect(within(copy).getByRole('button', { name: /record/i })).toBeDisabled();
   });
+
+  it('records a key and assigns it to the row', async () => {
+    render(<ShortcutsTab />);
+    const copy = await row('Copy to the other pane — Global');
+    fireEvent.click(within(copy).getByRole('button', { name: /record/i }));
+    fireEvent.keyDown(document, { key: 'F12', code: 'F12' });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(keymap.apply).toHaveBeenCalledWith({
+      revision: 1, op: { kind: 'assign', context: 'global', command: 'copy', key: 'F12' },
+    }));
+  });
+
+  it('reports a take-over and undoes it', async () => {
+    keymap.apply.mockResolvedValue({
+      ok: true, snapshot: snapshot(defaultBindings(), 2),
+      displaced: [{ context: 'global', command: 'copy', key: 'F5' }], undoToken: 'tok',
+    });
+    render(<ShortcutsTab />);
+    const rename = await row('Rename — Global');
+    fireEvent.click(within(rename).getByRole('button', { name: /record/i }));
+    fireEvent.keyDown(document, { key: 'F5', code: 'F5' });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    expect(await screen.findByText(/Took F5 from Copy to the other pane/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
+    await waitFor(() => expect(keymap.undo).toHaveBeenCalledWith({ revision: 2, token: 'tok' }));
+  });
+
+  it('closes the recorder on Cancel', async () => {
+    render(<ShortcutsTab />);
+    const copy = await row('Copy to the other pane — Global');
+    fireEvent.click(within(copy).getByRole('button', { name: /record/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(screen.queryByRole('group', { name: /record a shortcut/i })).toBeNull());
+    expect(keymap.apply).not.toHaveBeenCalled();
+  });
 });

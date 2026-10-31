@@ -5,6 +5,7 @@ import { keyIdFromEvent } from '@shared/keys/identity';
 import { toAccelerator, toDisplay } from '@shared/keys/adapters';
 import { lookupKey, buildKeyTable } from '@shared/keymap/lookup';
 import type { Displaced } from '@shared/keymap/types';
+import { KeyRecorder } from './KeyRecorder';
 import { rowName, shortcutRows, type Row } from './rows';
 import { useKeymap } from './useKeymap';
 
@@ -29,6 +30,8 @@ export function ShortcutsTab() {
   const [keyFilter, setKeyFilter] = useState<string | null>(null);
   const [findingByKey, setFindingByKey] = useState(false);
   const [confirmResetAll, setConfirmResetAll] = useState(false);
+  /** The row whose recorder is open, as "command|context". */
+  const [recording, setRecording] = useState<string | null>(null);
   const rows = useMemo(() => shortcutRows(), []);
 
   // One keystroke, read by physical key, filters the list by what that key
@@ -113,6 +116,13 @@ export function ShortcutsTab() {
                     row={r}
                     keys={bindingsFor(snapshot.bindings, r.context, r.command)}
                     readOnly={readOnly}
+                    recording={recording === `${r.command}|${r.context}`}
+                    onRecord={() => setRecording(`${r.command}|${r.context}`)}
+                    onRecorded={(key) => {
+                      setRecording(null);
+                      void apply({ kind: 'assign', context: r.context, command: r.command, key }, describe);
+                    }}
+                    onCancelRecording={() => setRecording(null)}
                     onRemove={(key) => void apply({
                       kind: 'remove', context: r.context, command: r.command, key,
                     })}
@@ -146,10 +156,16 @@ export function ShortcutsTab() {
   );
 }
 
-function ShortcutRow({ row, keys, readOnly, onRemove, onReset }: {
+function ShortcutRow({
+  row, keys, readOnly, recording, onRecord, onRecorded, onCancelRecording, onRemove, onReset,
+}: {
   row: Row;
   keys: string[];
   readOnly: boolean;
+  recording: boolean;
+  onRecord: () => void;
+  onRecorded: (key: string) => void;
+  onCancelRecording: () => void;
   onRemove: (key: string) => void;
   onReset: () => void;
 }) {
@@ -179,8 +195,22 @@ function ShortcutRow({ row, keys, readOnly, onRemove, onReset }: {
         ))}
       </td>
       <td className="gc-shortcuts-actions">
-        <button type="button" disabled={readOnly || row.fixed !== null}>Record a key</button>
-        <button type="button" disabled={readOnly || row.fixed !== null} onClick={onReset}>Reset</button>
+        {recording ? (
+          <KeyRecorder onRecord={onRecorded} onCancel={onCancelRecording} />
+        ) : (
+          <>
+            <button
+              type="button"
+              disabled={readOnly || row.fixed !== null}
+              onClick={onRecord}
+            >Record a key</button>
+            <button
+              type="button"
+              disabled={readOnly || row.fixed !== null}
+              onClick={onReset}
+            >Reset</button>
+          </>
+        )}
       </td>
     </tr>
   );
