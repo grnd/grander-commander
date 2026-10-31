@@ -662,3 +662,82 @@ body {
   white-space: pre; overflow: auto;
   user-select: text;
 }
+
+/* The settings window. It shares the panel theme tokens. */
+.gc-settings {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  font: 13px/1.5 var(--gc-font, system-ui);
+  color: var(--gc-fg);
+  background: var(--gc-bg);
+}
+.gc-settings-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 8px 12px 0;
+  border-bottom: 1px solid var(--gc-border);
+}
+.gc-settings-tabs button {
+  padding: 6px 14px;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+  background: none;
+  color: inherit;
+}
+.gc-settings-tabs button.is-active {
+  border-color: var(--gc-border);
+  background: var(--gc-row-alt, rgba(127, 127, 127, 0.12));
+  font-weight: 600;
+}
+.gc-settings-body { flex: 1; overflow: auto; padding: 12px 16px 24px; }
+.gc-settings-loading { padding: 16px; opacity: 0.7; }
+
+.gc-shortcuts-diagnostics {
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: var(--gc-error-bg, #a33);
+  color: #fff;
+  list-style: none;
+}
+.gc-shortcuts-search { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
+.gc-shortcuts-search input[type='search'] { flex: 1; padding: 5px 8px; }
+.gc-shortcuts-error { color: var(--gc-error-bg, #a33); font-weight: 600; }
+.gc-shortcuts-undo { display: flex; gap: 8px; align-items: center; }
+.gc-shortcuts-section h3 {
+  margin: 18px 0 6px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  opacity: 0.6;
+}
+.gc-shortcuts-section table { width: 100%; border-collapse: collapse; }
+.gc-shortcuts-section tr { border-bottom: 1px solid var(--gc-border); }
+.gc-shortcuts-section td { padding: 5px 6px; vertical-align: middle; }
+.gc-shortcuts-label { width: 42%; }
+.gc-shortcuts-context { width: 12%; opacity: 0.65; }
+.gc-shortcuts-fixed, .gc-shortcuts-note {
+  margin-left: 6px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--gc-row-alt, rgba(127, 127, 127, 0.18));
+  font-size: 10px;
+  opacity: 0.8;
+}
+.gc-shortcuts-chip {
+  display: inline-flex;
+  gap: 3px;
+  align-items: center;
+  margin-right: 5px;
+  padding: 1px 4px 1px 6px;
+  border: 1px solid var(--gc-border);
+  border-radius: 5px;
+  font-family: ui-monospace, Menlo, monospace;
+}
+.gc-shortcuts-chip button { border: none; background: none; color: inherit; cursor: pointer; }
+.gc-shortcuts-none { opacity: 0.45; }
+.gc-shortcuts-actions { text-align: right; white-space: nowrap; }
+.gc-shortcuts-actions button { margin-left: 6px; }
+.gc-shortcuts-footer { margin-top: 20px; display: flex; gap: 8px; align-items: center; }

@@ -1,5 +1,5 @@
 // src/main/main.ts
-import { app, BrowserWindow, Menu } from 'electron';
+import { app, BrowserWindow } from 'electron';
 import { isSmokeRun, runSmokeCheck } from './smoke';
 import { registerIpc, setKeymapPublisher, setKeymapStore, setSettingsOpener } from './ipc';
 import { KeymapStore } from './keymap/store';
