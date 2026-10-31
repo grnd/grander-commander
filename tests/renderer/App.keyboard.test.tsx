@@ -126,7 +126,7 @@ describe('keyboard routing', () => {
 
     fireEvent.change(cmdline(), { target: { value: 'ls' } });
     cmdline().blur();
-    fireEvent.keyDown(document, { key: 'Backspace' });
+    fireEvent.keyDown(document, { key: 'Backspace', code: 'Backspace' });
 
     await waitFor(() => expect(cmdline().value).toBe('l'));
     expect(activePath()).toBe('/a/b');
@@ -138,7 +138,7 @@ describe('keyboard routing', () => {
     startIn('/a/b');
 
     expect(cmdline().value).toBe('');
-    fireEvent.keyDown(document, { key: 'Backspace' });
+    fireEvent.keyDown(document, { key: 'Backspace', code: 'Backspace' });
 
     await waitFor(() => expect(activePath()).toBe('/a'));
   });
@@ -151,7 +151,7 @@ describe('keyboard routing', () => {
     await waitFor(() => expect(document.querySelector('.gc-quicksearch')).toBeTruthy());
     expect(screen.getByText('n')).toBeInTheDocument();
 
-    fireEvent.keyDown(document, { key: 'Escape' });
+    fireEvent.keyDown(document, { key: 'Escape', code: 'Escape' });
     await waitFor(() => expect(document.querySelector('.gc-quicksearch')).toBeNull());
   });
 
@@ -263,10 +263,10 @@ describe('keyboard routing', () => {
     search('rep');
     await waitFor(() => expect(cursorName()).toBe('repo'));
 
-    fireEvent.keyDown(document, { key: 'ArrowDown' });
+    fireEvent.keyDown(document, { key: 'ArrowDown', code: 'ArrowDown' });
     await waitFor(() => expect(cursorName()).toBe('report.txt'));
 
-    fireEvent.keyDown(document, { key: 'ArrowUp' });
+    fireEvent.keyDown(document, { key: 'ArrowUp', code: 'ArrowUp' });
     await waitFor(() => expect(cursorName()).toBe('repo'));
   });
 
@@ -278,16 +278,16 @@ describe('keyboard routing', () => {
     search('rep');
     await waitFor(() => expect(cursorName()).toBe('repo'));
 
-    fireEvent.keyDown(document, { key: 'ArrowUp' });
+    fireEvent.keyDown(document, { key: 'ArrowUp', code: 'ArrowUp' });
     await waitFor(() => expect(cursorName()).toBe('repo'));
 
-    fireEvent.keyDown(document, { key: 'End' });
+    fireEvent.keyDown(document, { key: 'End', code: 'End' });
     await waitFor(() => expect(cursorName()).toBe('report.txt'));
-    fireEvent.keyDown(document, { key: 'ArrowDown' });
-    fireEvent.keyDown(document, { key: 'PageDown' });
+    fireEvent.keyDown(document, { key: 'ArrowDown', code: 'ArrowDown' });
+    fireEvent.keyDown(document, { key: 'PageDown', code: 'PageDown' });
     await waitFor(() => expect(cursorName()).toBe('report.txt'));
 
-    fireEvent.keyDown(document, { key: 'Home' });
+    fireEvent.keyDown(document, { key: 'Home', code: 'Home' });
     await waitFor(() => expect(cursorName()).toBe('repo'));
   });
 
@@ -298,10 +298,10 @@ describe('keyboard routing', () => {
 
     search('rep');
     await waitFor(() => expect(cursorName()).toBe('repo'));
-    fireEvent.keyDown(document, { key: 'Escape' });
+    fireEvent.keyDown(document, { key: 'Escape', code: 'Escape' });
     await waitFor(() => expect(document.querySelector('.gc-quicksearch')).toBeNull());
 
-    fireEvent.keyDown(document, { key: 'ArrowDown' });
+    fireEvent.keyDown(document, { key: 'ArrowDown', code: 'ArrowDown' });
     await waitFor(() => expect(cursorName()).toBe('stuff'));
   });
 
@@ -316,7 +316,7 @@ describe('keyboard routing', () => {
     await waitFor(() => expect(document.querySelector('.gc-quicksearch.is-nomatch')).toBeTruthy());
 
     for (const key of ['ArrowDown', 'ArrowUp', 'PageDown', 'PageUp', 'Home', 'End']) {
-      fireEvent.keyDown(document, { key });
+      fireEvent.keyDown(document, { key, code: key });
     }
     await waitFor(() => expect(cursorName()).toBe('repo'));
   });
@@ -328,9 +328,9 @@ describe('keyboard routing', () => {
 
     search('rep');
     await waitFor(() => expect(cursorName()).toBe('repo'));
-    fireEvent.keyDown(document, { key: 'PageDown' });
+    fireEvent.keyDown(document, { key: 'PageDown', code: 'PageDown' });
     await waitFor(() => expect(cursorName()).toBe('report.txt'));
-    fireEvent.keyDown(document, { key: 'PageUp' });
+    fireEvent.keyDown(document, { key: 'PageUp', code: 'PageUp' });
     await waitFor(() => expect(cursorName()).toBe('repo'));
   });
 
@@ -350,7 +350,7 @@ describe('keyboard routing', () => {
 
     const side = useStore.getState().activeSide;
     act(() => { useStore.getState().replacePanel(side, { cursor: 1 }); });  // 'beta', off the match set
-    fireEvent.keyDown(document, { key: 'ArrowDown' });
+    fireEvent.keyDown(document, { key: 'ArrowDown', code: 'ArrowDown' });
     await waitFor(() => expect(cursorName()).toBe('alpine.txt'));
   });
 
@@ -376,10 +376,10 @@ describe('keyboard routing', () => {
 
     fireEvent.change(cmdline(), { target: { value: 'l' } });
     cmdline().blur();
-    fireEvent.keyDown(document, { key: 'Backspace' });
+    fireEvent.keyDown(document, { key: 'Backspace', code: 'Backspace' });
     await waitFor(() => expect(cmdline().value).toBe(''));
 
-    fireEvent.keyDown(cmdline(), { key: 'Backspace' });
+    fireEvent.keyDown(cmdline(), { key: 'Backspace', code: 'Backspace' });
     await waitFor(() => expect(activePath()).toBe('/a'));
   });
 
@@ -389,7 +389,7 @@ describe('keyboard routing', () => {
 
     fireEvent.change(cmdline(), { target: { value: 'echo 😀' } });
     cmdline().blur();
-    fireEvent.keyDown(document, { key: 'Backspace' });
+    fireEvent.keyDown(document, { key: 'Backspace', code: 'Backspace' });
 
     await waitFor(() => expect(cmdline().value).toBe('echo '));
   });
@@ -402,7 +402,7 @@ describe('keyboard routing', () => {
     search('rep');
     await waitFor(() => expect(document.querySelector('.gc-quicksearch')).toBeTruthy());
     cmdline().focus();
-    fireEvent.keyDown(cmdline(), { key: 'Escape' });
+    fireEvent.keyDown(cmdline(), { key: 'Escape', code: 'Escape' });
 
     await waitFor(() => expect(useStore.getState().quickSearch).toBeNull());
   });

@@ -83,6 +83,19 @@ describe('catalog', () => {
     }
   });
 
+  // Parity with the deleted keybindings.test.ts, which asserted these through
+  // lookup() and allowedFromInput().
+  it('resolves the keys the old table resolved', () => {
+    const table = buildKeyTable(defaultBindings());
+    expect(lookupKey(table, 'panel', 'F5')).toBe('copy');
+    expect(lookupKey(table, 'panel', 'ArrowDown')).toBe('cursorDown');
+    expect(lookupKey(table, 'panel', 'Cmd+A')).toBe('selectAll');
+    expect(lookupKey(table, 'panel', 'Ctrl+Z')).toBeNull();
+    for (const k of ['Ctrl+Shift+1', 'Cmd+G', 'Cmd+Slash']) {
+      expect(lookupKey(table, 'input', k), `${k} must survive a focused input`).not.toBeNull();
+    }
+  });
+
   it('keeps the bindings the app shipped with', () => {
     const b = defaultBindings();
     expect(bindingsFor(b, 'global', 'copy')).toContain('F5');

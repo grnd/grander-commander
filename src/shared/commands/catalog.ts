@@ -110,7 +110,11 @@ export const CATALOG: readonly CommandMeta[] = [
   { id: 'addToFavorites', label: 'Add to favorites', category: 'Tools', context: 'global', defaults: ['Cmd+Shift+F', 'Ctrl+Shift+F'] },
   { id: 'pickFavorite', label: 'Favorites…', category: 'Tools', context: 'global', defaults: ['Cmd+Slash', 'Cmd+G'] },
   { id: 'openTerminal', label: 'Open Terminal here', category: 'Tools', context: 'global', defaults: ['Cmd+S', 'F9'] },
-  { id: 'toggleTerminal', label: 'Toggle the built-in terminal', category: 'Tools', context: 'global', defaults: ['Ctrl+Backquote'] },
+  { id: 'toggleTerminal', label: 'Toggle the built-in terminal', category: 'Tools',
+    context: 'global', defaults: ['Ctrl+Backquote'],
+    // Also in `terminal`: it is the way out of a pane that otherwise keeps
+    // every non-Cmd key for the shell.
+    alsoIn: { terminal: ['Ctrl+Backquote'] } },
   { id: 'multiRename', label: 'Multi-rename…', category: 'Tools', context: 'global', defaults: ['Ctrl+M', 'Cmd+Shift+M'] },
   { id: 'compareFiles', label: 'Compare files', category: 'Tools', context: 'global', defaults: ['Cmd+D'] },
   { id: 'syncFolders', label: 'Synchronise folders…', category: 'Tools', context: 'global', defaults: ['Cmd+Y'] },
