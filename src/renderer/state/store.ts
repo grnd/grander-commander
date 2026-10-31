@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import { defaultBindings } from '@shared/commands/catalog';
+import type { KeymapSnapshot } from '@shared/keymap/types';
 import type { Volume, DialogState, Favorite } from '@shared/types';
 import { initialPanelState, type PanelSide, type PanelState } from './panelSlice';
 
@@ -134,6 +136,9 @@ export type AppState = {
    * means nothing once the panel has moved on.
    */
   quickSearch: { buffer: string; side: PanelSide; path: string; matched: boolean } | null;
+  /** The committed keymap, as main last published it. */
+  keymap: KeymapSnapshot;
+  setKeymap: (snapshot: KeymapSnapshot) => void;
   terminalOpen: boolean;
   /** F3 full-window viewer. Owns the keyboard while open. */
   viewer: { path: string } | null;
@@ -188,6 +193,7 @@ export const useStore = create<AppState>((set) => ({
   bookmarks: loadBookmarks(),
   favoritePickerOpen: false,
   quickSearch: null,
+  keymap: { revision: 0, bindings: defaultBindings(), overrides: {}, diagnostics: [], readOnly: false },
   terminalOpen: false,
   viewer: null,
   quickView: false,
@@ -232,6 +238,7 @@ export const useStore = create<AppState>((set) => ({
   }),
   setFavoritePickerOpen: (open) => set({ favoritePickerOpen: open }),
   setQuickSearch: (qs) => set({ quickSearch: qs }),
+  setKeymap: (snapshot) => set({ keymap: snapshot }),
   setTerminalOpen: (open) => set({ terminalOpen: open }),
   setBookmark: (slot, path) => set((s) => {
     if (slot < 1 || slot > BOOKMARK_COUNT) return s;

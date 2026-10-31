@@ -3,6 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import type { FileEntry } from '@shared/types';
 import { App } from '@renderer/App';
 import { useStore } from '@renderer/state/store';
+import { keymapApi } from './keymapApi';
 
 beforeAll(() => {
   globalThis.ResizeObserver = class {
@@ -25,6 +26,7 @@ let menuCb: ((cmd: string) => void) | null = null;
 function mockApi() {
   menuCb = null;
   return {
+    keymap: keymapApi(),
     fs: {
       listDir: vi.fn().mockResolvedValue({
         ok: true,

@@ -9,6 +9,7 @@ vi.mock('@renderer/components/Terminal', () => ({
 import { App } from '@renderer/App';
 import { useStore } from '@renderer/state/store';
 import { initialPanelState } from '@renderer/state/panelSlice';
+import { keymapApi } from './keymapApi';
 
 beforeAll(() => {
   globalThis.ResizeObserver = class {
@@ -40,6 +41,7 @@ function mockApi() {
   opCb = null;
   opUnsub.mockReset();
   return {
+    keymap: keymapApi(),
     fs: {
       listDir: vi.fn().mockResolvedValue({
         ok: true,

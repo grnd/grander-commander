@@ -4,6 +4,7 @@ import type { FileEntry } from '@shared/types';
 import { App } from '@renderer/App';
 import { useStore } from '@renderer/state/store';
 import { initialPanelState } from '@renderer/state/panelSlice';
+import { keymapApi } from './keymapApi';
 
 beforeAll(() => {
   // xterm asks for it as soon as the terminal pane mounts.
@@ -28,6 +29,7 @@ function entry(name: string, ext = '', isDir = false): FileEntry {
 
 function mockApi() {
   return {
+    keymap: keymapApi(),
     fs: {
       listDir: vi.fn().mockResolvedValue({
         ok: true,

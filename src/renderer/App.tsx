@@ -1,5 +1,5 @@
 // src/renderer/App.tsx
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from './state/store';
 import { Cheatsheet } from './components/Cheatsheet';
 import { FavoritesBar } from './components/FavoritesBar';
@@ -25,8 +25,8 @@ import {
 } from './commands/dnd';
 
 import { activeContext, createKeyRouter } from '@renderer/keys/router';
-import { buildKeyTable } from '@shared/keymap/lookup';
-import { defaultBindings } from '@shared/commands/catalog';
+import { bindingsFor, buildKeyTable } from '@shared/keymap/lookup';
+import { keyIdFromEvent, keyIdParts } from '@shared/keys/identity';
 import { canRun, type AvailabilitySnapshot } from '@shared/commands/availability';
 import { surfaceHandler, mountedSurfaces } from '@renderer/keys/surfaces';
 import type { CommandName } from './commands';
@@ -217,6 +217,16 @@ export function App() {
       mountedSurfaces: mountedSurfaces(),
     };
   }, []);
+
+  // The keymap belongs to main. Hydrate once, then follow every broadcast: an
+  // edit can come from the settings window or from a hand-edited file.
+  useEffect(() => {
+    void api.keymap.get().then((snapshot) => useStore.getState().setKeymap(snapshot));
+    return api.keymap.onChanged((snapshot) => useStore.getState().setKeymap(snapshot));
+  }, [api]);
+
+  const bindings = state.keymap.bindings;
+  const keyTable = useMemo(() => buildKeyTable(bindings), [bindings]);
 
   const dispatch = useCallback(async (cmd: CommandName) => {
     // Commands arrive from the native menu, the F-key bar and the context menu
@@ -646,7 +656,7 @@ export function App() {
   // lookup, which is what the quick-search and Backspace branches used to do.
   useEffect(() => {
     const router = createKeyRouter({
-      table: () => buildKeyTable(defaultBindings()),
+      table: () => keyTable,
       context: (target) => {
         const s = useStore.getState();
         const el = target instanceof HTMLElement ? target : null;
@@ -712,7 +722,7 @@ export function App() {
     // command registers while the event is still in flight.
     document.addEventListener('keydown', onKey, true);
     return () => document.removeEventListener('keydown', onKey, true);
-  }, [dispatch, extendSearch, snapshot]);
+  }, [dispatch, extendSearch, snapshot, keyTable]);
 
   // The quick-search box stays up until Escape, so it has to retire itself when
   // its claim stops holding: the buffer names a row in one folder of one panel.
@@ -773,7 +783,14 @@ export function App() {
   // goes through the keymap like every other shortcut.
   useEffect(() => {
     const up = (e: KeyboardEvent) => {
-      if (e.key === '?' || e.key === 'Shift') setCheatVisible(false);
+      // The token of whatever key is bound to the cheatsheet, so a rebind
+      // closes it on the new key rather than on '?' for ever.
+      const tokens = [
+        ...bindingsFor(bindings, 'panel', 'toggleCheatsheet'),
+        ...bindingsFor(bindings, 'global', 'toggleCheatsheet'),
+      ].map((key) => keyIdParts(key)?.token);
+      const token = keyIdFromEvent(e) ? keyIdParts(keyIdFromEvent(e)!)?.token : null;
+      if (e.key === 'Shift' || (token && tokens.includes(token))) setCheatVisible(false);
     };
     const blur = () => setCheatVisible(false);
     document.addEventListener('keyup', up);
@@ -782,7 +799,7 @@ export function App() {
       document.removeEventListener('keyup', up);
       window.removeEventListener('blur', blur);
     };
-  }, []);
+  }, [bindings]);
 
   const left = state.panels.left;
   const right = state.panels.right;
@@ -1307,7 +1324,7 @@ export function App() {
       <UpdateBanner />
       <DriveBar volumes={state.volumes} currentPath={activeDir} onPick={goTo} />
       <BookmarkBar
-        bindings={defaultBindings()}
+        bindings={bindings}
         bookmarks={state.bookmarks}
         onPick={goTo}
         onClear={(slot) => useStore.getState().setBookmark(slot, null)}
@@ -1370,7 +1387,7 @@ export function App() {
           await Promise.all([refreshSide('left'), refreshSide('right')]);
         }}
       />
-      <FKeyBar bindings={defaultBindings()} onInvoke={(cmd) => void dispatch(cmd)} />
+      <FKeyBar bindings={bindings} onInvoke={(cmd) => void dispatch(cmd)} />
       {cmdOutput && (
         <div className="gc-modal-backdrop" onMouseDown={() => setCmdOutput(null)}>
           <div className="gc-modal gc-cmdresult" onMouseDown={(e) => e.stopPropagation()}>
@@ -1401,7 +1418,7 @@ export function App() {
           />
         </div>
       )}
-      {cheatVisible && <Cheatsheet bindings={defaultBindings()} />}
+      {cheatVisible && <Cheatsheet bindings={bindings} />}
       {state.favoritePickerOpen && (
         <FavoritePicker
           favorites={state.favorites}
