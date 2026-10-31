@@ -33,12 +33,14 @@ describe('resolveBindings', () => {
     }]);
   });
 
+  // The first claim wins the key. The second command keeps its defaults rather
+  // than ending with nothing, because the owner's own line was a conflict.
   it('keeps the first claim when two commands want one key', () => {
     const { bindings, diagnostics } = resolveBindings({
       version: V, bindings: { global: { copy: ['F12'], move: ['F12'] } },
     });
     expect(bindingsFor(bindings, 'global', 'copy')).toEqual(['F12']);
-    expect(bindingsFor(bindings, 'global', 'move')).toEqual([]);
+    expect(bindingsFor(bindings, 'global', 'move')).toEqual(['F6', 'Cmd+X']);
     expect(diagnostics[0].kind).toBe('duplicate');
   });
 
@@ -52,5 +54,42 @@ describe('resolveBindings', () => {
   it('ignores a stray field on the file', () => {
     const { diagnostics } = resolveBindings({ version: V, bindings: {}, diagnostics: ['nonsense'] } as never);
     expect(diagnostics).toEqual([]);
+  });
+});
+
+// A line the build cannot use must not cost the owner a working shortcut. The
+// clearing rule belongs to an array the owner really wrote as empty.
+describe('resolveBindings on a file it cannot fully use', () => {
+  it('keeps the defaults when every key in an entry is rejected', () => {
+    const { bindings, diagnostics } = resolveBindings({
+      version: V, bindings: { global: { rename: ['F77'] } },
+    });
+    expect(bindingsFor(bindings, 'global', 'rename')).toEqual(['F2', 'Cmd+Shift+R']);
+    expect(diagnostics.map((d) => d.kind)).toContain('invalid-key');
+  });
+
+  it('keeps the defaults when the only key is one the OS owns', () => {
+    const { bindings } = resolveBindings({ version: V, bindings: { global: { copy: ['Cmd+Q'] } } });
+    expect(bindingsFor(bindings, 'global', 'copy')).toEqual(['F5', 'Cmd+C']);
+  });
+
+  it('keeps the valid half of a mixed entry', () => {
+    const { bindings } = resolveBindings({
+      version: V, bindings: { global: { copy: ['F77', 'F12'] } },
+    });
+    expect(bindingsFor(bindings, 'global', 'copy')).toEqual(['F12']);
+  });
+
+  it('still clears on an array the owner wrote as empty', () => {
+    const { bindings } = resolveBindings({ version: V, bindings: { global: { copy: [] } } });
+    expect(bindingsFor(bindings, 'global', 'copy')).toEqual([]);
+  });
+
+  it('ignores an entry it cannot read at all', () => {
+    const { bindings } = resolveBindings({
+      version: V,
+      bindings: { nosuch: { copy: ['F5'] }, global: { copy: 42, someFuture: ['F9'] } } as never,
+    });
+    expect(bindingsFor(bindings, 'global', 'copy')).toEqual(['F5', 'Cmd+C']);
   });
 });

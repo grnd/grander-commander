@@ -16,10 +16,16 @@ export function useKeymap() {
   const [error, setError] = useState<string | null>(null);
   const [lastUndo, setLastUndo] = useState<UndoOffer | null>(null);
 
-  useEffect(() => {
-    void window.gc.keymap.get().then(setSnapshot);
-    return window.gc.keymap.onChanged(setSnapshot);
+  // The first read and the first broadcast race. Keeping the newer revision
+  // stops a late reply from putting this window back a revision.
+  const adopt = useCallback((next: KeymapSnapshot) => {
+    setSnapshot((held) => (held && held.revision > next.revision ? held : next));
   }, []);
+
+  useEffect(() => {
+    void window.gc.keymap.get().then(adopt);
+    return window.gc.keymap.onChanged(adopt);
+  }, [adopt]);
 
   const apply = useCallback(async (
     op: KeymapOp,

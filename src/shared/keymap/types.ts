@@ -45,7 +45,7 @@ export type ApplyOutcome =
   | { ok: true; snapshot: KeymapSnapshot; displaced: Displaced[]; undoToken: string | null }
   | {
       ok: false;
-      reason: 'stale-revision' | 'external-change' | 'read-only' | 'no-undo';
+      reason: 'stale-revision' | 'external-change' | 'read-only' | 'no-undo' | 'refused';
       message: string;
       snapshot: KeymapSnapshot;
     };

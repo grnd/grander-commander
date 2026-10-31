@@ -3,6 +3,7 @@ import { app, BrowserWindow } from 'electron';
 import { isSmokeRun, runSmokeCheck } from './smoke';
 import { registerIpc, setKeymapPublisher, setKeymapStore, setSettingsOpener } from './ipc';
 import { KeymapStore } from './keymap/store';
+import { setCapturing } from './capture';
 import { defaultPublishDeps, publishKeymap } from './keymap/publish';
 import type { KeymapSnapshot } from '@shared/keymap/types';
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -99,7 +100,14 @@ export async function openSettingsWindow(): Promise<BrowserWindow> {
       writeFileSync(boundsPath(), JSON.stringify(win.getBounds()), 'utf8');
     } catch { /* bounds are a convenience, not a requirement */ }
   });
-  win.on('closed', () => { settingsWindow = null; });
+  win.on('closed', () => {
+    settingsWindow = null;
+    // The recorder releases capture on unmount. A window that goes away first
+    // never gets there, and a stuck flag drops every menu click for the rest
+    // of the session.
+    setCapturing(false);
+  });
+  win.webContents.on('render-process-gone', () => setCapturing(false));
   win.on('focus', () => {
     if (keymapStore) {
       void handleSettingsFocus(keymapStore, (s) => publishKeymap(s, defaultPublishDeps()));

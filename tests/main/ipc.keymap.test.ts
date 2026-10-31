@@ -140,4 +140,21 @@ describe('keymap IPC', () => {
     expect(isTrustedRendererUrl(url('src/renderer/settings/index.html'))).toBe(true);
     expect(isTrustedRendererUrl(url('src/renderer/other.html'))).toBe(false);
   });
+
+  // These three come back as a refusal, not a rejected invoke: the settings
+  // window shows a refusal and swallows a rejection.
+  it('refuses an unbindable command and a reserved key as a value', async () => {
+    const { published } = await start();
+    for (const op of [
+      { kind: 'assign', context: 'global', command: 'runShellCommand', key: 'F12' },
+      { kind: 'assign', context: 'global', command: 'copy', key: 'Cmd+Q' },
+    ]) {
+      const out = await handlers.get('keymap:apply')!(sender(), { revision: 1, op }) as
+        { ok: boolean; reason: string; message: string };
+      expect(out.ok).toBe(false);
+      expect(out.reason).toBe('refused');
+      expect(out.message.length).toBeGreaterThan(0);
+    }
+    expect(published).toHaveLength(2);
+  });
 });

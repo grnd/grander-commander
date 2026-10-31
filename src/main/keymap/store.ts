@@ -110,7 +110,19 @@ export class KeymapStore {
     return this.serialise(async () => {
       const refusal = this.refuse(revision);
       if (refusal) return refusal;
-      const { file, displaced, inverse } = applyOp(this.file, op);
+      let applied: ReturnType<typeof applyOp>;
+      try {
+        applied = applyOp(this.file, op);
+      } catch (err) {
+        // An op the rules do not allow, such as a reserved key or a command
+        // that takes arguments. The window shows this, so it cannot throw.
+        return {
+          ok: false as const, reason: 'refused' as const,
+          message: err instanceof Error ? err.message : String(err),
+          snapshot: this.snapshot(),
+        };
+      }
+      const { file, displaced, inverse } = applied;
       const written = await this.write(file);
       if (!written.ok) return written;
       const undoToken = randomUUID();

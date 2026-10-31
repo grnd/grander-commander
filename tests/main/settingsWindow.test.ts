@@ -115,4 +115,28 @@ describe('the settings window', () => {
     const win = await openSettingsWindow() as unknown as FakeWindow;
     expect(() => win.handlers.get('close')?.()).not.toThrow();
   });
+
+  // Capture mode stops menu clicks. If the window dies mid-recording and
+  // nothing releases the flag, every menu item is dead until a restart.
+  it('releases capture when the window closes', async () => {
+    const { openSettingsWindow } = await import('@main/main');
+    const { setCapturing, menuCommandsSuppressed } = await import('@main/capture');
+    const win = await openSettingsWindow() as unknown as FakeWindow;
+
+    setCapturing(true);
+    win.handlers.get('closed')?.();
+    expect(menuCommandsSuppressed()).toBe(false);
+  });
+
+  it('releases capture when the renderer goes away', async () => {
+    const { openSettingsWindow } = await import('@main/main');
+    const { setCapturing, menuCommandsSuppressed } = await import('@main/capture');
+    const win = await openSettingsWindow() as unknown as FakeWindow;
+
+    setCapturing(true);
+    const onGone = win.webContents.on.mock.calls.find((c) => c[0] === 'render-process-gone');
+    expect(onGone, 'the window must watch for a dead renderer').toBeTruthy();
+    (onGone![1] as () => void)();
+    expect(menuCommandsSuppressed()).toBe(false);
+  });
 });

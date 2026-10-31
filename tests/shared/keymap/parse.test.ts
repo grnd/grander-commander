@@ -24,12 +24,14 @@ describe('parseKeymapFile', () => {
     }
   });
 
-  it('drops a value that is not an array of keys', () => {
+  // The file is the owner's text. A line this build cannot use is reported,
+  // and kept, so the next write does not throw their work away.
+  it('reports a value that is not an array of keys, and keeps it', () => {
     const { file, diagnostics } = parseKeymapFile({
       version: 1,
       bindings: { global: { copy: 42, move: 'F6', trash: ['F8'], rename: [7] } },
     });
-    expect(file.bindings).toEqual({ global: { trash: ['F8'], rename: [] } });
+    expect(file.bindings).toEqual({ global: { copy: 42, move: 'F6', trash: ['F8'], rename: [7] } });
     expect(kinds(diagnostics)).toEqual(['invalid-entry', 'invalid-entry', 'invalid-key']);
   });
 
@@ -38,23 +40,31 @@ describe('parseKeymapFile', () => {
     expect(file.bindings).toEqual({ global: { copy: [] } });
   });
 
-  it('drops an unknown context, an unknown command and an unbindable one', () => {
-    const { file, diagnostics } = parseKeymapFile({
+  it('reports an unknown context, an unknown command and an unbindable one', () => {
+    const { diagnostics } = parseKeymapFile({
       version: 1,
       bindings: {
         nosuch: { copy: ['F5'] },
         global: { nosuchcommand: ['F12'], runShellCommand: ['F11'], copy: ['F5'] },
       },
     });
-    expect(file.bindings).toEqual({ global: { copy: ['F5'] } });
     expect(kinds(diagnostics)).toEqual(['unbindable', 'unknown-command', 'unknown-context']);
   });
 
-  it('drops a key the OS owns', () => {
-    const { file, diagnostics } = parseKeymapFile({
+  it('keeps an entry this build cannot use, so a rewrite does not lose it', () => {
+    const { file } = parseKeymapFile({
+      version: 1,
+      bindings: { editor2: { copy: ['F5'] }, global: { someFutureCommand: ['F12'] } },
+    });
+    expect(file.bindings).toEqual({
+      editor2: { copy: ['F5'] }, global: { someFutureCommand: ['F12'] },
+    });
+  });
+
+  it('reports a key the OS owns', () => {
+    const { diagnostics } = parseKeymapFile({
       version: 1, bindings: { global: { copy: ['Cmd+Q', 'F5'] } },
     });
-    expect(file.bindings).toEqual({ global: { copy: ['F5'] } });
     expect(diagnostics[0].kind).toBe('reserved');
   });
 

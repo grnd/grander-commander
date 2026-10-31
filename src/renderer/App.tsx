@@ -27,6 +27,7 @@ import {
 import { activeContext, createKeyRouter } from '@renderer/keys/router';
 import { bindingsFor, buildKeyTable } from '@shared/keymap/lookup';
 import { keyIdFromEvent, keyIdParts } from '@shared/keys/identity';
+import type { KeymapSnapshot } from '@shared/keymap/types';
 import { canRun, type AvailabilitySnapshot } from '@shared/commands/availability';
 import { surfaceHandler, mountedSurfaces } from '@renderer/keys/surfaces';
 import type { CommandName } from './commands';
@@ -221,8 +222,15 @@ export function App() {
   // The keymap belongs to main. Hydrate once, then follow every broadcast: an
   // edit can come from the settings window or from a hand-edited file.
   useEffect(() => {
-    void api.keymap.get().then((snapshot) => useStore.getState().setKeymap(snapshot));
-    return api.keymap.onChanged((snapshot) => useStore.getState().setKeymap(snapshot));
+    // The first read and the first broadcast race. Keeping the newer revision
+    // stops a late reply from routing keys by a stale table.
+    const adopt = (snapshot: KeymapSnapshot) => {
+      const held = useStore.getState().keymap;
+      if (held.revision > snapshot.revision) return;
+      useStore.getState().setKeymap(snapshot);
+    };
+    void api.keymap.get().then(adopt);
+    return api.keymap.onChanged(adopt);
   }, [api]);
 
   const bindings = state.keymap.bindings;
