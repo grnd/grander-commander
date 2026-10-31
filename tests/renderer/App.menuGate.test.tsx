@@ -18,6 +18,8 @@ function mockApi() {
       listDir: vi.fn().mockResolvedValue({ ok: true, value: [entry('notes', 'txt'), entry('photos', '', true)] }),
       stat: vi.fn(), mkdir: vi.fn(), rename: vi.fn(), duplicate: vi.fn(),
       trash: vi.fn().mockResolvedValue({ ok: true }),
+      // The viewer case mounts Viewer, which reads the file straight away.
+      readChunk: vi.fn().mockResolvedValue({ ok: true, value: { bytes: new Uint8Array(), size: 0 } }),
       delete: vi.fn().mockResolvedValue({ ok: true }),
       watchDir: vi.fn().mockResolvedValue(undefined),
       unwatchDir: vi.fn().mockResolvedValue(undefined),
@@ -56,6 +58,7 @@ beforeEach(() => {
   menuHandler = null;
   useStore.setState({
     dialog: null, favoritePickerOpen: false, terminalOpen: false, quickSearch: null,
+    favorites: [],
     viewer: null, editor: null, activeSide: 'left',
     panels: { left: initialPanelState('/home/u'), right: initialPanelState('/home/u/Documents') },
   });
@@ -104,6 +107,30 @@ describe('menu commands are gated like keys', () => {
 
     await waitFor(() => expect(useStore.getState().viewer).not.toBeNull());
     expect(api().fs.trash).not.toHaveBeenCalled();
+  });
+
+  // The one command source that still answered to nobody: the context menu's
+  // Add to Favorites carries a target path, and returned before dispatch.
+  it('does not add a favorite while a dialog is open', async () => {
+    render(<App />);
+    await ready();
+    const before = useStore.getState().favorites.length;
+    act(() => { useStore.getState().setDialog({ kind: 'editorDirtyClose' }); });
+
+    act(() => { menuHandler!({ command: 'addToFavorites', targetPath: '/home/u/blocked' }); });
+
+    await waitFor(() => expect(useStore.getState().dialog).not.toBeNull());
+    expect(useStore.getState().favorites.length).toBe(before);
+  });
+
+  it('still adds a favorite when nothing is in the way', async () => {
+    render(<App />);
+    await ready();
+    const before = useStore.getState().favorites.length;
+
+    act(() => { menuHandler!({ command: 'addToFavorites', targetPath: '/home/u/photos' }); });
+
+    await waitFor(() => expect(useStore.getState().favorites.length).toBe(before + 1));
   });
 
   it('still runs a menu command when nothing is in the way', async () => {

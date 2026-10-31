@@ -85,7 +85,19 @@ export function buildMenuTemplate(bindings: Bindings = defaultBindings()): MenuI
         { role: 'toggleDevTools' as const },
       ],
     },
-    { role: 'windowMenu' as const },
+    {
+      // Built by hand rather than taken from the windowMenu role: that role
+      // includes role:'close', which registers Cmd+W — and AppKit would then
+      // close the window instead of the tab the keymap says Cmd+W closes.
+      label: 'Window',
+      submenu: [
+        { role: 'minimize' as const },
+        { role: 'zoom' as const },
+        ...(isMac
+          ? [{ type: 'separator' as const }, { role: 'front' as const }]
+          : []),
+      ],
+    },
   ];
 }
 

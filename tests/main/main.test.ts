@@ -118,6 +118,35 @@ describe('main window guards and menu', () => {
       expect(copy?.accelerator).toBeUndefined();
     });
 
+    // The windowMenu role brings role:'close' with it, which registers Cmd+W —
+    // and AppKit then closes the window instead of the tab the cheatsheet says
+    // that key closes.
+    it('leaves Cmd+W to the renderer, which closes a tab with it', async () => {
+      const { buildMenuTemplate } = await import('@main/main');
+      const roles = flat(buildMenuTemplate()).map((i) => i.role).filter(Boolean);
+      expect(roles).not.toContain('close');
+      expect(roles).not.toContain('windowMenu');
+      expect(roles).toContain('minimize');
+    });
+
+    it('registers no accelerator a catalog default also claims', async () => {
+      const { buildMenuTemplate } = await import('@main/main');
+      const { defaultBindings } = await import('@shared/commands/catalog');
+      const { toAccelerator } = await import('@shared/keys/adapters');
+      const claimed = new Set(
+        Object.values(defaultBindings())
+          .flatMap((perCommand) => Object.values(perCommand ?? {}).flat())
+          .map((k) => toAccelerator(k as string))
+          .filter(Boolean),
+      );
+      for (const item of flat(buildMenuTemplate())) {
+        if (item.registerAccelerator === false) continue;
+        if (item.accelerator) {
+          expect(claimed.has(item.accelerator), `${item.label ?? item.role} claims ${item.accelerator}`).toBe(false);
+        }
+      }
+    });
+
     it('keeps the system roles that must own their keys', async () => {
       const { buildMenuTemplate } = await import('@main/main');
       const roles = flat(buildMenuTemplate()).map((i) => i.role).filter(Boolean);

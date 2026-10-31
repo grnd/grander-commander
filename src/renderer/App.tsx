@@ -678,12 +678,27 @@ export function App() {
         if (e.key === 'Escape' || e.key === 'Enter') setCmdOutput(null);
         return;
       }
+      // A focused field owns typing, so the box cannot close itself from the
+      // keymap while the caret is in one. Escape still closes it, and is left
+      // unconsumed so the field clears itself too.
+      if (e.key === 'Escape' && useStore.getState().quickSearch) {
+        const tag = (e.target as HTMLElement | null)?.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA') {
+          useStore.getState().setQuickSearch(null);
+          return;
+        }
+      }
       // Erasing the command line hands it the focus, and an empty one has
       // nothing left to erase — so Backspace goes back to meaning "parent
       // folder" even from inside the field. This is focus state rather than a
       // binding, which is why it sits in front of the router.
       const cl = cmdRef.current;
+      // `!e.isComposing`: a controlled field's value stays empty until an IME
+      // commits, so a Backspace deleting a composing character would otherwise
+      // read as "nothing to erase" and walk up a folder. `!e.repeat`: holding
+      // it would then climb the tree as fast as the OS repeats.
       if (e.key === 'Backspace' && cl && e.target === cl && !cl.value
+        && !e.isComposing && !e.repeat
         && !e.metaKey && !e.ctrlKey && !e.altKey) {
         e.preventDefault();
         cl.blur();
@@ -713,6 +728,10 @@ export function App() {
     const unsub = api.menu.onCommand((message: MenuCommand) => {
       if (typeof message !== 'string') {
         if (message.command === 'addToFavorites' && message.targetPath) {
+          // Carries its own target, so it cannot go through dispatch — but it
+          // still has to ask the same question dispatch asks, or it is the one
+          // command source that answers to nobody.
+          if (!canRun('addToFavorites', snapshot())) return;
           useStore.getState().addFavorite(message.targetPath);
           return;
         }
@@ -722,7 +741,7 @@ export function App() {
       void dispatch(message as import('./commands').CommandName);
     });
     return unsub;
-  }, [dispatch, api]);
+  }, [dispatch, api, snapshot]);
 
   // Watch the current directory of each panel; re-watch when the path changes.
   useEffect(() => {

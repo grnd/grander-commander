@@ -16,7 +16,8 @@ describe('command ids', () => {
   it('lists the commands a mounted surface owns', () => {
     expect([...SURFACE_COMMAND_IDS]).toEqual([
       'viewerScrollDown', 'viewerScrollUp', 'viewerScrollLeft', 'viewerScrollRight',
-      'viewerPageDown', 'viewerPageUp', 'viewerDocStart', 'viewerDocEnd', 'viewerClose',
+      'viewerPageDown', 'viewerPageUp', 'viewerDocStart', 'viewerDocEnd',
+      'viewerFileStart', 'viewerFileEnd', 'viewerClose',
       'editorSave', 'editorClose',
     ]);
   });

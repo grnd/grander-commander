@@ -453,3 +453,68 @@ describe('terminal focus', () => {
     await waitFor(() => expect(useStore.getState().terminalOpen).toBe(false));
   });
 });
+
+// A search box plus a focused field is reachable: Cmd+L during a search, or
+// Backspace erasing the command line, both leave the caret in a text field —
+// and what is typed there must land there, not in the search buffer.
+describe('a focused field during a quick search', () => {
+  beforeEach(() => {
+    useStore.setState({
+      dialog: null, favoritePickerOpen: false, terminalOpen: false, quickSearch: null,
+      activeSide: 'left',
+      panels: { left: initialPanelState('/home/u'), right: initialPanelState('/home/u/Documents') },
+    });
+    (window as unknown as { gc: ReturnType<typeof mockApi> }).gc = mockApi();
+  });
+
+  it('types into the command line rather than the search buffer', async () => {
+    render(<App />);
+    await listed();
+
+    fireEvent.keyDown(document, { key: 'n', code: 'KeyN', altKey: true });
+    await waitFor(() => expect(useStore.getState().quickSearch?.buffer).toBe('n'));
+
+    cmdline().focus();
+    fireEvent.keyDown(cmdline(), { key: 'o', code: 'KeyO' });
+
+    expect(useStore.getState().quickSearch?.buffer).toBe('n');
+  });
+});
+
+// A controlled field reads empty until an IME commits, so a Backspace deleting
+// a composing character used to look like "nothing to erase" and walked up a
+// folder instead.
+describe('Backspace and an input method', () => {
+  beforeEach(() => {
+    useStore.setState({
+      dialog: null, favoritePickerOpen: false, terminalOpen: false, quickSearch: null,
+      activeSide: 'left',
+      panels: { left: initialPanelState('/home/u'), right: initialPanelState('/home/u/Documents') },
+    });
+    (window as unknown as { gc: ReturnType<typeof mockApi> }).gc = mockApi();
+  });
+
+  it('does not walk up a folder on a composing Backspace', async () => {
+    render(<App />);
+    await listed();
+    startIn('/a/b');
+    cmdline().focus();
+
+    fireEvent.keyDown(cmdline(), { key: 'Backspace', code: 'Backspace', isComposing: true });
+
+    await waitFor(() => expect(activePath()).toBe('/a/b'));
+  });
+
+  it('does not climb the tree while Backspace repeats', async () => {
+    render(<App />);
+    await listed();
+    startIn('/a/b/c');
+    cmdline().focus();
+
+    fireEvent.keyDown(cmdline(), { key: 'Backspace', code: 'Backspace' });
+    fireEvent.keyDown(cmdline(), { key: 'Backspace', code: 'Backspace', repeat: true });
+    fireEvent.keyDown(cmdline(), { key: 'Backspace', code: 'Backspace', repeat: true });
+
+    await waitFor(() => expect(activePath()).toBe('/a/b'));
+  });
+});

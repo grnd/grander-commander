@@ -10,8 +10,12 @@ const idle = {
 
 describe('activeContext', () => {
   it('is panel when nothing else is up', () => expect(activeContext(idle)).toBe('panel'));
-  it('prefers quick search over a focused field', () =>
-    expect(activeContext({ ...idle, quickSearchOpen: true, inTextField: true })).toBe('quickSearch'));
+  // A focused field owns printable keys even with the search box open: typing
+  // into the path bar after Cmd+L must reach the path bar, not the buffer.
+  it('prefers a focused field over an open quick search', () =>
+    expect(activeContext({ ...idle, quickSearchOpen: true, inTextField: true })).toBe('input'));
+  it('is quickSearch when the box is open and no field has focus', () =>
+    expect(activeContext({ ...idle, quickSearchOpen: true })).toBe('quickSearch'));
   it('is modal while a dialog or the favorite picker owns the screen', () => {
     expect(activeContext({ ...idle, dialogOpen: true })).toBe('modal');
     expect(activeContext({ ...idle, favoritePickerOpen: true })).toBe('modal');
@@ -199,6 +203,28 @@ describe('routing', () => {
     expect(h.dispatch).toHaveBeenCalledWith('editorClose');
     expect(e.defaultPrevented).toBe(true);
     expect(stopped).toHaveBeenCalled();
+  });
+
+  // applyTextEditing used to run before any gate. Once canRun came first, a
+  // panel inside an archive — where `move` is refused — stopped Cmd+X from
+  // cutting text in the command line, and the Edit menu does not claim it.
+  it('still cuts text in a field when the command behind the key is refused', () => {
+    const applyTextEditing = vi.fn(() => true);
+    const dispatch = vi.fn();
+    const router = createKeyRouter({
+      table: () => buildKeyTable(defaultBindings()),
+      context: () => 'input',
+      snapshot: () => ({ dialogOpen: false, favoritePickerOpen: false, viewerOpen: false,
+        editorOpen: false, commandOutputOpen: false, activeSource: 'archive', mountedSurfaces: [] }),
+      dispatch, startSearch: vi.fn(), extendSearch: vi.fn(), toCommandLine: vi.fn(),
+      applyTextEditing,
+    });
+    const el = document.createElement('input');
+    const e = key({ key: 'x', code: 'KeyX', metaKey: true });
+    Object.defineProperty(e, 'target', { value: el });
+    router.onKeyDown(e);
+    expect(applyTextEditing).toHaveBeenCalledWith('Cmd+X', el);
+    expect(dispatch).not.toHaveBeenCalled();
   });
 
   it('applies text editing itself when the field owns the combo', () => {

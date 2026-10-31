@@ -151,10 +151,12 @@ export function Viewer({ path, variant, onClose }: Props) {
       },
       viewerDocStart: () => { const h = bodyRef.current; if (h) h.scrollTop = 0; },
       viewerDocEnd: () => { const h = bodyRef.current; if (h) h.scrollTop = h.scrollHeight; },
+      viewerFileStart: () => { if (hasPrev) setOffset(0); },
+      viewerFileEnd: () => { if (hasMore) setOffset(Math.max(0, size - TEXT_WINDOW)); },
       viewerClose: onClose,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [variant, hasMore, hasPrev, loadedEnd, offset, onClose]);
+  }, [variant, hasMore, hasPrev, loadedEnd, offset, size, onClose]);
 
   return (
     <div

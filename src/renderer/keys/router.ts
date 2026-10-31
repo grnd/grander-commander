@@ -24,12 +24,14 @@ export type ActiveContext = Context | 'modal';
  * keys to the panel.
  */
 export function activeContext(i: ContextInput): ActiveContext {
-  if (i.quickSearchOpen) return 'quickSearch';
   if (i.dialogOpen || i.favoritePickerOpen) return 'modal';
   if (i.editorOpen) return 'editor';
   if (i.viewerOpen) return 'viewer';
   if (i.inTerminal) return 'terminal';
+  // A focused field outranks an open search box. Cmd+L during a search puts the
+  // caret in the path bar, and what is typed there has to land there.
   if (i.inTextField) return 'input';
+  if (i.quickSearchOpen) return 'quickSearch';
   return 'panel';
 }
 
@@ -43,8 +45,12 @@ export type RouterDeps = {
   extendSearch: (ch: string) => void;
   /** The panel's fallback for an unbound printable key. */
   toCommandLine: (ch: string) => void;
-  applyTextEditing: (id: KeyId, el: HTMLInputElement) => boolean;
+  applyTextEditing: (id: KeyId, el: HTMLInputElement | HTMLTextAreaElement) => boolean;
 };
+
+function isTextField(t: EventTarget | null): t is HTMLInputElement | HTMLTextAreaElement {
+  return t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement;
+}
 
 /** Alt+letter / Alt+digit, which starts or extends a search by physical key. */
 function altChar(id: KeyId): string | null {
@@ -91,15 +97,19 @@ export function createKeyRouter(deps: RouterDeps) {
       }
     }
 
+    // Clipboard and selection editing inside a focused field comes first, and
+    // not only when the command behind the key happens to be available: the
+    // menu does not register Cmd+C/X/A, so if this does not apply them nothing
+    // will — and Cmd+X stopped cutting text whenever `move` was refused, as it
+    // is inside an archive.
+    if (context === 'input' && isTextField(e.target)
+      && deps.applyTextEditing(id, e.target)) {
+      consume(e);
+      return;
+    }
+
     const command = lookupKey(deps.table(), context, id);
     if (command && allowedHere(deps.table(), context, id) && canRun(command, deps.snapshot())) {
-      // In a text field a bound editing combo is applied here, because the menu
-      // deliberately does not register those accelerators.
-      if (context === 'input' && e.target instanceof HTMLInputElement
-        && deps.applyTextEditing(id, e.target)) {
-        consume(e);
-        return;
-      }
       consume(e);
       deps.dispatch(command);
       return;

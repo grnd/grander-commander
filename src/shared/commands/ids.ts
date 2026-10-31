@@ -27,13 +27,15 @@ export type CommandId =
   // Phase 0 additions: actions that existed only as private component handlers,
   // plus the two router branches that became commands.
   | 'viewerScrollDown' | 'viewerScrollUp' | 'viewerScrollLeft' | 'viewerScrollRight'
-  | 'viewerPageDown' | 'viewerPageUp' | 'viewerDocStart' | 'viewerDocEnd' | 'viewerClose'
+  | 'viewerPageDown' | 'viewerPageUp' | 'viewerDocStart' | 'viewerDocEnd'
+  | 'viewerFileStart' | 'viewerFileEnd' | 'viewerClose'
   | 'editorSave' | 'editorClose'
   | 'eraseCommandLineOrParent' | 'toggleCheatsheet';
 
 /** Commands a mounted surface owns; dispatch routes these to its handlers. */
 export const SURFACE_COMMAND_IDS = [
   'viewerScrollDown', 'viewerScrollUp', 'viewerScrollLeft', 'viewerScrollRight',
-  'viewerPageDown', 'viewerPageUp', 'viewerDocStart', 'viewerDocEnd', 'viewerClose',
+  'viewerPageDown', 'viewerPageUp', 'viewerDocStart', 'viewerDocEnd',
+  'viewerFileStart', 'viewerFileEnd', 'viewerClose',
   'editorSave', 'editorClose',
 ] as const satisfies readonly CommandId[];

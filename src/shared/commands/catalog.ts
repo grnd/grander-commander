@@ -129,8 +129,12 @@ export const CATALOG: readonly CommandMeta[] = [
   { id: 'viewerScrollLeft', label: 'Scroll left', category: 'View', context: 'viewer', defaults: ['ArrowLeft'], surface: 'viewer' },
   { id: 'viewerPageDown', label: 'Page down', category: 'View', context: 'viewer', defaults: ['PageDown', 'Space'], surface: 'viewer' },
   { id: 'viewerPageUp', label: 'Page up', category: 'View', context: 'viewer', defaults: ['PageUp'], surface: 'viewer' },
-  { id: 'viewerDocStart', label: 'Start of the file', category: 'View', context: 'viewer', defaults: ['Home', 'Cmd+Home'], surface: 'viewer' },
-  { id: 'viewerDocEnd', label: 'End of the file', category: 'View', context: 'viewer', defaults: ['End', 'Cmd+End'], surface: 'viewer' },
+  { id: 'viewerDocStart', label: 'Top of the page', category: 'View', context: 'viewer', defaults: ['Home'], surface: 'viewer' },
+  { id: 'viewerDocEnd', label: 'Bottom of the page', category: 'View', context: 'viewer', defaults: ['End'], surface: 'viewer' },
+  // A viewed file is read 256 KiB at a time, so the ends of the *file* are a
+  // different move from the ends of the loaded page.
+  { id: 'viewerFileStart', label: 'First page of the file', category: 'View', context: 'viewer', defaults: ['Cmd+Home'], surface: 'viewer' },
+  { id: 'viewerFileEnd', label: 'Last page of the file', category: 'View', context: 'viewer', defaults: ['Cmd+End'], surface: 'viewer' },
   { id: 'viewerClose', label: 'Close the viewer', category: 'View', context: 'viewer', defaults: ['Escape', 'F3'], surface: 'viewer' },
 
   // Editor surface
