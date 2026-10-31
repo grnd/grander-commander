@@ -71,6 +71,9 @@ export async function handleSettingsFocus(
   if (changed) publish(snapshot);
 }
 
+/** The store `app.whenReady` opened. A test sets it to drive the focus path. */
+export function setKeymapStoreForTest(store: KeymapStore): void { keymapStore = store; }
+
 export async function openSettingsWindow(): Promise<BrowserWindow> {
   if (settingsWindow && !settingsWindow.isDestroyed()) {
     settingsWindow.focus();

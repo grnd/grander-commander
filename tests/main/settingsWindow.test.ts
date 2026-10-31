@@ -96,4 +96,23 @@ describe('the settings window', () => {
       { reloadIfChanged: vi.fn().mockResolvedValue({ changed: false, snapshot: {} }) } as never, publish);
     expect(publish).not.toHaveBeenCalled();
   });
+
+  it('reloads when the window takes focus, through the registered handler', async () => {
+    const reloadIfChanged = vi.fn().mockResolvedValue({
+      changed: true,
+      snapshot: { revision: 4, bindings: {}, overrides: {}, diagnostics: [], readOnly: false },
+    });
+    const { openSettingsWindow, setKeymapStoreForTest } = await import('@main/main');
+    setKeymapStoreForTest({ reloadIfChanged } as never);
+    const win = await openSettingsWindow() as unknown as FakeWindow;
+
+    win.handlers.get('focus')?.();
+    await vi.waitFor(() => expect(reloadIfChanged).toHaveBeenCalledOnce());
+  });
+
+  it('saves its bounds when it closes', async () => {
+    const { openSettingsWindow } = await import('@main/main');
+    const win = await openSettingsWindow() as unknown as FakeWindow;
+    expect(() => win.handlers.get('close')?.()).not.toThrow();
+  });
 });
