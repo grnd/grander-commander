@@ -80,6 +80,18 @@ const api: GCApi = {
     runCommand: (cmd, cwd) => ipcRenderer.invoke('shell:runCommand', cmd, cwd),
     startDrag: (paths) => ipcRenderer.invoke('shell:startDrag', paths),
   },
+  keymap: {
+    get: () => ipcRenderer.invoke('keymap:get'),
+    apply: (request) => ipcRenderer.invoke('keymap:apply', request),
+    undo: (request) => ipcRenderer.invoke('keymap:undo', request),
+    setCapture: (request) => ipcRenderer.invoke('keymap:setCapture', request),
+    onChanged: (cb) => {
+      const listener = (_e: unknown, snapshot: Parameters<typeof cb>[0]) => cb(snapshot);
+      ipcRenderer.on('keymap:changed', listener);
+      return () => { ipcRenderer.removeListener('keymap:changed', listener); };
+    },
+    openSettings: () => ipcRenderer.invoke('app:openSettings'),
+  },
   terminal: {
     spawn: (cwd, cols, rows) => ipcRenderer.invoke('term:spawn', cwd, cols, rows),
     write: (id, data) => ipcRenderer.invoke('term:write', id, data),
