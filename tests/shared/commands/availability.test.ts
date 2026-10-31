@@ -31,6 +31,15 @@ describe('canRun', () => {
   it('refuses a surface command when that surface is not mounted', () =>
     expect(canRun('editorSave', base)).toBe(false));
 
+  // The settings window has to be reachable from any state, or a keymap that
+  // locks the owner out cannot be repaired from the keyboard.
+  it('lets the settings window open from any state', () => {
+    for (const state of [{ dialogOpen: true }, { viewerOpen: true }, { editorOpen: true },
+                         { commandOutputOpen: true }, { favoritePickerOpen: true }]) {
+      expect(canRun('openSettings', { ...base, ...state }), JSON.stringify(state)).toBe(true);
+    }
+  });
+
   it('refuses argument-taking commands', () =>
     expect(canRun('runShellCommand', base)).toBe(false));
 

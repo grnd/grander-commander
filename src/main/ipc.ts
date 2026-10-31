@@ -1,6 +1,13 @@
 import { app, BrowserWindow, ipcMain, shell, type IpcMainInvokeEvent, type WebContents } from 'electron';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { KeymapStore } from './keymap/store';
+import { setCapturing } from './capture';
+import { commandById, type Context } from '@shared/commands/catalog';
+import type { CommandId } from '@shared/commands/ids';
+import { isKeyId } from '@shared/keys/identity';
+import type { Op } from '@shared/keymap/ops';
+import type { KeymapSnapshot } from '@shared/keymap/types';
 import { listDir } from './fs/listDir';
 import { stat } from './fs/stat';
 import { listVolumes } from './volumes/list';
@@ -65,12 +72,66 @@ const MAX_MENU_COORDINATE = 100_000;
 const MAX_BUFFERED_OP_EVENTS = 32;
 const OP_BRIDGE_RETENTION_MS = 5_000;
 
+let keymapStore: KeymapStore | null = null;
+let publishKeymapSnapshot: ((snapshot: KeymapSnapshot) => void) | null = null;
+let openSettings: (() => void | Promise<void>) | null = null;
+
+export function setKeymapStore(store: KeymapStore): void { keymapStore = store; }
+export function setKeymapPublisher(fn: (snapshot: KeymapSnapshot) => void): void {
+  publishKeymapSnapshot = fn;
+}
+export function setSettingsOpener(fn: () => void | Promise<void>): void { openSettings = fn; }
+
+function keymap(): KeymapStore {
+  if (!keymapStore) throw new Error('the keymap store is not open');
+  return keymapStore;
+}
+
+function publish(snapshot: KeymapSnapshot): void { publishKeymapSnapshot?.(snapshot); }
+
+const KEYMAP_CONTEXTS: ReadonlySet<string> = new Set([
+  'global', 'panel', 'input', 'viewer', 'editor', 'terminal', 'quickSearch',
+]);
+
+function expectOp(value: unknown): Op {
+  if (!isRecord(value) || typeof value.kind !== 'string') {
+    throw new TypeError('op must be an object with a kind');
+  }
+  const kind = value.kind;
+  if (kind === 'resetAll') return { kind };
+  if (!KEYMAP_CONTEXTS.has(String(value.context))) {
+    throw new TypeError(`unknown context ${String(value.context)}`);
+  }
+  if (!commandById(String(value.command) as CommandId)) {
+    throw new TypeError(`unknown command ${String(value.command)}`);
+  }
+  const context = value.context as Context;
+  const command = String(value.command) as CommandId;
+  if (kind === 'clear' || kind === 'resetCommand') return { kind, context, command };
+  if (kind === 'assign' || kind === 'remove') {
+    if (typeof value.key !== 'string' || !isKeyId(value.key)) {
+      throw new TypeError(`${String(value.key)} is not a key id`);
+    }
+    return { kind, context, command, key: value.key };
+  }
+  throw new TypeError(`unknown op ${kind}`);
+}
+
+function expectRevision(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 1) {
+    throw new TypeError('revision must be a positive integer');
+  }
+  return value;
+}
+
 const opBridges = new Map<OpId, OpBridge>();
 const ownerOpIds = new Map<number, Set<OpId>>();
 const watchedOpOwners = new Set<number>();
 
-function expectedPackagedRendererUrl(): URL {
-  return pathToFileURL(join(__dirname, '../renderer/index.html'));
+const PACKAGED_ENTRIES = ['renderer/index.html', 'renderer/settings/index.html'];
+
+function expectedPackagedRendererUrls(): URL[] {
+  return PACKAGED_ENTRIES.map((entry) => pathToFileURL(join(__dirname, '..', entry)));
 }
 
 function allowedDevRendererOrigin(): string | null {
@@ -97,10 +158,10 @@ export function isTrustedRendererUrl(rawUrl: string): boolean {
   const devOrigin = allowedDevRendererOrigin();
   if (devOrigin && actual.origin === devOrigin) return true;
 
-  const expected = expectedPackagedRendererUrl();
-  return actual.protocol === expected.protocol
+  return expectedPackagedRendererUrls().some((expected) =>
+    actual.protocol === expected.protocol
     && actual.origin === expected.origin
-    && actual.pathname === expected.pathname;
+    && actual.pathname === expected.pathname);
 }
 
 function assertTrustedSender(event: IpcMainInvokeEvent): void {
@@ -563,6 +624,47 @@ export function registerIpc() {
    * Quit for real. `window.close()` only hid the app: on macOS main
    * deliberately keeps running when the last window closes.
    */
+  handleValidated('keymap:get', (args): [] => {
+    expectArgs(args, 'keymap:get', 0);
+    return [];
+  }, () => keymap().snapshot());
+
+  handleValidated('keymap:apply', (args): [number, Op] => {
+    expectArgs(args, 'keymap:apply', 1);
+    const a = isRecord(args[0]) ? args[0] : {};
+    return [expectRevision(a.revision), expectOp(a.op)];
+  }, async (_e, revision, op) => {
+    const outcome = await keymap().apply(op, revision);
+    // Publish whatever came back, committed or rebased: a refusal that keeps
+    // the new snapshot to itself leaves every window a revision behind.
+    publish(outcome.snapshot);
+    return outcome;
+  });
+
+  handleValidated('keymap:undo', (args): [number, string] => {
+    expectArgs(args, 'keymap:undo', 1);
+    const a = isRecord(args[0]) ? args[0] : {};
+    return [expectRevision(a.revision), expectString(a.token, 'token', { maxLength: 100 })];
+  }, async (_e, revision, token) => {
+    const outcome = await keymap().undo(token, revision);
+    publish(outcome.snapshot);
+    return outcome;
+  });
+
+  handleValidated('keymap:setCapture', (args): [boolean] => {
+    expectArgs(args, 'keymap:setCapture', 1);
+    const a = isRecord(args[0]) ? args[0] : {};
+    return [a.capturing === true];
+  }, (_e, capturing) => {
+    setCapturing(capturing);
+    return { capturing };
+  });
+
+  handleValidated('app:openSettings', (args): [] => {
+    expectArgs(args, 'app:openSettings', 0);
+    return [];
+  }, async () => { await openSettings?.(); });
+
   handleValidated('app:quit', (args): [] => {
     expectArgs(args, 'app:quit', 0);
     return [];
@@ -620,7 +722,7 @@ export function registerIpc() {
     return [validateFileContextArgs(args[0])];
   }, (e, args) => {
     const win = BrowserWindow.fromWebContents(e.sender);
-    if (win) popupFileContext(win, args);
+    if (win) popupFileContext(win, args, keymapStore?.snapshot().bindings);
   });
 
   handleValidated('ops:start', (args): [FileOp] => {

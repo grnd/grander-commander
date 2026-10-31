@@ -1,4 +1,6 @@
 // src/shared/api.ts
+import type { ApplyOutcome, KeymapSnapshot } from './keymap/types';
+import type { Op as KeymapOp } from './keymap/ops';
 //
 // The single definition of the preload bridge. It lives in @shared because the
 // renderer tsconfig cannot see src/preload: before this, the same type was
@@ -50,6 +52,17 @@ export type GCApi = {
     cancel(id: OpId): Promise<void>;
     answerConflict(id: OpId, a: ConflictAnswer): Promise<void>;
     subscribe(id: OpId, cb: (ev: OpEvent) => void): () => void;
+  };
+  keymap: {
+    /** The committed keymap, with the diagnostics that explain it. */
+    get(): Promise<KeymapSnapshot>;
+    /** One edit, against the revision the caller holds. */
+    apply(request: { revision: number; op: KeymapOp }): Promise<ApplyOutcome>;
+    undo(request: { revision: number; token: string }): Promise<ApplyOutcome>;
+    /** While true, a menu click does not reach the panels. */
+    setCapture(request: { capturing: boolean }): Promise<{ capturing: boolean }>;
+    onChanged(cb: (snapshot: KeymapSnapshot) => void): () => void;
+    openSettings(): Promise<void>;
   };
   shell: {
     openPath(path: string): Promise<void>;

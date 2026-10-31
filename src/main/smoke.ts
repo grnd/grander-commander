@@ -23,11 +23,44 @@ export function isSmokeRun(): boolean {
   return process.env.GC_SMOKE === '1';
 }
 
-export async function runSmokeCheck(win: BrowserWindow): Promise<void> {
+/**
+ * The settings window is a second entry point with its own packaged path, and
+ * the IPC layer checks that path. A build can therefore pass every test and
+ * still refuse every call from this window, which is what this probe catches.
+ */
+const SETTINGS_PROBE = 'Boolean(document.querySelector(".gc-settings"))'
+  + ' && window.gc.keymap.get().then((s) => typeof s.revision === "number")';
+
+async function settingsWindowWorks(
+  open: () => Promise<BrowserWindow>,
+): Promise<string | null> {
+  const win = await open();
+  for (let i = 0; i < ATTEMPTS; i++) {
+    try {
+      if (await win.webContents.executeJavaScript(SETTINGS_PROBE)) return null;
+    } catch (err) {
+      const message = (err as Error).message;
+      if (i === ATTEMPTS - 1) return message;
+    }
+    await new Promise((r) => setTimeout(r, INTERVAL_MS));
+  }
+  return 'the settings window never answered keymap:get';
+}
+
+export async function runSmokeCheck(
+  win: BrowserWindow,
+  openSettings?: () => Promise<BrowserWindow>,
+): Promise<void> {
   let lastError = 'window.gc or .gc-app never appeared';
   for (let i = 0; i < ATTEMPTS; i++) {
     try {
       if (await win.webContents.executeJavaScript(PROBE)) {
+        const settingsError = openSettings ? await settingsWindowWorks(openSettings) : null;
+        if (settingsError) {
+          console.log(`${SMOKE_FAIL}: ${settingsError}`);
+          app.exit(1);
+          return;
+        }
         console.log(SMOKE_OK);
         app.exit(0);
         return;

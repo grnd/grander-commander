@@ -26,6 +26,11 @@ export type CommandMeta = {
   system?: true;
   /** Needs arguments, so a bare key cannot invoke it; not bindable. */
   requiresArgs?: true;
+  /**
+   * Runs in any state, modal or not. Settings needs this: a keymap that locks
+   * the owner out has to stay repairable from the keyboard.
+   */
+  alwaysAvailable?: true;
 };
 
 const SLOTS = [1, 2, 3, 4, 5, 6, 7, 8, 9] as const;
@@ -120,6 +125,8 @@ export const CATALOG: readonly CommandMeta[] = [
   { id: 'syncFolders', label: 'Synchronise folders…', category: 'Tools', context: 'global', defaults: ['Cmd+Y'] },
   { id: 'openSearch', label: 'Search…', category: 'Tools', context: 'global', defaults: ['Cmd+F', 'Alt+F7'] },
   { id: 'quitApp', label: 'Quit', category: 'Tools', context: 'global', defaults: [] },
+  { id: 'openSettings', label: 'Settings…', category: 'Tools', context: 'global',
+    defaults: ['Cmd+Comma'], alwaysAvailable: true },
   { id: 'runShellCommand', label: 'Run a shell command', category: 'Tools', context: 'global', defaults: [], requiresArgs: true },
 
   // Viewer surface

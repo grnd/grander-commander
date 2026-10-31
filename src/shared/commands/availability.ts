@@ -42,6 +42,8 @@ export function canRun(id: CommandId, s: AvailabilitySnapshot): boolean {
   if (!meta) return false;
   if (meta.system || meta.requiresArgs) return false;
 
+  if (meta.alwaysAvailable) return true;
+
   if (meta.surface) return s.mountedSurfaces.includes(meta.surface);
 
   if (s.commandOutputOpen || s.dialogOpen || s.favoritePickerOpen) return false;

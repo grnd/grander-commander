@@ -8,6 +8,7 @@ import { App } from '@renderer/App';
 import { useStore } from '@renderer/state/store';
 import { initialPanelState } from '@renderer/state/panelSlice';
 import { GC_ARCHIVE } from '@renderer/commands/dnd';
+import { keymapApi } from './keymapApi';
 
 beforeAll(() => {
   globalThis.ResizeObserver = class {
@@ -44,6 +45,7 @@ const ROWS = [entry('alpha', 'txt'), entry('photos', '', true), entry('zeta', 't
 
 function mockApi() {
   return {
+    keymap: keymapApi(),
     fs: {
       listDir: vi.fn().mockResolvedValue({ ok: true, value: ROWS }),
       stat: vi.fn(),

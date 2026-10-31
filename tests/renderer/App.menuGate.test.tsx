@@ -4,6 +4,7 @@ import type { FileEntry } from '@shared/types';
 import { App } from '@renderer/App';
 import { useStore } from '@renderer/state/store';
 import { initialPanelState } from '@renderer/state/panelSlice';
+import { keymapApi } from './keymapApi';
 
 let menuHandler: ((m: unknown) => void) | null = null;
 
@@ -14,6 +15,7 @@ function entry(name: string, ext = '', isDir = false): FileEntry {
 
 function mockApi() {
   return {
+    keymap: keymapApi(),
     fs: {
       listDir: vi.fn().mockResolvedValue({ ok: true, value: [entry('notes', 'txt'), entry('photos', '', true)] }),
       stat: vi.fn(), mkdir: vi.fn(), rename: vi.fn(), duplicate: vi.fn(),

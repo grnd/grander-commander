@@ -2,7 +2,7 @@ import { BrowserWindow, Menu, shell, type MenuItemConstructorOptions } from 'ele
 import type { MenuCommand } from '@shared/types';
 import { openDefault, openWithChooser } from '../shell/openWith';
 import { defaultBindings } from '@shared/commands/catalog';
-import { primaryAccelerator } from '@shared/keymap/lookup';
+import { primaryAccelerator, type Bindings } from '@shared/keymap/lookup';
 import type { CommandId } from '@shared/commands/ids';
 
 export type FileContextArgs = {
@@ -14,10 +14,15 @@ export type FileContextArgs = {
   isAppBundle: boolean;
 };
 
-export function popupFileContext(win: BrowserWindow, args: FileContextArgs): void {
+/**
+ * `bindings` comes from the committed keymap, so this menu cannot advertise a
+ * key the owner has since moved.
+ */
+export function popupFileContext(
+  win: BrowserWindow, args: FileContextArgs, bindings: Bindings = defaultBindings(),
+): void {
   const { x, y, fullPath, isDir, isDotDot, isAppBundle } = args;
   const send = (cmd: MenuCommand) => win.webContents.send('menu:command', cmd);
-  const bindings = defaultBindings();
   /**
    * Shows the key its own command is bound to, and claims none of them — the
    * renderer's router owns every key in the app. "Delete Permanently…" used to

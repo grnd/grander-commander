@@ -19,6 +19,7 @@ vi.mock('../../../src/main/shell/openWith', () => ({
 }));
 
 import { popupFileContext } from '@main/menu/fileContext';
+import { defaultBindings } from '@shared/commands/catalog';
 
 describe('popupFileContext', () => {
   beforeEach(() => {
@@ -81,5 +82,16 @@ describe('context menu accelerators', () => {
     expect(labelled['Move']).toBe('F6');
     expect(labelled['Rename']).toBe('F2');
     expect(labelled['Move to Trash']).toBe('F8');
+  });
+});
+
+describe('the context menu follows the keymap', () => {
+  it('shows the key the live keymap holds, not the default', () => {
+    const base = defaultBindings();
+    popupFileContext({ webContents: { send: vi.fn() } } as never, {
+      x: 0, y: 0, fullPath: '/tmp/a.txt', isDir: false, isDotDot: false, isAppBundle: false,
+    }, { ...base, global: { ...base.global, copy: ['F12'] } });
+    const items = electronMocks.buildFromTemplate.mock.calls.at(-1)![0] as MenuItemConstructorOptions[];
+    expect(items.find((i) => i.label === 'Copy')?.accelerator).toBe('F12');
   });
 });
