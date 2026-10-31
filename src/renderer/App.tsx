@@ -25,6 +25,8 @@ import {
 } from './commands/dnd';
 
 import { eventToCombo, lookup, allowedFromInput } from './keybindings';
+import { canRun, type AvailabilitySnapshot } from '@shared/commands/availability';
+import { surfaceHandler, mountedSurfaces } from '@renderer/keys/surfaces';
 import type { CommandName } from './commands';
 import { sortEntries } from './commands/sort';
 import {
@@ -54,24 +56,6 @@ import { opItemCount } from '@shared/types';
 import type {
   ArchiveFormat, ArchiveOp, FileEntry, FileOp, OpEvent, OpId, ConflictAnswer, OpError, MenuCommand,
 } from '@shared/types';
-
-/**
- * Commands that assume the panel's rows are files on disk. An archive listing
- * has no such paths, so these are refused there rather than acting on a
- * synthesised one. Copy is the exception: inside an archive it means extract.
- */
-const BLOCKED_IN_ARCHIVE: ReadonlySet<string> = new Set([
-  'mkdir', 'rename', 'move', 'trash', 'deleteConfirm', 'deleteCursorConfirm',
-  'duplicate', 'multiRename', 'quickLook', 'viewFile', 'compareFiles',
-  'runShellCommand', 'packArchive',
-]);
-
-/**
- * Commands that write into "the folder this panel is showing". Search results
- * come from many folders at once and an archive listing from none, so there is
- * no single directory for these to mean.
- */
-const NEEDS_REAL_DIR: ReadonlySet<string> = new Set(['mkdir', 'rename', 'multiRename']);
 
 /** fs:trash validates at most 1024 paths per call; a mirror can plan more. */
 const TRASH_CHUNK = 1000;
@@ -217,11 +201,32 @@ export function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /** What `canRun` needs to know, read fresh for every command. */
+  const snapshot = useCallback((): AvailabilitySnapshot => {
+    const s = useStore.getState();
+    const kind = s.panels[s.activeSide].source.kind;
+    return {
+      dialogOpen: s.dialog !== null,
+      favoritePickerOpen: s.favoritePickerOpen,
+      viewerOpen: s.viewer !== null,
+      editorOpen: s.editor !== null,
+      commandOutputOpen: cmdOutputRef.current !== null,
+      activeSource: kind === 'fs' ? 'fs' : kind === 'archive' ? 'archive' : 'search',
+      mountedSurfaces: mountedSurfaces(),
+    };
+  }, []);
+
   const dispatch = useCallback(async (cmd: CommandName) => {
-    // Commands arrive from the native menu and the F-key bar as well as the key
-    // router, and those paths never consulted the modal state. Gating here
-    // covers every source — `trash` calls fs.trash with no confirmation step.
-    if (cmdOutputRef.current) return;
+    // Commands arrive from the native menu, the F-key bar and the context menu
+    // as well as the key router, and those paths never consulted the modal
+    // state — so one gate answers for all of them. `trash` calls fs.trash with
+    // no confirmation step, which is what made that gap worth closing.
+    if (!canRun(cmd, snapshot())) return;
+
+    // A mounted surface owns its own actions; its state is not in the store.
+    const ownHandler = surfaceHandler(cmd);
+    if (ownHandler) { ownHandler(); return; }
+
     const s = useStore.getState();
     const active = s.panels[s.activeSide];
     const setActive = (patch: Partial<typeof active>) => setPanel(s.activeSide, patch);
@@ -229,8 +234,6 @@ export function App() {
     const navCtx = { panel: active, setPanel: setActive, api, requestKey: s.activeSide };
     const selCtx = { panel: active, setPanel: setActive };
 
-    if (active.source.kind === 'archive' && BLOCKED_IN_ARCHIVE.has(cmd)) return;
-    if (active.source.kind !== 'fs' && NEEDS_REAL_DIR.has(cmd)) return;
     // A virtual panel's `path` is a label, so folder-level tools have nothing
     // real to work with.
     if (cmd === 'syncFolders'
@@ -594,7 +597,7 @@ export function App() {
         // Invoked inline with command string from CommandLine; no-op from key dispatch.
         return;
     }
-  }, [api, setPanel, runArchive, refreshSide]);
+  }, [api, setPanel, runArchive, refreshSide, snapshot]);
 
   // Global keyboard router
   useEffect(() => {
