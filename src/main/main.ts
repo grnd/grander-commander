@@ -4,13 +4,31 @@ import { isSmokeRun, runSmokeCheck } from './smoke';
 import { registerIpc } from './ipc';
 import { checkForUpdates, initUpdater } from './updater';
 import { join } from 'node:path';
+import { defaultBindings } from '@shared/commands/catalog';
+import { primaryAccelerator, type Bindings } from '@shared/keymap/lookup';
+import type { CommandId } from '@shared/commands/ids';
 
 function sendMenuCommand(win: BrowserWindow | undefined, command: string): void {
   win?.webContents.send('menu:command', command);
 }
 
-export function buildMenuTemplate(): MenuItemConstructorOptions[] {
+export function buildMenuTemplate(bindings: Bindings = defaultBindings()): MenuItemConstructorOptions[] {
   const isMac = process.platform === 'darwin';
+  /**
+   * Display the key, never register it. On macOS the application menu is
+   * process-wide and AppKit intercepts a registered accelerator before any
+   * window or DOM listener sees it — which would make per-context keymaps
+   * impossible and would take Cmd+C away from every text field the moment file
+   * copy held it. Edit's cut/copy/selectAll have worked this way since the
+   * panels claimed those keys; this is the same rule for every custom item.
+   */
+  const item = (label: string, command: CommandId): MenuItemConstructorOptions => ({
+    label,
+    accelerator: primaryAccelerator(bindings, 'global', command) ?? undefined,
+    registerAccelerator: false,
+    click: (_i, w) => sendMenuCommand(w, command),
+  });
+
   return [
     ...(isMac
       ? [{
@@ -30,19 +48,13 @@ export function buildMenuTemplate(): MenuItemConstructorOptions[] {
     {
       label: 'Files',
       submenu: [
-        { label: 'New Folder', accelerator: 'CmdOrCtrl+N',
-          click: (_i, w) => sendMenuCommand(w, 'mkdir') },
-        { label: 'Rename', accelerator: 'CmdOrCtrl+Shift+R',
-          click: (_i, w) => sendMenuCommand(w, 'rename') },
+        item('New Folder', 'mkdir'),
+        item('Rename', 'rename'),
         { type: 'separator' as const },
-        { label: 'Copy', accelerator: 'F5',
-          click: (_i, w) => sendMenuCommand(w, 'copy') },
-        { label: 'Move', accelerator: 'F6',
-          click: (_i, w) => sendMenuCommand(w, 'move') },
-        { label: 'Move to Trash', accelerator: 'F8',
-          click: (_i, w) => sendMenuCommand(w, 'trash') },
-        { label: 'Delete Permanently…', accelerator: 'Shift+F8',
-          click: (_i, w) => sendMenuCommand(w, 'deleteConfirm') },
+        item('Copy', 'copy'),
+        item('Move', 'move'),
+        item('Move to Trash', 'trash'),
+        item('Delete Permanently…', 'deleteConfirm'),
       ],
     },
     {
@@ -68,9 +80,8 @@ export function buildMenuTemplate(): MenuItemConstructorOptions[] {
     {
       label: 'Show',
       submenu: [
-        { label: 'Toggle Hidden Files', accelerator: 'Ctrl+H',
-          click: (_i, w) => sendMenuCommand(w, 'toggleHidden') },
-        { role: 'reload' as const },
+        item('Toggle Hidden Files', 'toggleHidden'),
+        // No reload role: it claims Cmd+R, which is the panels' refresh.
         { role: 'toggleDevTools' as const },
       ],
     },

@@ -50,3 +50,36 @@ describe('popupFileContext', () => {
     });
   });
 });
+
+describe('context menu accelerators', () => {
+  const items = (): MenuItemConstructorOptions[] => {
+    popupFileContext({ webContents: { send: vi.fn() } } as never, {
+      x: 0, y: 0, fullPath: '/tmp/a.txt', isDir: false, isDotDot: false, isAppBundle: false,
+    });
+    const call = electronMocks.buildFromTemplate.mock.calls.at(-1);
+    return call![0] as MenuItemConstructorOptions[];
+  };
+
+  // D5: the item sent deleteCursorConfirm — this one file — while advertising
+  // Shift+F8, which is deleteConfirm, the whole selection.
+  it('advertises the key that does what the item does', () => {
+    const perm = items().find((i) => i.label === 'Delete Permanently…');
+    expect(perm?.accelerator).toBe('Cmd+Backspace');
+  });
+
+  it('registers none of its accelerators', () => {
+    for (const i of items()) {
+      if (i.accelerator) {
+        expect(i.registerAccelerator, `${i.label} must not claim its key`).toBe(false);
+      }
+    }
+  });
+
+  it('shows the keys its commands are bound to', () => {
+    const labelled = Object.fromEntries(items().filter((i) => i.label).map((i) => [i.label, i.accelerator]));
+    expect(labelled['Copy']).toBe('F5');
+    expect(labelled['Move']).toBe('F6');
+    expect(labelled['Rename']).toBe('F2');
+    expect(labelled['Move to Trash']).toBe('F8');
+  });
+});
