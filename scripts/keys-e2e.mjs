@@ -1,19 +1,24 @@
 // scripts/keys-e2e.mjs
 //
-// The four claims phase 0 makes that jsdom cannot check, driven against the
-// packaged app over CDP:
+// The claims jsdom cannot check, driven against the packaged app over CDP:
 //
 //   1. Ctrl+H with focus in the terminal pane reaches the pty instead of
 //      toggling hidden files.
 //   2. A menu command does nothing while a dialog is open.
-//   3. A command bound to Alt+E beats quick search.
+//   3. Alt+letter starts a quick search by physical key.
 //   4. The Files menu shows Copy's bound key and does not register it.
+//   5. The settings window opens, stays a singleton, and uses IPC.
+//   6. A rebind made in the settings window reaches the panel, the
+//      application menu and the file on disk.
+//
+// The run points GC_KEYMAP_DIR at a temporary directory, so it never touches
+// the owner's own keymap.json.
 //
 // Usage: node scripts/keys-e2e.mjs [path-to-app]
 // Requires playwright-core, which is deliberately not a devDependency — this
 // check is run by hand, not in CI. Point GC_PLAYWRIGHT at an installed copy:
 //   GC_PLAYWRIGHT=/path/to/node_modules/playwright-core node scripts/keys-e2e.mjs
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -33,9 +38,11 @@ const check = (name, ok, detail = '') => {
   }
 };
 
+const keymapDir = mkdtempSync(join(tmpdir(), 'gc-keymap-e2e-'));
 const app = await electron.launch({
   executablePath: APP,
   args: [`--user-data-dir=${mkdtempSync(join(tmpdir(), 'gc-keys-'))}`],
+  env: { ...process.env, GC_KEYMAP_DIR: keymapDir },
 });
 const page = await app.firstWindow();
 await page.waitForSelector('.gc-app', { timeout: 20_000 });
@@ -113,6 +120,49 @@ const menu = await app.evaluate(({ Menu }) => {
 });
 check('the Files menu shows Copy as F5 without registering it',
   menu?.accelerator === 'F5' && menu?.registered === false, JSON.stringify(menu));
+
+// 5 — the settings window opens, is a singleton, and can use IPC.
+await page.evaluate(() => window.gc.keymap.openSettings());
+const settingsPage = await app.waitForEvent('window');
+await settingsPage.waitForSelector('.gc-settings', { timeout: 10_000 });
+const settingsRevision = await settingsPage.evaluate(async () => (await window.gc.keymap.get()).revision);
+check('the settings window uses IPC in a packaged build', typeof settingsRevision === 'number',
+  String(settingsRevision));
+
+await page.evaluate(() => window.gc.keymap.openSettings());
+await page.waitForTimeout(400);
+const windowCount = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length);
+check('the settings window is a singleton', windowCount === 2, `windows=${windowCount}`);
+
+// 6 — a rebind driven from the settings window reaches everything. Copy's F5
+// is cleared first, so F12 really is the key the menu has to show.
+const rebind = await settingsPage.evaluate(async () => {
+  const snap = await window.gc.keymap.get();
+  const cleared = await window.gc.keymap.apply({
+    revision: snap.revision, op: { kind: 'clear', context: 'global', command: 'copy' },
+  });
+  const out = await window.gc.keymap.apply({
+    revision: cleared.snapshot.revision,
+    op: { kind: 'assign', context: 'global', command: 'copy', key: 'F12' },
+  });
+  return out.ok ? out.snapshot.bindings.global.copy : null;
+});
+check('the settings window rebinds copy to F12', JSON.stringify(rebind) === '["F12"]',
+  JSON.stringify(rebind));
+
+const menuAfter = await app.evaluate(({ Menu }) => {
+  const flat = (items) => items.flatMap((i) => [i, ...flat(i.submenu?.items ?? [])]);
+  return flat(Menu.getApplicationMenu()?.items ?? []).find((i) => i.label === 'Copy')?.accelerator ?? null;
+});
+check('the application menu follows the rebind with no restart', menuAfter === 'F12', String(menuAfter));
+
+const panelKeys = await page.evaluate(async () => (await window.gc.keymap.get()).bindings.global.copy);
+check('the main window got the broadcast', JSON.stringify(panelKeys) === '["F12"]',
+  JSON.stringify(panelKeys));
+
+const onDisk = JSON.parse(readFileSync(join(keymapDir, 'keymap.json'), 'utf8'));
+check('the file on disk holds the override',
+  (onDisk.bindings?.global?.copy ?? []).includes('F12'), JSON.stringify(onDisk.bindings?.global ?? null));
 
 await app.close();
 
