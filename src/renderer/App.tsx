@@ -359,6 +359,9 @@ export function App() {
         }
         return navigateUp(navCtx);
       }
+      case 'openSettings':
+        void api.keymap.openSettings();
+        return;
       case 'toggleCheatsheet':
         setCheatVisible(true);
         return;

@@ -39,6 +39,13 @@ export default defineConfig({
         '@renderer': resolve('src/renderer'),
       },
     },
-    build: { rollupOptions: { input: resolve('src/renderer/index.html') } },
+    build: {
+      rollupOptions: {
+        input: {
+          index: resolve('src/renderer/index.html'),
+          settings: resolve('src/renderer/settings/index.html'),
+        },
+      },
+    },
   },
 });

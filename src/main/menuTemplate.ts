@@ -37,6 +37,8 @@ export function buildMenuTemplate(bindings: Bindings = defaultBindings()): MenuI
             { role: 'about' as const },
             { label: 'Check for Updates…', click: () => void checkForUpdates() },
             { type: 'separator' as const },
+            item('Settings…', 'openSettings'),
+            { type: 'separator' as const },
             { role: 'hide' as const },
             { role: 'hideOthers' as const },
             { role: 'unhide' as const },

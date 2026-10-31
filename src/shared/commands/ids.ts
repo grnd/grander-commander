@@ -30,7 +30,7 @@ export type CommandId =
   | 'viewerPageDown' | 'viewerPageUp' | 'viewerDocStart' | 'viewerDocEnd'
   | 'viewerFileStart' | 'viewerFileEnd' | 'viewerClose'
   | 'editorSave' | 'editorClose'
-  | 'eraseCommandLineOrParent' | 'toggleCheatsheet';
+  | 'eraseCommandLineOrParent' | 'toggleCheatsheet' | 'openSettings';
 
 /** Commands a mounted surface owns; dispatch routes these to its handlers. */
 export const SURFACE_COMMAND_IDS = [
