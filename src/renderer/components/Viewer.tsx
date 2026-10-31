@@ -5,6 +5,7 @@ import {
   decodeText, formatBytes, hexDump, imageMimeFor, sniffMode, splitLines,
   type ViewerMode,
 } from '@renderer/viewer/format';
+import { registerSurface } from '@renderer/keys/surfaces';
 
 /** Bytes pulled per page in text/hex mode. */
 export const TEXT_WINDOW = 256 * 1024;
@@ -122,58 +123,43 @@ export function Viewer({ path, variant, onClose }: Props) {
   };
 
   /**
-   * Scrolling is handled here rather than left to the browser: nothing in the
-   * overlay holds focus by default, so arrow and page keys went to the document
-   * — which does not scroll — and only the trackpad worked.
-   *
-   * At the edges of a page the keys turn it, so the whole file is reachable
-   * from the keyboard without touching the pager buttons.
+   * Scrolling lives here rather than in the browser: nothing in the overlay
+   * holds focus by default, so arrow and page keys went to the document —
+   * which does not scroll — and only the trackpad worked. The keys themselves
+   * belong to the app's router, which dispatches the commands below; at the
+   * edges of a page they turn it, so the whole file is reachable without
+   * touching the pager buttons.
    */
-  const onKeyDown = (e: React.KeyboardEvent) => {
-    if (variant !== 'overlay') return;
-    const host = bodyRef.current;
-    if (!host) return;
+  const scrollBy = (dy: number) => { const h = bodyRef.current; if (h) h.scrollTop += dy; };
+  const pageSize = () => Math.max((bodyRef.current?.clientHeight ?? 60) - 40, 40);
 
-    const line = 16;
-    const page = Math.max(host.clientHeight - 40, 40);
-    const atTop = host.scrollTop <= 0;
-    const atBottom = host.scrollTop + host.clientHeight >= host.scrollHeight - 1;
-    let handled = true;
-
-    switch (e.key) {
-      case 'ArrowDown': host.scrollTop += line; break;
-      case 'ArrowUp': host.scrollTop -= line; break;
-      case 'ArrowRight': host.scrollLeft += 40; break;
-      case 'ArrowLeft': host.scrollLeft -= 40; break;
-      case ' ':
-      case 'PageDown':
-        if (atBottom && hasMore) setOffset(loadedEnd);
-        else host.scrollTop += page;
-        break;
-      case 'PageUp':
-        if (atTop && hasPrev) toPrevPage();
-        else host.scrollTop -= page;
-        break;
-      case 'Home':
-        if (e.metaKey && hasPrev) setOffset(0);
-        else host.scrollTop = 0;
-        break;
-      case 'End':
-        if (e.metaKey && hasMore) setOffset(Math.max(0, size - TEXT_WINDOW));
-        else host.scrollTop = host.scrollHeight;
-        break;
-      default: handled = false;
-    }
-    // Escape and F3 have to keep reaching the app's key router, which is what
-    // closes the viewer.
-    if (handled) e.preventDefault();
-  };
+  useEffect(() => {
+    if (variant !== 'overlay') return;      // quick view is not the modal surface
+    return registerSurface('viewer', {
+      viewerScrollDown: () => scrollBy(16),
+      viewerScrollUp: () => scrollBy(-16),
+      viewerScrollRight: () => { const h = bodyRef.current; if (h) h.scrollLeft += 40; },
+      viewerScrollLeft: () => { const h = bodyRef.current; if (h) h.scrollLeft -= 40; },
+      viewerPageDown: () => {
+        const h = bodyRef.current; if (!h) return;
+        const atBottom = h.scrollTop + h.clientHeight >= h.scrollHeight - 1;
+        if (atBottom && hasMore) setOffset(loadedEnd); else h.scrollTop += pageSize();
+      },
+      viewerPageUp: () => {
+        const h = bodyRef.current; if (!h) return;
+        if (h.scrollTop <= 0 && hasPrev) toPrevPage(); else h.scrollTop -= pageSize();
+      },
+      viewerDocStart: () => { const h = bodyRef.current; if (h) h.scrollTop = 0; },
+      viewerDocEnd: () => { const h = bodyRef.current; if (h) h.scrollTop = h.scrollHeight; },
+      viewerClose: onClose,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [variant, hasMore, hasPrev, loadedEnd, offset, onClose]);
 
   return (
     <div
       className={`gc-viewer gc-viewer-${variant}`}
       data-testid="gc-viewer"
-      onKeyDown={onKeyDown}
     >
       <div className="gc-viewer-head">
         <span className="gc-viewer-name" title={path}>{name}</span>
