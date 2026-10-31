@@ -1,6 +1,9 @@
 import { BrowserWindow, Menu, shell, type MenuItemConstructorOptions } from 'electron';
 import type { MenuCommand } from '@shared/types';
 import { openDefault, openWithChooser } from '../shell/openWith';
+import { defaultBindings } from '@shared/commands/catalog';
+import { primaryAccelerator } from '@shared/keymap/lookup';
+import type { CommandId } from '@shared/commands/ids';
 
 export type FileContextArgs = {
   x: number;
@@ -14,6 +17,22 @@ export type FileContextArgs = {
 export function popupFileContext(win: BrowserWindow, args: FileContextArgs): void {
   const { x, y, fullPath, isDir, isDotDot, isAppBundle } = args;
   const send = (cmd: MenuCommand) => win.webContents.send('menu:command', cmd);
+  const bindings = defaultBindings();
+  /**
+   * Shows the key its own command is bound to, and claims none of them — the
+   * renderer's router owns every key in the app. "Delete Permanently…" used to
+   * advertise Shift+F8, which deletes the whole selection, while sending the
+   * command that deletes just the clicked file.
+   */
+  const item = (
+    label: string, command: CommandId, context: 'global' | 'panel', enabled: boolean,
+  ): MenuItemConstructorOptions => ({
+    label,
+    accelerator: primaryAccelerator(bindings, context, command) ?? undefined,
+    registerAccelerator: false,
+    click: () => send(command),
+    enabled,
+  });
   const canOpenWith = !isDotDot && !isDir; // apps can open files (and .app bundles)
 
   const items: MenuItemConstructorOptions[] = [
@@ -22,15 +41,15 @@ export function popupFileContext(win: BrowserWindow, args: FileContextArgs): voi
     { label: 'Open With…', click: () => void openWithChooser(win, fullPath), enabled: canOpenWith || isAppBundle },
     { label: 'Reveal in Finder', click: () => shell.showItemInFolder(fullPath), enabled: !isDotDot },
     { type: 'separator' },
-    { label: 'Copy', accelerator: 'F5', click: () => send('copy'), enabled: !isDotDot },
-    { label: 'Move', accelerator: 'F6', click: () => send('move'), enabled: !isDotDot },
-    { label: 'Duplicate', click: () => send('duplicate'), enabled: !isDotDot },
-    { label: 'Rename', accelerator: 'F2', click: () => send('rename'), enabled: !isDotDot },
+    item('Copy', 'copy', 'global', !isDotDot),
+    item('Move', 'move', 'global', !isDotDot),
+    item('Duplicate', 'duplicate', 'global', !isDotDot),
+    item('Rename', 'rename', 'global', !isDotDot),
     { type: 'separator' },
-    { label: 'Move to Trash', accelerator: 'F8', click: () => send('trash'), enabled: !isDotDot },
-    { label: 'Delete Permanently…', accelerator: 'Shift+F8', click: () => send('deleteCursorConfirm'), enabled: !isDotDot },
+    item('Move to Trash', 'trash', 'global', !isDotDot),
+    item('Delete Permanently…', 'deleteCursorConfirm', 'panel', !isDotDot),
     { type: 'separator' },
-    { label: 'Copy Full Path', click: () => send('copyPath'), enabled: !isDotDot },
+    item('Copy Full Path', 'copyPath', 'global', !isDotDot),
     ...(isDir && !isDotDot
       ? [{
           label: 'Add to Favorites',

@@ -126,7 +126,7 @@ describe('keyboard routing', () => {
 
     fireEvent.change(cmdline(), { target: { value: 'ls' } });
     cmdline().blur();
-    fireEvent.keyDown(document, { key: 'Backspace' });
+    fireEvent.keyDown(document, { key: 'Backspace', code: 'Backspace' });
 
     await waitFor(() => expect(cmdline().value).toBe('l'));
     expect(activePath()).toBe('/a/b');
@@ -138,7 +138,7 @@ describe('keyboard routing', () => {
     startIn('/a/b');
 
     expect(cmdline().value).toBe('');
-    fireEvent.keyDown(document, { key: 'Backspace' });
+    fireEvent.keyDown(document, { key: 'Backspace', code: 'Backspace' });
 
     await waitFor(() => expect(activePath()).toBe('/a'));
   });
@@ -151,7 +151,7 @@ describe('keyboard routing', () => {
     await waitFor(() => expect(document.querySelector('.gc-quicksearch')).toBeTruthy());
     expect(screen.getByText('n')).toBeInTheDocument();
 
-    fireEvent.keyDown(document, { key: 'Escape' });
+    fireEvent.keyDown(document, { key: 'Escape', code: 'Escape' });
     await waitFor(() => expect(document.querySelector('.gc-quicksearch')).toBeNull());
   });
 
@@ -263,10 +263,10 @@ describe('keyboard routing', () => {
     search('rep');
     await waitFor(() => expect(cursorName()).toBe('repo'));
 
-    fireEvent.keyDown(document, { key: 'ArrowDown' });
+    fireEvent.keyDown(document, { key: 'ArrowDown', code: 'ArrowDown' });
     await waitFor(() => expect(cursorName()).toBe('report.txt'));
 
-    fireEvent.keyDown(document, { key: 'ArrowUp' });
+    fireEvent.keyDown(document, { key: 'ArrowUp', code: 'ArrowUp' });
     await waitFor(() => expect(cursorName()).toBe('repo'));
   });
 
@@ -278,16 +278,16 @@ describe('keyboard routing', () => {
     search('rep');
     await waitFor(() => expect(cursorName()).toBe('repo'));
 
-    fireEvent.keyDown(document, { key: 'ArrowUp' });
+    fireEvent.keyDown(document, { key: 'ArrowUp', code: 'ArrowUp' });
     await waitFor(() => expect(cursorName()).toBe('repo'));
 
-    fireEvent.keyDown(document, { key: 'End' });
+    fireEvent.keyDown(document, { key: 'End', code: 'End' });
     await waitFor(() => expect(cursorName()).toBe('report.txt'));
-    fireEvent.keyDown(document, { key: 'ArrowDown' });
-    fireEvent.keyDown(document, { key: 'PageDown' });
+    fireEvent.keyDown(document, { key: 'ArrowDown', code: 'ArrowDown' });
+    fireEvent.keyDown(document, { key: 'PageDown', code: 'PageDown' });
     await waitFor(() => expect(cursorName()).toBe('report.txt'));
 
-    fireEvent.keyDown(document, { key: 'Home' });
+    fireEvent.keyDown(document, { key: 'Home', code: 'Home' });
     await waitFor(() => expect(cursorName()).toBe('repo'));
   });
 
@@ -298,10 +298,10 @@ describe('keyboard routing', () => {
 
     search('rep');
     await waitFor(() => expect(cursorName()).toBe('repo'));
-    fireEvent.keyDown(document, { key: 'Escape' });
+    fireEvent.keyDown(document, { key: 'Escape', code: 'Escape' });
     await waitFor(() => expect(document.querySelector('.gc-quicksearch')).toBeNull());
 
-    fireEvent.keyDown(document, { key: 'ArrowDown' });
+    fireEvent.keyDown(document, { key: 'ArrowDown', code: 'ArrowDown' });
     await waitFor(() => expect(cursorName()).toBe('stuff'));
   });
 
@@ -316,7 +316,7 @@ describe('keyboard routing', () => {
     await waitFor(() => expect(document.querySelector('.gc-quicksearch.is-nomatch')).toBeTruthy());
 
     for (const key of ['ArrowDown', 'ArrowUp', 'PageDown', 'PageUp', 'Home', 'End']) {
-      fireEvent.keyDown(document, { key });
+      fireEvent.keyDown(document, { key, code: key });
     }
     await waitFor(() => expect(cursorName()).toBe('repo'));
   });
@@ -328,9 +328,9 @@ describe('keyboard routing', () => {
 
     search('rep');
     await waitFor(() => expect(cursorName()).toBe('repo'));
-    fireEvent.keyDown(document, { key: 'PageDown' });
+    fireEvent.keyDown(document, { key: 'PageDown', code: 'PageDown' });
     await waitFor(() => expect(cursorName()).toBe('report.txt'));
-    fireEvent.keyDown(document, { key: 'PageUp' });
+    fireEvent.keyDown(document, { key: 'PageUp', code: 'PageUp' });
     await waitFor(() => expect(cursorName()).toBe('repo'));
   });
 
@@ -350,7 +350,7 @@ describe('keyboard routing', () => {
 
     const side = useStore.getState().activeSide;
     act(() => { useStore.getState().replacePanel(side, { cursor: 1 }); });  // 'beta', off the match set
-    fireEvent.keyDown(document, { key: 'ArrowDown' });
+    fireEvent.keyDown(document, { key: 'ArrowDown', code: 'ArrowDown' });
     await waitFor(() => expect(cursorName()).toBe('alpine.txt'));
   });
 
@@ -376,10 +376,10 @@ describe('keyboard routing', () => {
 
     fireEvent.change(cmdline(), { target: { value: 'l' } });
     cmdline().blur();
-    fireEvent.keyDown(document, { key: 'Backspace' });
+    fireEvent.keyDown(document, { key: 'Backspace', code: 'Backspace' });
     await waitFor(() => expect(cmdline().value).toBe(''));
 
-    fireEvent.keyDown(cmdline(), { key: 'Backspace' });
+    fireEvent.keyDown(cmdline(), { key: 'Backspace', code: 'Backspace' });
     await waitFor(() => expect(activePath()).toBe('/a'));
   });
 
@@ -389,7 +389,7 @@ describe('keyboard routing', () => {
 
     fireEvent.change(cmdline(), { target: { value: 'echo 😀' } });
     cmdline().blur();
-    fireEvent.keyDown(document, { key: 'Backspace' });
+    fireEvent.keyDown(document, { key: 'Backspace', code: 'Backspace' });
 
     await waitFor(() => expect(cmdline().value).toBe('echo '));
   });
@@ -402,7 +402,7 @@ describe('keyboard routing', () => {
     search('rep');
     await waitFor(() => expect(document.querySelector('.gc-quicksearch')).toBeTruthy());
     cmdline().focus();
-    fireEvent.keyDown(cmdline(), { key: 'Escape' });
+    fireEvent.keyDown(cmdline(), { key: 'Escape', code: 'Escape' });
 
     await waitFor(() => expect(useStore.getState().quickSearch).toBeNull());
   });
@@ -451,5 +451,70 @@ describe('terminal focus', () => {
 
     fireEvent.keyDown(ta, { key: '`', code: 'Backquote', ctrlKey: true });
     await waitFor(() => expect(useStore.getState().terminalOpen).toBe(false));
+  });
+});
+
+// A search box plus a focused field is reachable: Cmd+L during a search, or
+// Backspace erasing the command line, both leave the caret in a text field —
+// and what is typed there must land there, not in the search buffer.
+describe('a focused field during a quick search', () => {
+  beforeEach(() => {
+    useStore.setState({
+      dialog: null, favoritePickerOpen: false, terminalOpen: false, quickSearch: null,
+      activeSide: 'left',
+      panels: { left: initialPanelState('/home/u'), right: initialPanelState('/home/u/Documents') },
+    });
+    (window as unknown as { gc: ReturnType<typeof mockApi> }).gc = mockApi();
+  });
+
+  it('types into the command line rather than the search buffer', async () => {
+    render(<App />);
+    await listed();
+
+    fireEvent.keyDown(document, { key: 'n', code: 'KeyN', altKey: true });
+    await waitFor(() => expect(useStore.getState().quickSearch?.buffer).toBe('n'));
+
+    cmdline().focus();
+    fireEvent.keyDown(cmdline(), { key: 'o', code: 'KeyO' });
+
+    expect(useStore.getState().quickSearch?.buffer).toBe('n');
+  });
+});
+
+// A controlled field reads empty until an IME commits, so a Backspace deleting
+// a composing character used to look like "nothing to erase" and walked up a
+// folder instead.
+describe('Backspace and an input method', () => {
+  beforeEach(() => {
+    useStore.setState({
+      dialog: null, favoritePickerOpen: false, terminalOpen: false, quickSearch: null,
+      activeSide: 'left',
+      panels: { left: initialPanelState('/home/u'), right: initialPanelState('/home/u/Documents') },
+    });
+    (window as unknown as { gc: ReturnType<typeof mockApi> }).gc = mockApi();
+  });
+
+  it('does not walk up a folder on a composing Backspace', async () => {
+    render(<App />);
+    await listed();
+    startIn('/a/b');
+    cmdline().focus();
+
+    fireEvent.keyDown(cmdline(), { key: 'Backspace', code: 'Backspace', isComposing: true });
+
+    await waitFor(() => expect(activePath()).toBe('/a/b'));
+  });
+
+  it('does not climb the tree while Backspace repeats', async () => {
+    render(<App />);
+    await listed();
+    startIn('/a/b/c');
+    cmdline().focus();
+
+    fireEvent.keyDown(cmdline(), { key: 'Backspace', code: 'Backspace' });
+    fireEvent.keyDown(cmdline(), { key: 'Backspace', code: 'Backspace', repeat: true });
+    fireEvent.keyDown(cmdline(), { key: 'Backspace', code: 'Backspace', repeat: true });
+
+    await waitFor(() => expect(activePath()).toBe('/a/b'));
   });
 });

@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
+import { surfaceHandler } from '@renderer/keys/surfaces';
 import { Editor } from '@renderer/components/Editor';
 import { Dialogs } from '@renderer/components/dialogs';
 import { useStore } from '@renderer/state/store';
@@ -42,33 +43,14 @@ describe('Editor', () => {
   it('closes on Escape when the buffer is clean', () => {
     useStore.setState({ editor: { path: '/tmp/a.txt', original: 'hi', current: 'hi' } });
     renderBoth();
-    fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Escape' });
+    act(() => { surfaceHandler('editorClose')!(); });
     expect(useStore.getState().editor).toBeNull();
-  });
-
-  // Regression guard. In Chromium, DialogShell's document-level Escape
-  // listener was live before the opening keypress finished propagating, so the
-  // prompt was dismissed by the very Escape that raised it and the buffer's
-  // unsaved-changes guard silently did nothing. jsdom flushes effects after
-  // dispatch and so cannot stage that race — this asserts the fix's actual
-  // contract instead: the editor consumes Escape, so nothing on document sees it.
-  it('does not let the closing Escape reach document-level listeners', () => {
-    const onDocKey = vi.fn();
-    document.addEventListener('keydown', onDocKey);
-    try {
-      useStore.setState({ editor: { path: '/tmp/a.txt', original: 'hi', current: 'changed' } });
-      renderBoth();
-      fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Escape' });
-      expect(onDocKey).not.toHaveBeenCalled();
-    } finally {
-      document.removeEventListener('keydown', onDocKey);
-    }
   });
 
   it('raises the dirty-close prompt and keeps the buffer behind it', () => {
     useStore.setState({ editor: { path: '/tmp/a.txt', original: 'hi', current: 'changed' } });
     renderBoth();
-    fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Escape' });
+    act(() => { surfaceHandler('editorClose')!(); });
     expect(useStore.getState().dialog).toEqual({ kind: 'editorDirtyClose' });
     expect(screen.getByText('The file has unsaved changes.')).toBeTruthy();
     // The buffer must still be there behind the prompt.
@@ -78,7 +60,7 @@ describe('Editor', () => {
   it('saves on Cmd+S and rebases the dirty marker', async () => {
     useStore.setState({ editor: { path: '/tmp/a.txt', original: 'hi', current: 'changed' } });
     renderBoth();
-    fireEvent.keyDown(screen.getByRole('textbox'), { key: 's', metaKey: true });
+    act(() => { surfaceHandler('editorSave')!(); });
     await vi.waitFor(() => {
       expect(useStore.getState().editor).toEqual({
         path: '/tmp/a.txt', original: 'changed', current: 'changed',

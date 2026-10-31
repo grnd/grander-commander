@@ -59,6 +59,8 @@ export type GCApi = {
     finderIcon(): Promise<string | null>;
     quickLook(path: string): Promise<void>;
     openTerminal(path: string): Promise<void>;
+    /** Quit the application, rather than just closing this window. */
+    quit(): Promise<void>;
     /** Opens System Settings -> Privacy & Security -> Full Disk Access. */
     openFullDiskAccessSettings(): Promise<void>;
     runCommand(cmd: string, cwd: string): Promise<{ stdout: string; stderr: string; exitCode: number }>;

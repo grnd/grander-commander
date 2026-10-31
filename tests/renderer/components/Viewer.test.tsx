@@ -1,6 +1,11 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
 import { Viewer } from '@renderer/components/Viewer';
+import { surfaceHandler } from '@renderer/keys/surfaces';
+
+/** The keys live in the router now; these are the commands it dispatches. */
+const run = (cmd: Parameters<typeof surfaceHandler>[0]) =>
+  act(() => { surfaceHandler(cmd)!(); });
 
 const readChunk = vi.fn();
 
@@ -135,10 +140,10 @@ describe('Viewer keyboard scrolling', () => {
     await screen.findByText('abc');
     const box = fakeScrollBox(viewerBody(), { scrollHeight: 1000, clientHeight: 100 });
 
-    fireEvent.keyDown(viewerBody(), { key: 'ArrowDown' });
+    run('viewerScrollDown');
     expect(box.top).toBeGreaterThan(0);
     const afterDown = box.top;
-    fireEvent.keyDown(viewerBody(), { key: 'ArrowUp' });
+    run('viewerScrollUp');
     expect(box.top).toBeLessThan(afterDown);
   });
 
@@ -148,11 +153,11 @@ describe('Viewer keyboard scrolling', () => {
     await screen.findByText('abc');
     const box = fakeScrollBox(viewerBody(), { scrollHeight: 5000, clientHeight: 300 });
 
-    fireEvent.keyDown(viewerBody(), { key: 'PageDown' });
+    run('viewerPageDown');
     const afterPage = box.top;
     expect(afterPage).toBeGreaterThan(100);
 
-    fireEvent.keyDown(viewerBody(), { key: ' ' });
+    run('viewerPageDown');
     expect(box.top).toBeGreaterThan(afterPage);
   });
 
@@ -162,9 +167,9 @@ describe('Viewer keyboard scrolling', () => {
     await screen.findByText('abc');
     const box = fakeScrollBox(viewerBody(), { scrollHeight: 5000, clientHeight: 300, scrollTop: 900 });
 
-    fireEvent.keyDown(viewerBody(), { key: 'Home' });
+    run('viewerDocStart');
     expect(box.top).toBe(0);
-    fireEvent.keyDown(viewerBody(), { key: 'End' });
+    run('viewerDocEnd');
     expect(box.top).toBe(4700);
   });
 
@@ -176,7 +181,7 @@ describe('Viewer keyboard scrolling', () => {
     fakeScrollBox(viewerBody(), { scrollHeight: 100, clientHeight: 100 });
 
     readChunk.mockClear();
-    fireEvent.keyDown(viewerBody(), { key: 'PageDown' });
+    run('viewerPageDown');
     await waitFor(() => expect(readChunk.mock.calls.map((c) => c[1])).toContain(3));
   });
 
@@ -189,18 +194,8 @@ describe('Viewer keyboard scrolling', () => {
     fakeScrollBox(viewerBody(), { scrollHeight: 100, clientHeight: 100, scrollTop: 0 });
 
     readChunk.mockClear();
-    fireEvent.keyDown(viewerBody(), { key: 'PageUp' });
+    run('viewerPageUp');
     await waitFor(() => expect(readChunk.mock.calls.map((c) => c[1])).toContain(0));
-  });
-
-  // Escape and F3 belong to the app's key router, which is what closes it.
-  it('leaves Escape and F3 alone', async () => {
-    readChunk.mockResolvedValue(chunk('abc'));
-    render(<Viewer path="/tmp/a.txt" variant="overlay" onClose={() => {}} />);
-    await screen.findByText('abc');
-
-    expect(fireEvent.keyDown(viewerBody(), { key: 'Escape' })).toBe(true);
-    expect(fireEvent.keyDown(viewerBody(), { key: 'F3' })).toBe(true);
   });
 
   // Quick view sits beside a panel that still owns the cursor keys.
@@ -210,8 +205,6 @@ describe('Viewer keyboard scrolling', () => {
     await screen.findByText('abc');
     expect(document.activeElement).not.toBe(viewerBody());
 
-    const box = fakeScrollBox(viewerBody(), { scrollHeight: 1000, clientHeight: 100 });
-    fireEvent.keyDown(viewerBody(), { key: 'ArrowDown' });
-    expect(box.top).toBe(0);
+    expect(surfaceHandler('viewerScrollDown')).toBeNull();
   });
 });

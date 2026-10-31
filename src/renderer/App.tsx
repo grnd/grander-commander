@@ -24,7 +24,11 @@ import {
   externalPaths, locationPath, resolveDrop,
 } from './commands/dnd';
 
-import { eventToCombo, lookup, allowedFromInput } from './keybindings';
+import { activeContext, createKeyRouter } from '@renderer/keys/router';
+import { buildKeyTable } from '@shared/keymap/lookup';
+import { defaultBindings } from '@shared/commands/catalog';
+import { canRun, type AvailabilitySnapshot } from '@shared/commands/availability';
+import { surfaceHandler, mountedSurfaces } from '@renderer/keys/surfaces';
 import type { CommandName } from './commands';
 import { sortEntries } from './commands/sort';
 import {
@@ -54,24 +58,6 @@ import { opItemCount } from '@shared/types';
 import type {
   ArchiveFormat, ArchiveOp, FileEntry, FileOp, OpEvent, OpId, ConflictAnswer, OpError, MenuCommand,
 } from '@shared/types';
-
-/**
- * Commands that assume the panel's rows are files on disk. An archive listing
- * has no such paths, so these are refused there rather than acting on a
- * synthesised one. Copy is the exception: inside an archive it means extract.
- */
-const BLOCKED_IN_ARCHIVE: ReadonlySet<string> = new Set([
-  'mkdir', 'rename', 'move', 'trash', 'deleteConfirm', 'deleteCursorConfirm',
-  'duplicate', 'multiRename', 'quickLook', 'viewFile', 'compareFiles',
-  'runShellCommand', 'packArchive',
-]);
-
-/**
- * Commands that write into "the folder this panel is showing". Search results
- * come from many folders at once and an archive listing from none, so there is
- * no single directory for these to mean.
- */
-const NEEDS_REAL_DIR: ReadonlySet<string> = new Set(['mkdir', 'rename', 'multiRename']);
 
 /** fs:trash validates at most 1024 paths per call; a mirror can plan more. */
 const TRASH_CHUNK = 1000;
@@ -217,11 +203,32 @@ export function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /** What `canRun` needs to know, read fresh for every command. */
+  const snapshot = useCallback((): AvailabilitySnapshot => {
+    const s = useStore.getState();
+    const kind = s.panels[s.activeSide].source.kind;
+    return {
+      dialogOpen: s.dialog !== null,
+      favoritePickerOpen: s.favoritePickerOpen,
+      viewerOpen: s.viewer !== null,
+      editorOpen: s.editor !== null,
+      commandOutputOpen: cmdOutputRef.current !== null,
+      activeSource: kind === 'fs' ? 'fs' : kind === 'archive' ? 'archive' : 'search',
+      mountedSurfaces: mountedSurfaces(),
+    };
+  }, []);
+
   const dispatch = useCallback(async (cmd: CommandName) => {
-    // Commands arrive from the native menu and the F-key bar as well as the key
-    // router, and those paths never consulted the modal state. Gating here
-    // covers every source — `trash` calls fs.trash with no confirmation step.
-    if (cmdOutputRef.current) return;
+    // Commands arrive from the native menu, the F-key bar and the context menu
+    // as well as the key router, and those paths never consulted the modal
+    // state — so one gate answers for all of them. `trash` calls fs.trash with
+    // no confirmation step, which is what made that gap worth closing.
+    if (!canRun(cmd, snapshot())) return;
+
+    // A mounted surface owns its own actions; its state is not in the store.
+    const ownHandler = surfaceHandler(cmd);
+    if (ownHandler) { ownHandler(); return; }
+
     const s = useStore.getState();
     const active = s.panels[s.activeSide];
     const setActive = (patch: Partial<typeof active>) => setPanel(s.activeSide, patch);
@@ -229,8 +236,6 @@ export function App() {
     const navCtx = { panel: active, setPanel: setActive, api, requestKey: s.activeSide };
     const selCtx = { panel: active, setPanel: setActive };
 
-    if (active.source.kind === 'archive' && BLOCKED_IN_ARCHIVE.has(cmd)) return;
-    if (active.source.kind !== 'fs' && NEEDS_REAL_DIR.has(cmd)) return;
     // A virtual panel's `path` is a label, so folder-level tools have nothing
     // real to work with.
     if (cmd === 'syncFolders'
@@ -325,7 +330,28 @@ export function App() {
       case 'navigateUp':      return navigateUp(navCtx);
       case 'toggleMark':      return toggleMark(selCtx);
       case 'selectAll':       return selectAll(selCtx);
-      case 'clearSelection':  return clearSelection(selCtx);
+      case 'clearSelection': {
+        // Escape closes an open quick search before it clears a selection.
+        if (useStore.getState().quickSearch) {
+          useStore.getState().setQuickSearch(null);
+          return;
+        }
+        return clearSelection(selCtx);
+      }
+      case 'eraseCommandLineOrParent': {
+        // A half-typed shell command outranks navigation: Backspace only means
+        // "go up a folder" when there is nothing in the command line to erase.
+        const cl = cmdRef.current;
+        if (cl?.value) {
+          // By code point: slicing UTF-16 units would split an emoji in half.
+          writeCmdline(cl, [...cl.value].slice(0, -1).join(''));
+          return;
+        }
+        return navigateUp(navCtx);
+      }
+      case 'toggleCheatsheet':
+        setCheatVisible(true);
+        return;
       case 'switchActive':    return switchActive({
         get: () => useStore.getState(),
         set: (p) => useStore.setState(p as Partial<ReturnType<typeof useStore.getState>>),
@@ -588,180 +614,105 @@ export function App() {
         useStore.getState().setTerminalOpen(!useStore.getState().terminalOpen);
         return;
       case 'quitApp':
-        window.close();
+        void api.shell.quit();
         return;
       case 'runShellCommand':
         // Invoked inline with command string from CommandLine; no-op from key dispatch.
         return;
     }
-  }, [api, setPanel, runArchive, refreshSide]);
+  }, [api, setPanel, runArchive, refreshSide, snapshot]);
 
-  // Global keyboard router
+  /**
+   * Grow the quick-search prefix by one character and park the cursor on the
+   * first row that starts with it.
+   */
+  const extendSearch = useCallback((ch: string) => {
+    const s = useStore.getState();
+    const prev = s.quickSearch;
+    const side = s.activeSide;
+    const active = s.panels[side];
+    // A fresh search starts whenever the last one was in the other pane or in a
+    // folder this one has since left.
+    const continues = prev && prev.side === side && prev.path === active.path;
+    const buffer = continues ? prev.buffer + ch : ch;
+    const idx = searchMatches(active.entries, buffer)[0] ?? -1;
+    if (idx >= 0) setPanel(side, { cursor: idx });
+    s.setQuickSearch({ buffer, side, path: active.path, matched: idx >= 0 });
+  }, [setPanel]);
+
+  // Global keyboard router. Every key in the app arrives here, is named by
+  // physical position, resolved against the focused surface's keymap and then
+  // dispatched — so nothing can shadow a binding by sitting in front of the
+  // lookup, which is what the quick-search and Backspace branches used to do.
   useEffect(() => {
+    const router = createKeyRouter({
+      table: () => buildKeyTable(defaultBindings()),
+      context: (target) => {
+        const s = useStore.getState();
+        const el = target instanceof HTMLElement ? target : null;
+        const tag = el?.tagName;
+        return activeContext({
+          dialogOpen: s.dialog !== null,
+          favoritePickerOpen: s.favoritePickerOpen,
+          viewerOpen: s.viewer !== null,
+          editorOpen: s.editor !== null,
+          quickSearchOpen: s.quickSearch !== null && s.quickSearch.side === s.activeSide,
+          inTerminal: !!el?.closest('.gc-terminal'),
+          inTextField: tag === 'INPUT' || tag === 'TEXTAREA',
+        });
+      },
+      snapshot,
+      dispatch: (cmd) => { void dispatch(cmd); },
+      startSearch: extendSearch,
+      extendSearch,
+      toCommandLine: (ch) => { const cl = cmdRef.current; if (cl) writeCmdline(cl, ch); },
+      applyTextEditing,
+    });
+
     const onKey = (e: KeyboardEvent) => {
-      // The command-output overlay owns the keyboard while it is open. This is
-      // checked before the INPUT guard below: letting Tab through moves focus
-      // to a control behind the backdrop, and once an input is focused that
-      // guard would skip this branch entirely. Swallow every key, so nothing
-      // reaches the panels and focus cannot escape the modal.
+      // The command-output overlay owns the keyboard while it is open: swallow
+      // every key, so nothing reaches the panels and focus cannot escape the
+      // modal by tabbing to a control behind the backdrop.
       if (cmdOutputRef.current) {
         e.preventDefault();
         if (e.key === 'Escape' || e.key === 'Enter') setCmdOutput(null);
         return;
       }
-      // Don't route panel shortcuts while a modal/picker owns the keyboard
-      const s = useStore.getState();
-      if (s.dialog || s.favoritePickerOpen) return;
-
-      // The F3 viewer is modal: it owns the keyboard so arrows scroll the
-      // document instead of moving a panel cursor the user cannot see. Keys are
-      // deliberately not preventDefault'ed, which leaves native scrolling of the
-      // focused viewer body intact.
-      if (s.viewer) {
-        if (e.key === 'Escape' || e.key === 'F3') {
-          e.preventDefault();
-          s.setViewer(null);
-        }
-        return;
-      }
-
-      // The F4 editor is modal too, and its own onKeyDown handles Esc and save.
-      if (s.editor) return;
-
-      // The terminal is a split pane, not a modal, and xterm's helper element is
-      // a <textarea> — so the text-field branch below used to hand bash its own
-      // control keys: Ctrl+H toggled hidden files instead of erasing a
-      // character, and Ctrl+U, Ctrl+R, F5 and F8 went the same way. Inside the
-      // terminal only Cmd combos and the terminal's own toggle are ours.
-      const target = e.target instanceof HTMLElement ? e.target : null;
-      if (target?.closest('.gc-terminal')) {
-        const termCombo = eventToCombo(e);
-        if (!termCombo) return;
-        if (!e.metaKey && termCombo !== 'Ctrl+`') return;
-        const termCmd = lookup(termCombo);
-        if (!termCmd) return;
-        e.preventDefault();
-        dispatch(termCmd);
-        return;
-      }
-
-      // An input has focus (PathBar / cmdline). Plain typing belongs to it, but
-      // app shortcuts must still work: the fallback below sends unmapped
-      // printable keys to the command line, so one letter would otherwise
-      // disable every shortcut until the user clicked back into a panel.
-      const tag = (e.target as HTMLElement).tagName;
-      if (tag === 'INPUT' || tag === 'TEXTAREA') {
-        const inputCombo = eventToCombo(e);
-        if (!inputCombo) return;
-        // Erasing the command line hands it the focus, which would otherwise
-        // strand both of these: the box would outlive its Escape, and
-        // Backspace would stop walking up once the line ran empty.
-        if (inputCombo === 'Escape' && s.quickSearch) {
-          s.setQuickSearch(null);
+      // A focused field owns typing, so the box cannot close itself from the
+      // keymap while the caret is in one. Escape still closes it, and is left
+      // unconsumed so the field clears itself too.
+      if (e.key === 'Escape' && useStore.getState().quickSearch) {
+        const tag = (e.target as HTMLElement | null)?.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA') {
+          useStore.getState().setQuickSearch(null);
           return;
         }
-        const cl = cmdRef.current;
-        if (inputCombo === 'Backspace' && cl && e.target === cl && !cl.value) {
-          e.preventDefault();
-          cl.blur();
-          dispatch('navigateUp');
-          return;
-        }
-        // Cmd+C / Cmd+X / Cmd+A are the panels' file shortcuts, so the menu
-        // never claims them; inside a text field they have to mean editing.
-        if (applyTextEditing(inputCombo, e.target as HTMLInputElement)) {
-          e.preventDefault();
-          return;
-        }
-        if (!allowedFromInput(inputCombo)) return;
-        const inputCmd = lookup(inputCombo);
-        if (!inputCmd) return;
+      }
+      // Erasing the command line hands it the focus, and an empty one has
+      // nothing left to erase — so Backspace goes back to meaning "parent
+      // folder" even from inside the field. This is focus state rather than a
+      // binding, which is why it sits in front of the router.
+      const cl = cmdRef.current;
+      // `!e.isComposing`: a controlled field's value stays empty until an IME
+      // commits, so a Backspace deleting a composing character would otherwise
+      // read as "nothing to erase" and walk up a folder. `!e.repeat`: holding
+      // it would then climb the tree as fast as the OS repeats.
+      if (e.key === 'Backspace' && cl && e.target === cl && !cl.value
+        && !e.isComposing && !e.repeat
+        && !e.metaKey && !e.ctrlKey && !e.altKey) {
         e.preventDefault();
-        dispatch(inputCmd);
+        cl.blur();
+        void dispatch('navigateUp');
         return;
       }
-
-      // Escape clears active quick search before falling through to clearSelection
-      if (e.key === 'Escape' && s.quickSearch) {
-        e.preventDefault();
-        s.setQuickSearch(null);
-        return;
-      }
-
-      /**
-       * Grow the search prefix by one character and park the cursor on the
-       * first row that starts with it.
-       */
-      const extendSearch = (ch: string) => {
-        const prev = s.quickSearch;
-        const side = s.activeSide;
-        const active = s.panels[side];
-        // A fresh search starts whenever the last one was in the other pane or
-        // in a folder this one has since left.
-        const continues = prev && prev.side === side && prev.path === active.path;
-        const buffer = continues ? prev.buffer + ch : ch;
-        const idx = searchMatches(active.entries, buffer)[0] ?? -1;
-        if (idx >= 0) setPanel(side, { cursor: idx });
-        s.setQuickSearch({ buffer, side, path: active.path, matched: idx >= 0 });
-      };
-
-      // Alt+letter/digit → TC-style quick search in active pane
-      if (e.altKey && !e.metaKey && !e.ctrlKey && (/^Key[A-Z]$/.test(e.code) || /^Digit[0-9]$/.test(e.code))) {
-        e.preventDefault();
-        extendSearch(/^Key/.test(e.code) ? e.code.slice(3).toLowerCase() : e.code.slice(5));
-        return;
-      }
-
-      // Option is only needed to *start* a search. Once the box is up, bare
-      // typing continues it, so a name can be typed out at speed.
-      //
-      // Any printable character counts, because filenames hold any character:
-      // an ASCII-only test would strand every accented or non-Latin name, and
-      // would quietly post those keys to the command line instead. Space is
-      // included — plenty of names have one, and Quick Look is a keypress
-      // away once Escape has closed the box.
-      if (s.quickSearch && s.quickSearch.side === s.activeSide
-        && !e.metaKey && !e.ctrlKey && !e.altKey
-        && e.key.length === 1 && e.key !== '/' && e.key !== '?') {
-        e.preventDefault();
-        extendSearch(e.key.toLowerCase());
-        return;
-      }
-
-      const combo = eventToCombo(e);
-      if (!combo) return;
-
-      // A half-typed shell command outranks navigation: Backspace only means
-      // "go up a folder" when there is nothing in the command line to erase.
-      // Typing focuses the command line, but clicking a row takes focus back
-      // while the text stays, which is where the two used to collide.
-      if (combo === 'Backspace' && cmdRef.current?.value) {
-        e.preventDefault();
-        const cl = cmdRef.current;
-        // By code point: slicing UTF-16 units would split an emoji in half.
-        writeCmdline(cl, [...cl.value].slice(0, -1).join(''));
-        return;
-      }
-
-      const cmd = lookup(combo);
-      if (cmd) {
-        e.preventDefault();
-        dispatch(cmd);
-        return;
-      }
-
-      // Unmapped printable char → focus command line, prefill with it.
-      // Except '?' — reserved for the cheatsheet overlay (handled below).
-      if (!e.metaKey && !e.ctrlKey && !e.altKey && e.key.length === 1 && e.key !== '?') {
-        const cl = cmdRef.current;
-        if (!cl) return;
-        e.preventDefault();
-        writeCmdline(cl, e.key);
-      }
+      router.onKeyDown(e);
     };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [dispatch, setPanel]);
+    // Capture: a key bound in `terminal` has to be taken before xterm writes it
+    // to the pty, and a consumed key must not reach a listener a dispatched
+    // command registers while the event is still in flight.
+    document.addEventListener('keydown', onKey, true);
+    return () => document.removeEventListener('keydown', onKey, true);
+  }, [dispatch, extendSearch, snapshot]);
 
   // The quick-search box stays up until Escape, so it has to retire itself when
   // its claim stops holding: the buffer names a row in one folder of one panel.
@@ -777,6 +728,10 @@ export function App() {
     const unsub = api.menu.onCommand((message: MenuCommand) => {
       if (typeof message !== 'string') {
         if (message.command === 'addToFavorites' && message.targetPath) {
+          // Carries its own target, so it cannot go through dispatch — but it
+          // still has to ask the same question dispatch asks, or it is the one
+          // command source that answers to nobody.
+          if (!canRun('addToFavorites', snapshot())) return;
           useStore.getState().addFavorite(message.targetPath);
           return;
         }
@@ -786,7 +741,7 @@ export function App() {
       void dispatch(message as import('./commands').CommandName);
     });
     return unsub;
-  }, [dispatch, api]);
+  }, [dispatch, api, snapshot]);
 
   // Watch the current directory of each panel; re-watch when the path changes.
   useEffect(() => {
@@ -813,24 +768,17 @@ export function App() {
     return off;
   }, [api, setPanel]);
 
-  // Cheatsheet: show while '?' is held
+  // Cheatsheet: shown by the toggleCheatsheet command, hidden when the key
+  // that raised it comes back up. Only this half is physical; the keydown half
+  // goes through the keymap like every other shortcut.
   useEffect(() => {
-    const down = (e: KeyboardEvent) => {
-      if (e.key === '?') {
-        const tag = (e.target as HTMLElement).tagName;
-        if (tag === 'INPUT' || tag === 'TEXTAREA') return;
-        setCheatVisible(true);
-      }
-    };
     const up = (e: KeyboardEvent) => {
       if (e.key === '?' || e.key === 'Shift') setCheatVisible(false);
     };
     const blur = () => setCheatVisible(false);
-    document.addEventListener('keydown', down);
     document.addEventListener('keyup', up);
     window.addEventListener('blur', blur);
     return () => {
-      document.removeEventListener('keydown', down);
       document.removeEventListener('keyup', up);
       window.removeEventListener('blur', blur);
     };
@@ -1359,6 +1307,7 @@ export function App() {
       <UpdateBanner />
       <DriveBar volumes={state.volumes} currentPath={activeDir} onPick={goTo} />
       <BookmarkBar
+        bindings={defaultBindings()}
         bookmarks={state.bookmarks}
         onPick={goTo}
         onClear={(slot) => useStore.getState().setBookmark(slot, null)}
@@ -1421,7 +1370,7 @@ export function App() {
           await Promise.all([refreshSide('left'), refreshSide('right')]);
         }}
       />
-      <FKeyBar onInvoke={(cmd) => void dispatch(cmd)} />
+      <FKeyBar bindings={defaultBindings()} onInvoke={(cmd) => void dispatch(cmd)} />
       {cmdOutput && (
         <div className="gc-modal-backdrop" onMouseDown={() => setCmdOutput(null)}>
           <div className="gc-modal gc-cmdresult" onMouseDown={(e) => e.stopPropagation()}>
@@ -1452,7 +1401,7 @@ export function App() {
           />
         </div>
       )}
-      {cheatVisible && <Cheatsheet />}
+      {cheatVisible && <Cheatsheet bindings={defaultBindings()} />}
       {state.favoritePickerOpen && (
         <FavoritePicker
           favorites={state.favorites}

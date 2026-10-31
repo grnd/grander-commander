@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useStore } from '@renderer/state/store';
 import { closeEditor, saveEditor } from '@renderer/commands/editor';
+import { registerSurface } from '@renderer/keys/surfaces';
 
 export function Editor() {
   const editor = useStore((s) => s.editor);
@@ -13,31 +14,24 @@ export function Editor() {
   // in the previous buffer's textarea.
   useEffect(() => { taRef.current?.focus(); }, [editor?.path]);
 
+  // Save and close are commands the router dispatches, so a menu item or a
+  // button can reach them too. The router consumes the keystroke it acts on,
+  // which is what keeps DialogShell's own Escape listener — registered in a
+  // layout effect while the opening keypress is still in flight — from
+  // dismissing the dirty-close prompt that keypress just raised.
+  useEffect(() => {
+    if (!editor) return;
+    return registerSurface('editor', {
+      editorSave: () => void saveEditor(editor, window.gc.fs.writeTextFile, setEditor, (m) => alert(m)),
+      editorClose: () => closeEditor(editor, setEditor, setDialog),
+    });
+  }, [editor, setEditor, setDialog]);
+
   if (!editor) return null;
   const dirty = editor.current !== editor.original;
 
-  const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    // The dirty-close prompt owns the keyboard while it is up.
-    if (useStore.getState().dialog) return;
-    if (e.key === 'Escape') {
-      e.preventDefault();
-      // Consume the keystroke. Closing a dirty buffer opens DialogShell, which
-      // registers its own document-level Escape listener in a layout effect —
-      // and React flushes that effect while THIS event is still propagating up
-      // to document, so without this the prompt would be dismissed by the very
-      // keypress that opened it.
-      e.stopPropagation();
-      closeEditor(editor, setEditor, setDialog);
-      return;
-    }
-    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') {
-      e.preventDefault();
-      void saveEditor(editor, window.gc.fs.writeTextFile, setEditor, (m) => alert(m));
-    }
-  };
-
   return (
-    <div className="gc-editor" onKeyDown={onKeyDown} data-testid="gc-editor">
+    <div className="gc-editor" data-testid="gc-editor">
       <div className="gc-editor-header">
         <span className="gc-editor-mode">Edit</span>
         <span className="gc-editor-path">{editor.path}</span>

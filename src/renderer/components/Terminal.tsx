@@ -17,6 +17,7 @@ type Props = {
 export function Terminal({ cwd, onClose, hidden = false }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const idRef = useRef<string | null>(null);
+  const xtermRef = useRef<XTerm | null>(null);
   // The shell owns its working directory from the moment it starts — the user
   // may have cd'd inside it. The panel's folder is only the starting point, so
   // it is captured here and never re-read.
@@ -42,6 +43,7 @@ export function Terminal({ cwd, onClose, hidden = false }: Props) {
     const fit = new FitAddon();
     xterm.loadAddon(fit);
     xterm.open(host);
+    xtermRef.current = xterm;
 
     let disposed = false;
     let unsubData: (() => void) | null = null;
@@ -82,12 +84,25 @@ export function Terminal({ cwd, onClose, hidden = false }: Props) {
       const id = idRef.current;
       if (id) void api.terminal.kill(id);
       xterm.dispose();
+      xtermRef.current = null;
       idRef.current = null;
     };
     // Deliberately empty: one pty per mounted Terminal, for its whole life.
     // Re-running this on a cwd change is what used to kill the session every
     // time the active panel changed.
   }, []);
+
+  /**
+   * Take the keyboard whenever the pane becomes visible. Without this the pane
+   * opened with focus still on the document, so the first keys typed into it
+   * reached the panel instead of the shell: Ctrl+H toggled hidden files rather
+   * than erasing a character, and Ctrl+U, Ctrl+R and the F-keys went the same
+   * way. The pane stays mounted while hidden, so this runs on every reopen.
+   */
+  useEffect(() => {
+    if (hidden) return;
+    xtermRef.current?.focus();
+  }, [hidden]);
 
   return (
     <div className="gc-terminal" hidden={hidden}>

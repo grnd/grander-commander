@@ -1,155 +1,106 @@
-const SECTIONS: { title: string; rows: [string, string][] }[] = [
+import { CATALOG, type Category } from '@shared/commands/catalog';
+import { bindingsFor, type Bindings } from '@shared/keymap/lookup';
+import { toDisplay } from '@shared/keys/adapters';
+
+/**
+ * Gestures and explanations, which are not bindings and so cannot be generated.
+ * Everything that *is* a binding comes from the catalog below, so this overlay
+ * can never advertise a key that no longer does the job.
+ */
+const PROSE: { title: string; rows: [string, string][] }[] = [
   {
-    title: 'Navigation',
-    rows: [
-      ['↑ ↓', 'Move cursor'],
-      ['PgUp / PgDn', 'Jump 20 rows'],
-      ['Home / End', 'First / last row'],
-      ['Cmd+↑ / Cmd+↓', 'First / last row'],
-      ['Space', 'Quick Look preview (toggle)'],
-      ['Enter', 'Open folder / file'],
-      ['Backspace', 'Parent folder — or erase the command line, when it has text'],
-      ['Alt+letter', 'Quick search in the panel — keep typing (spaces too), arrows step match to match, Esc closes'],
-      ['Tab', 'Switch active panel'],
-      ['Ctrl+U / Cmd+U', 'Swap panels'],
-      ['Cmd+Left / Cmd+Right', 'Same dir to/from other panel'],
-      ['Cmd+L', 'Focus path bar'],
-      ['/', 'Path bar prefilled with /'],
-      ['Ctrl+R / Cmd+R', 'Refresh panel'],
-    ],
-  },
-  {
-    title: 'Selection',
+    title: 'Mouse and drag',
     rows: [
       ['Click', 'Move cursor + clear selection'],
       ['Cmd+Click', 'Toggle selection'],
       ['Shift+Click', 'Range select'],
-      ['Shift+Space / Insert', 'Toggle mark on cursor'],
-      ['Shift+↑ / Shift+↓', 'Mark and move'],
-      ['Cmd+A', 'Select all (except ..)'],
-      ['Escape', 'Clear selection'],
-    ],
-  },
-  {
-    title: 'Drag and drop',
-    rows: [
       ['Drag to other panel', 'Copy there'],
       ['Drag to Finder', 'Copy there'],
       ['Shift+drag', 'Move instead of copy'],
       ['Drop on a folder row', 'Into that folder'],
       ['Drop from Finder', 'Copy in (Shift to move)'],
-      ['Drop on the path bar', 'Go there instead of copying'],
-      ['Drop on a tab / +', 'Send that tab there / open a new one'],
-      ['Click the path bar chip', 'Open the panel folder in Finder'],
-      ['Drag inside an archive', 'Extract to where you drop'],
-    ],
-  },
-  {
-    title: 'Sorting & view',
-    rows: [
-      ['Click column header', 'Toggle sort direction'],
-      ['Ctrl+F3 / F4 / F5 / F6', 'Sort by name / ext / size / date'],
-      ['Ctrl+H', 'Toggle hidden files'],
-    ],
-  },
-  {
-    title: 'Mutations (M2)',
-    rows: [
-      ['F7 / Cmd+N', 'Create folder'],
-      ['Shift+F4', 'Create a file and edit it'],
-      ['F2 / Cmd+Shift+R', 'Rename'],
-      ['F5 / Cmd+C', 'Copy'],
-      ['F6 / Cmd+X', 'Move'],
-      ['F8 / Cmd+Delete', 'Move to Trash'],
-      ['Shift+F8 / Cmd+Shift+Delete', 'Delete permanently'],
-      ['Cmd+Backspace', 'Delete cursor item (confirm)'],
-      ['Ctrl+M / Cmd+Shift+M', 'Multi-rename selected files'],
-      ['Cmd+D', 'Compare two files by content'],
-      ['Cmd+Y', 'Synchronize the two panel folders'],
-      ['Cmd+F / Alt+F7', 'Find files (name, content, size, date)'],
-      ['Cmd+Enter', 'Reveal cursor item in its folder'],
-    ],
-  },
-  {
-    title: 'Favorites',
-    rows: [
-      ['Cmd+Shift+F / Ctrl+Shift+F', 'Add current folder to favorites'],
-      ['Cmd+G / Cmd+/', 'Go to favorite (picker)'],
+      ['Right-click a row', 'File actions'],
       ['Right-click favorite', 'Edit label / remove'],
       ['Drag favorite', 'Reorder in the bar'],
-      ['Right-click folder → Add to Favorites', 'Add that folder'],
-    ],
-  },
-  {
-    title: 'Archives',
-    rows: [
-      ['Enter on .zip / .tar.gz / .7z', 'Browse inside without extracting'],
-      ['F5 inside an archive', 'Extract selection to the other panel'],
-      ['Enter on a file inside', 'Extract to a temp copy and open'],
-      ['Backspace at the top', 'Leave the archive'],
-      ['Alt+F5 / Cmd+Shift+P', 'Pack selection into an archive'],
-    ],
-  },
-  {
-    title: 'Tabs',
-    rows: [
-      ['Cmd+T', 'New tab in the active panel'],
-      ['Cmd+W', 'Close the current tab'],
-      ['Cmd+1 … Cmd+9', 'Select tab by number'],
-      ['Middle-click tab', 'Close it'],
-    ],
-  },
-  {
-    title: 'Bookmarks',
-    rows: [
-      ['Ctrl+1 … Ctrl+9', 'Jump to bookmarked folder'],
-      ['Ctrl+Shift+1 … 9', 'Set bookmark to current folder'],
       ['Right-click bookmark', 'Clear that slot'],
+      ['Middle-click tab', 'Close it'],
+      ['Drag the splitter', 'Resize the panes'],
     ],
   },
   {
-    title: 'Viewer',
+    title: 'How things behave',
     rows: [
-      ['F3', 'Internal viewer (text / hex / image)'],
-      ['F4', 'Edit a text file (Cmd+S saves, Esc closes)'],
-      ['Ctrl+Q', 'Quick view in the other panel'],
-      ['↑ ↓ / PgUp / PgDn / Space', 'Scroll; turns the page at the edges'],
-      ['Home / End', 'Top / bottom of the page'],
-      ['Cmd+Home / Cmd+End', 'First / last page of the file'],
-      ['Escape / F3', 'Close the viewer'],
-    ],
-  },
-  {
-    title: 'Shell',
-    rows: [
-      ['Cmd+S', 'Open external terminal at current dir'],
-      ['Ctrl+`', 'Toggle embedded bash terminal'],
-      ['Tab (command line)', 'Complete path / executable'],
-      ['Tab again / Shift+Tab', 'Cycle candidates'],
-      ['cd <folder>', 'Moves the panel, not a subshell'],
-    ],
-  },
-  {
-    title: 'Help',
-    rows: [
-      ['?', 'Show this cheatsheet (hold)'],
+      ['Alt+letter', 'Quick search in the panel — keep typing (spaces too), arrows step match to match, Esc closes'],
+      ['Typing', 'Goes to the shell command line'],
+      ['Backspace', 'Erases the command line first; walks up when it is empty'],
+      ['Enter on an archive', 'Browse inside without extracting'],
+      ['Copy inside an archive', 'Extracts the selection to the other panel'],
+      ['Enter on a file inside', 'Extracts to a temp copy and opens it'],
+      ['Shell command', 'Runs in the active panel’s folder; output opens in a pane'],
     ],
   },
 ];
 
-export function Cheatsheet() {
+const ORDER: Category[] = [
+  'Navigation', 'Selection', 'Files', 'Panels', 'View', 'Tabs', 'Bookmarks', 'Tools',
+];
+
+/**
+ * Bookmark and tab slots are nine commands each; collapsed to one row they read
+ * as the range they are, and still follow whatever they are bound to.
+ */
+function familyKey(id: string): string | null {
+  return /[1-9]$/.test(id) ? id.slice(0, -1) : null;
+}
+
+function generated(bindings: Bindings): { title: string; rows: [string, string][] }[] {
+  return ORDER.map((category) => {
+    const rows: [string, string][] = [];
+    const families = new Map<string, { keys: string[]; label: string }>();
+
+    for (const c of CATALOG) {
+      if (c.category !== category || c.system || c.requiresArgs) continue;
+      const keys = [
+        ...bindingsFor(bindings, c.context, c.id),
+        ...Object.keys(c.alsoIn ?? {}).flatMap((ctx) =>
+          bindingsFor(bindings, ctx as typeof c.context, c.id)),
+      ];
+      if (keys.length === 0) continue;
+
+      const family = familyKey(c.id);
+      if (family) {
+        const seen = families.get(family);
+        if (seen) seen.keys.push(keys[0]);
+        else families.set(family, { keys: [keys[0]], label: c.label.replace(/ \d$/, '') });
+        continue;
+      }
+      rows.push([keys.map(toDisplay).join(' / '), c.label]);
+    }
+
+    for (const { keys, label } of families.values()) {
+      const shown = keys.length > 1
+        ? `${toDisplay(keys[0])} … ${toDisplay(keys[keys.length - 1])}`
+        : toDisplay(keys[0]);
+      rows.push([shown, label]);
+    }
+    return { title: category, rows };
+  }).filter((s) => s.rows.length > 0);
+}
+
+export function Cheatsheet({ bindings }: { bindings: Bindings }) {
+  const sections = [...generated(bindings), ...PROSE];
   return (
     <div className="gc-cheatsheet-backdrop">
       <div className="gc-cheatsheet">
         <div className="gc-cheatsheet-title">Keyboard shortcuts</div>
         <div className="gc-cheatsheet-body">
-          {SECTIONS.map((s) => (
+          {sections.map((s) => (
             <div key={s.title} className="gc-cheatsheet-section">
               <h3>{s.title}</h3>
               <table>
                 <tbody>
                   {s.rows.map(([combo, desc]) => (
-                    <tr key={combo}>
+                    <tr key={`${combo}-${desc}`}>
                       <td className="gc-cheatsheet-combo">{combo}</td>
                       <td>{desc}</td>
                     </tr>

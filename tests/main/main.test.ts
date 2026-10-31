@@ -85,6 +85,78 @@ describe('main window guards and menu', () => {
     });
   });
 
+  // On macOS the application menu is process-wide: AppKit intercepts a
+  // registered accelerator before any window sees the key. A menu item that
+  // claims a key therefore makes per-context keymaps impossible, so every
+  // custom item displays its key and registers none of them.
+  describe('accelerators', () => {
+    type Item = Electron.MenuItemConstructorOptions;
+    const flat = (items: readonly Item[]): Item[] =>
+      items.flatMap((i) => [i, ...flat((i.submenu as Item[] | undefined) ?? [])]);
+    const byLabel = async (label: string, bindings?: unknown) => {
+      const { buildMenuTemplate } = await import('@main/main');
+      return flat(buildMenuTemplate(bindings as never)).find((i) => i.label === label);
+    };
+
+    it('shows the bound key but never registers it', async () => {
+      const copy = await byLabel('Copy');
+      expect(copy?.accelerator).toBe('F5');
+      expect(copy?.registerAccelerator).toBe(false);
+    });
+
+    it('follows the keymap it is given', async () => {
+      const { defaultBindings } = await import('@shared/commands/catalog');
+      const base = defaultBindings();
+      const copy = await byLabel('Copy', { ...base, global: { ...base.global, copy: ['Cmd+Shift+C'] } });
+      expect(copy?.accelerator).toBe('Cmd+Shift+C');
+    });
+
+    it('shows no accelerator for a command with no bindings', async () => {
+      const { defaultBindings } = await import('@shared/commands/catalog');
+      const base = defaultBindings();
+      const copy = await byLabel('Copy', { ...base, global: { ...base.global, copy: [] } });
+      expect(copy?.accelerator).toBeUndefined();
+    });
+
+    // The windowMenu role brings role:'close' with it, which registers Cmd+W —
+    // and AppKit then closes the window instead of the tab the cheatsheet says
+    // that key closes.
+    it('leaves Cmd+W to the renderer, which closes a tab with it', async () => {
+      const { buildMenuTemplate } = await import('@main/main');
+      const roles = flat(buildMenuTemplate()).map((i) => i.role).filter(Boolean);
+      expect(roles).not.toContain('close');
+      expect(roles).not.toContain('windowMenu');
+      expect(roles).toContain('minimize');
+    });
+
+    it('registers no accelerator a catalog default also claims', async () => {
+      const { buildMenuTemplate } = await import('@main/main');
+      const { defaultBindings } = await import('@shared/commands/catalog');
+      const { toAccelerator } = await import('@shared/keys/adapters');
+      const claimed = new Set(
+        Object.values(defaultBindings())
+          .flatMap((perCommand) => Object.values(perCommand ?? {}).flat())
+          .map((k) => toAccelerator(k as string))
+          .filter(Boolean),
+      );
+      for (const item of flat(buildMenuTemplate())) {
+        if (item.registerAccelerator === false) continue;
+        if (item.accelerator) {
+          expect(claimed.has(item.accelerator), `${item.label ?? item.role} claims ${item.accelerator}`).toBe(false);
+        }
+      }
+    });
+
+    it('keeps the system roles that must own their keys', async () => {
+      const { buildMenuTemplate } = await import('@main/main');
+      const roles = flat(buildMenuTemplate()).map((i) => i.role).filter(Boolean);
+      expect(roles).toContain('quit');
+      expect(roles).toContain('paste');
+      // The reload role shadowed Cmd+R refresh with a developer convenience.
+      expect(roles).not.toContain('reload');
+    });
+  });
+
   it('denies navigation and window opens in production', async () => {
     const { installProductionWindowGuards } = await import('@main/main');
     const preventDefault = vi.fn();

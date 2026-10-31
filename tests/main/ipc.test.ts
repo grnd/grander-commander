@@ -7,11 +7,14 @@ const handlers = new Map<string, (...args: unknown[]) => unknown>();
 const statMock = vi.fn();
 let isPackaged = true;
 
+const quitMock = vi.fn();
+
 vi.mock('electron', () => ({
   app: {
     get isPackaged() {
       return isPackaged;
     },
+    quit: quitMock,
   },
   BrowserWindow: {
     fromWebContents: vi.fn(),
@@ -131,6 +134,21 @@ describe('ipc validation and trust checks', () => {
       .toEqual({ action: 'rename', newName: 'renamed.txt', applyToAll: false });
     expect(() => validateConflictAnswerPayload({ action: 'skip', applyToAll: 'yes' }))
       .toThrow(/answer\.applyToAll must be a boolean/);
+  });
+
+  // D3: quitApp called window.close(), and main deliberately does not quit on
+  // macOS when windows close — so Quit hid the app and left it running.
+  it('quits the application on app:quit', async () => {
+    const { registerIpc } = await import('@main/ipc');
+    quitMock.mockClear();
+    registerIpc();
+
+    const handler = handlers.get('app:quit');
+    expect(handler).toBeTypeOf('function');
+    const rendererUrl = pathToFileURL(join(process.cwd(), 'src/renderer/index.html')).toString();
+    await handler?.({ senderFrame: { url: rendererUrl }, sender: {} });
+
+    expect(quitMock).toHaveBeenCalledOnce();
   });
 
   it('rejects untrusted IPC senders before privileged handlers run', async () => {
