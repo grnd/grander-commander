@@ -1288,6 +1288,7 @@ export function App() {
       <UpdateBanner />
       <DriveBar volumes={state.volumes} currentPath={activeDir} onPick={goTo} />
       <BookmarkBar
+        bindings={defaultBindings()}
         bookmarks={state.bookmarks}
         onPick={goTo}
         onClear={(slot) => useStore.getState().setBookmark(slot, null)}
@@ -1381,7 +1382,7 @@ export function App() {
           />
         </div>
       )}
-      {cheatVisible && <Cheatsheet />}
+      {cheatVisible && <Cheatsheet bindings={defaultBindings()} />}
       {state.favoritePickerOpen && (
         <FavoritePicker
           favorites={state.favorites}
