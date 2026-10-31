@@ -128,7 +128,12 @@ export type AppState = {
   /** Nine numbered slots, independent of the favorites bar. */
   bookmarks: Bookmarks;
   favoritePickerOpen: boolean;
-  quickSearch: { buffer: string; side: PanelSide } | null;
+  /**
+   * TC-style quick search. Stays up until Escape, so it also records the
+   * folder it was opened in — the buffer names a cursor position there and
+   * means nothing once the panel has moved on.
+   */
+  quickSearch: { buffer: string; side: PanelSide; path: string; matched: boolean } | null;
   terminalOpen: boolean;
   /** F3 full-window viewer. Owns the keyboard while open. */
   viewer: { path: string } | null;
@@ -148,7 +153,7 @@ export type AppState = {
   removeFavorite: (path: string) => void;
   moveFavorite: (from: number, to: number) => void;
   setFavoritePickerOpen: (open: boolean) => void;
-  setQuickSearch: (qs: { buffer: string; side: PanelSide } | null) => void;
+  setQuickSearch: (qs: { buffer: string; side: PanelSide; path: string; matched: boolean } | null) => void;
   setTerminalOpen: (open: boolean) => void;
   /** `slot` is 1-based. Passing null clears it. */
   setBookmark: (slot: number, path: string | null) => void;

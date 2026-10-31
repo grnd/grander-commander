@@ -3,6 +3,7 @@ import { FileList } from './FileList';
 import { ColumnHeader } from './ColumnHeader';
 import { PathBar } from './PathBar';
 import { PanelStatusBar } from './PanelStatusBar';
+import { QuickSearch } from './QuickSearch';
 import { TabBar } from './TabBar';
 import type { SortCol } from '@shared/types';
 import type { PanelSide, PanelState } from '@renderer/state/panelSlice';
@@ -16,6 +17,8 @@ type Props = {
   onRowDouble: (index: number, e: React.MouseEvent) => void;
   onRowContextMenu?: (index: number, e: React.MouseEvent) => void;
   searchBuffer?: string | null;
+  /** False while the quick-search buffer matches nothing in this folder. */
+  searchMatched?: boolean;
   onPathCommit: (p: string) => Promise<boolean>;
   onSort: (col: SortCol) => void;
   pathBarRef?: React.Ref<HTMLInputElement>;
@@ -42,7 +45,7 @@ type Props = {
 
 export function Panel({
   side, panel, isActive, onActivate, onRowMouseDown, onRowDouble, onRowContextMenu,
-  onPathCommit, onSort, pathBarRef, searchBuffer,
+  onPathCommit, onSort, pathBarRef, searchBuffer, searchMatched = true,
   tabs, activeTab = 0, onSelectTab, onCloseTab, onNewTab,
   onRowDragStart, onDragOverTarget, onDropOnTarget, onDragLeavePanel,
   onLocationDrop, onTabLocationDrop, onOpenInFinder, finderIcon = null,
@@ -130,8 +133,9 @@ export function Panel({
             dropTargetIndex={dropTargetIndex}
           />
         )}
+        <QuickSearch buffer={searchBuffer ?? null} matched={searchMatched} />
       </div>
-      <PanelStatusBar entries={panel.entries} selection={panel.selection} searchBuffer={searchBuffer} />
+      <PanelStatusBar entries={panel.entries} selection={panel.selection} />
     </div>
   );
 }

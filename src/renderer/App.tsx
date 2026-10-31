@@ -76,6 +76,29 @@ const NEEDS_REAL_DIR: ReadonlySet<string> = new Set(['mkdir', 'rename', 'multiRe
 /** fs:trash validates at most 1024 paths per call; a mirror can plan more. */
 const TRASH_CHUNK = 1000;
 
+/**
+ * Put text into the command line from outside React. Writing `value` would
+ * be invisible to the controlled input, so this goes through the native
+ * setter and fires the event React actually listens for.
+ */
+function writeCmdline(el: HTMLInputElement, next: string): void {
+  const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+  setter?.call(el, next);
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+  el.focus();
+  el.setSelectionRange(next.length, next.length);
+}
+
+/** Indices of the rows whose full name starts with a quick-search prefix. */
+function searchMatches(entries: FileEntry[], buffer: string): number[] {
+  const hits: number[] = [];
+  entries.forEach((ent, i) => {
+    const full = (ent.ext ? `${ent.name}.${ent.ext}` : ent.name).toLowerCase();
+    if (full.startsWith(buffer)) hits.push(i);
+  });
+  return hits;
+}
+
 function applySort(
   panel: PanelState,
   col: SortCol,
@@ -122,7 +145,6 @@ export function App() {
   const terminalEverOpened = useRef(false);
   const DBL_CLICK_MS = 450;
   const cmdRef = useRef<HTMLInputElement>(null);
-  const qsTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [cheatVisible, setCheatVisible] = useState(false);
   // Finder's own icon for the path bar chip. Null until it arrives, and on
   // any system where it cannot be read — the chip falls back to a glyph.
@@ -249,13 +271,56 @@ export function App() {
       return navigateTo({ panel: active, setPanel: setActive, api, path: target, requestKey: s.activeSide });
     }
 
+    // A running quick search narrows the pane: every row walk steps from match
+    // to match, so it cannot wander off the set the typed prefix named. The
+    // ends are walls rather than wrap-arounds, as in any other row walk.
+    const searchHits = (): number[] | null => {
+      const qs = s.quickSearch;
+      if (!qs || qs.side !== s.activeSide) return null;
+      return searchMatches(active.entries, qs.buffer);
+    };
+
+    const searchStep = (delta: number): number | null => {
+      const hits = searchHits();
+      if (!hits) return null;
+      // A prefix that matches nothing leaves nothing to walk, so the cursor
+      // stays put rather than falling back to the unfiltered list.
+      if (hits.length === 0) return active.cursor;
+      const at = hits.indexOf(active.cursor);
+      // A click or a range select can park the cursor off the match set; from
+      // there the first step lands on the nearest match in that direction.
+      if (at < 0) {
+        const ahead = delta > 0
+          ? hits.find((i) => i > active.cursor)
+          : hits.filter((i) => i < active.cursor).pop();
+        return ahead ?? active.cursor;
+      }
+      return hits[Math.max(0, Math.min(hits.length - 1, at + delta))];
+    };
+
+    /** Walk by `delta` rows, or by `delta` matches while a search is up. */
+    const walk = (delta: number) => {
+      const hit = searchStep(delta);
+      return hit !== null
+        ? cursorTo({ panel: active, index: hit, setPanel: setActive })
+        : cursorMove({ panel: active, delta, setPanel: setActive });
+    };
+
     switch (cmd) {
-      case 'cursorUp':        return cursorMove({ panel: active, delta: -1, setPanel: setActive });
-      case 'cursorDown':      return cursorMove({ panel: active, delta: 1, setPanel: setActive });
-      case 'cursorPageUp':    return cursorMove({ panel: active, delta: -20, setPanel: setActive });
-      case 'cursorPageDown':  return cursorMove({ panel: active, delta: 20, setPanel: setActive });
-      case 'cursorHome':      return cursorTo({ panel: active, index: 0, setPanel: setActive });
-      case 'cursorEnd':       return cursorTo({ panel: active, index: active.entries.length - 1, setPanel: setActive });
+      case 'cursorUp':        return walk(-1);
+      case 'cursorDown':      return walk(1);
+      case 'cursorPageUp':    return walk(-20);
+      case 'cursorPageDown':  return walk(20);
+      case 'cursorHome': {
+        const hits = searchHits();
+        const index = hits ? (hits[0] ?? active.cursor) : 0;
+        return cursorTo({ panel: active, index, setPanel: setActive });
+      }
+      case 'cursorEnd': {
+        const hits = searchHits();
+        const index = hits ? (hits[hits.length - 1] ?? active.cursor) : active.entries.length - 1;
+        return cursorTo({ panel: active, index, setPanel: setActive });
+      }
       case 'navigateInto':    return navigateInto(navCtx);
       case 'navigateUp':      return navigateUp(navCtx);
       case 'toggleMark':      return toggleMark(selCtx);
@@ -280,11 +345,15 @@ export function App() {
       }
       case 'markAndDown': {
         await toggleMark(selCtx);
+        const hit = searchStep(1);
+        if (hit !== null) return cursorTo({ panel: active, index: hit, setPanel: setActive });
         const after = useStore.getState().panels[s.activeSide];
         return cursorMove({ panel: after, delta: 1, setPanel: setActive });
       }
       case 'markAndUp': {
         await toggleMark(selCtx);
+        const hit = searchStep(-1);
+        if (hit !== null) return cursorTo({ panel: active, index: hit, setPanel: setActive });
         const after = useStore.getState().panels[s.activeSide];
         return cursorMove({ panel: after, delta: -1, setPanel: setActive });
       }
@@ -567,6 +636,20 @@ export function App() {
       if (tag === 'INPUT' || tag === 'TEXTAREA') {
         const inputCombo = eventToCombo(e);
         if (!inputCombo) return;
+        // Erasing the command line hands it the focus, which would otherwise
+        // strand both of these: the box would outlive its Escape, and
+        // Backspace would stop walking up once the line ran empty.
+        if (inputCombo === 'Escape' && s.quickSearch) {
+          s.setQuickSearch(null);
+          return;
+        }
+        const cl = cmdRef.current;
+        if (inputCombo === 'Backspace' && cl && e.target === cl && !cl.value) {
+          e.preventDefault();
+          cl.blur();
+          dispatch('navigateUp');
+          return;
+        }
         // Cmd+C / Cmd+X / Cmd+A are the panels' file shortcuts, so the menu
         // never claims them; inside a text field they have to mean editing.
         if (applyTextEditing(inputCombo, e.target as HTMLInputElement)) {
@@ -585,31 +668,64 @@ export function App() {
       if (e.key === 'Escape' && s.quickSearch) {
         e.preventDefault();
         s.setQuickSearch(null);
-        if (qsTimeout.current) clearTimeout(qsTimeout.current);
         return;
       }
+
+      /**
+       * Grow the search prefix by one character and park the cursor on the
+       * first row that starts with it.
+       */
+      const extendSearch = (ch: string) => {
+        const prev = s.quickSearch;
+        const side = s.activeSide;
+        const active = s.panels[side];
+        // A fresh search starts whenever the last one was in the other pane or
+        // in a folder this one has since left.
+        const continues = prev && prev.side === side && prev.path === active.path;
+        const buffer = continues ? prev.buffer + ch : ch;
+        const idx = searchMatches(active.entries, buffer)[0] ?? -1;
+        if (idx >= 0) setPanel(side, { cursor: idx });
+        s.setQuickSearch({ buffer, side, path: active.path, matched: idx >= 0 });
+      };
 
       // Alt+letter/digit → TC-style quick search in active pane
       if (e.altKey && !e.metaKey && !e.ctrlKey && (/^Key[A-Z]$/.test(e.code) || /^Digit[0-9]$/.test(e.code))) {
         e.preventDefault();
-        const ch = /^Key/.test(e.code) ? e.code.slice(3).toLowerCase() : e.code.slice(5);
-        const prev = s.quickSearch;
-        const side = s.activeSide;
-        const buffer = prev && prev.side === side ? prev.buffer + ch : ch;
-        const active = s.panels[side];
-        const idx = active.entries.findIndex((ent) => {
-          const full = (ent.ext ? `${ent.name}.${ent.ext}` : ent.name).toLowerCase();
-          return full.startsWith(buffer);
-        });
-        if (idx >= 0) setPanel(side, { cursor: idx });
-        s.setQuickSearch({ buffer, side });
-        if (qsTimeout.current) clearTimeout(qsTimeout.current);
-        qsTimeout.current = setTimeout(() => useStore.getState().setQuickSearch(null), 1500);
+        extendSearch(/^Key/.test(e.code) ? e.code.slice(3).toLowerCase() : e.code.slice(5));
+        return;
+      }
+
+      // Option is only needed to *start* a search. Once the box is up, bare
+      // typing continues it, so a name can be typed out at speed.
+      //
+      // Any printable character counts, because filenames hold any character:
+      // an ASCII-only test would strand every accented or non-Latin name, and
+      // would quietly post those keys to the command line instead. Space is
+      // included — plenty of names have one, and Quick Look is a keypress
+      // away once Escape has closed the box.
+      if (s.quickSearch && s.quickSearch.side === s.activeSide
+        && !e.metaKey && !e.ctrlKey && !e.altKey
+        && e.key.length === 1 && e.key !== '/' && e.key !== '?') {
+        e.preventDefault();
+        extendSearch(e.key.toLowerCase());
         return;
       }
 
       const combo = eventToCombo(e);
       if (!combo) return;
+
+      // A half-typed shell command outranks navigation: Backspace only means
+      // "go up a folder" when there is nothing in the command line to erase.
+      // Typing focuses the command line, but clicking a row takes focus back
+      // while the text stays, which is where the two used to collide.
+      if (combo === 'Backspace' && cmdRef.current?.value) {
+        e.preventDefault();
+        const cl = cmdRef.current;
+        // By code point: slicing UTF-16 units would split an emoji in half.
+        writeCmdline(cl, [...cl.value].slice(0, -1).join(''));
+        return;
+      }
+
       const cmd = lookup(combo);
       if (cmd) {
         e.preventDefault();
@@ -623,16 +739,22 @@ export function App() {
         const cl = cmdRef.current;
         if (!cl) return;
         e.preventDefault();
-        const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
-        setter?.call(cl, e.key);
-        cl.dispatchEvent(new Event('input', { bubbles: true }));
-        cl.focus();
-        cl.setSelectionRange(e.key.length, e.key.length);
+        writeCmdline(cl, e.key);
       }
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, [dispatch, setPanel]);
+
+  // The quick-search box stays up until Escape, so it has to retire itself when
+  // its claim stops holding: the buffer names a row in one folder of one panel.
+  const quickSearch = state.quickSearch;
+  useEffect(() => {
+    if (!quickSearch) return;
+    const stale = quickSearch.side !== state.activeSide
+      || quickSearch.path !== state.panels[quickSearch.side].path;
+    if (stale) useStore.getState().setQuickSearch(null);
+  }, [quickSearch, state.activeSide, state.panels]);
 
   useEffect(() => {
     const unsub = api.menu.onCommand((message: MenuCommand) => {
@@ -1170,6 +1292,7 @@ export function App() {
         onSort={onSort(side)}
         pathBarRef={side === 'left' ? leftPathRef : rightPathRef}
         searchBuffer={state.quickSearch && state.quickSearch.side === side ? state.quickSearch.buffer : null}
+        searchMatched={state.quickSearch?.side === side ? state.quickSearch.matched : true}
         tabs={state.tabs[side].map((t, i) => ({
           id: t.id,
           // The active tab's stored copy is stale by design — its live path

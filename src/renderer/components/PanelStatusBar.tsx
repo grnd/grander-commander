@@ -1,12 +1,9 @@
 import type { FileEntry } from '@shared/types';
 import { entryKey } from '@renderer/state/panelSlice';
 
-type Props = { entries: FileEntry[]; selection: Set<string>; searchBuffer?: string | null };
+type Props = { entries: FileEntry[]; selection: Set<string> };
 
-export function PanelStatusBar({ entries, selection, searchBuffer }: Props) {
-  if (searchBuffer) {
-    return <div className="gc-status">🔍 Search: <strong>{searchBuffer}</strong></div>;
-  }
+export function PanelStatusBar({ entries, selection }: Props) {
   const files = entries.filter((e) => !e.isDir && e.name !== '..');
   if (selection.size > 0) {
     const chosen = files.filter((e) => selection.has(entryKey(e)));
