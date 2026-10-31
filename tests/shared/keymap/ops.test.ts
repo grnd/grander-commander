@@ -88,3 +88,46 @@ describe('applyOp', () => {
     }
   });
 });
+
+// A key bound in `panel` shadows the same key in `global`, because the panel
+// looks in `panel` first. The take-over follows that chain, so no surface can
+// advertise a key that another context has taken.
+describe('a take-over follows the resolution chain', () => {
+  it('takes a global key when the new binding is in the panel', () => {
+    const { file, displaced } = applyOp(emptyFile(),
+      { kind: 'assign', context: 'panel', command: 'quickLook', key: 'F5' });
+    expect(keys(file, 'quickLook', 'panel')).toEqual(['Space', 'F5']);
+    expect(keys(file, 'copy')).toEqual(['Cmd+C']);
+    expect(displaced).toEqual([{ context: 'global', command: 'copy', key: 'F5' }]);
+  });
+
+  it('takes a panel key when the new binding is global', () => {
+    const { file, displaced } = applyOp(emptyFile(),
+      { kind: 'assign', context: 'global', command: 'refresh', key: 'Space' });
+    expect(keys(file, 'refresh')).toEqual(['Ctrl+R', 'Cmd+R', 'Space']);
+    expect(keys(file, 'quickLook', 'panel')).toEqual([]);
+    // The viewer pages on Space too, and a global Space would be shadowed
+    // there as well, so both holders give it up.
+    expect(displaced).toEqual([
+      { context: 'panel', command: 'quickLook', key: 'Space' },
+      { context: 'viewer', command: 'viewerPageDown', key: 'Space' },
+    ]);
+  });
+
+  it('leaves a surface alone when the new binding cannot reach it', () => {
+    const { file, displaced } = applyOp(emptyFile(),
+      { kind: 'assign', context: 'viewer', command: 'viewerPageUp', key: 'Space' });
+    // The viewer never looks in `panel`, so Quick Look keeps Space there. The
+    // viewer's own pager gives it up, because that is the same context.
+    expect(keys(file, 'quickLook', 'panel')).toEqual(['Space']);
+    expect(displaced).toEqual([{ context: 'viewer', command: 'viewerPageDown', key: 'Space' }]);
+  });
+
+  it('undoes a chain take-over on both sides', () => {
+    const out = applyOp(emptyFile(),
+      { kind: 'assign', context: 'panel', command: 'quickLook', key: 'F5' });
+    const back = applyInverse(out.file, out.inverse);
+    expect(keys(back, 'copy')).toEqual(['F5', 'Cmd+C']);
+    expect(keys(back, 'quickLook', 'panel')).toEqual(['Space']);
+  });
+});

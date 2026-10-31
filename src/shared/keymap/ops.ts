@@ -1,7 +1,7 @@
 import { commandById, type Context } from '../commands/catalog';
 import type { CommandId } from '../commands/ids';
 import { isKeyId, type KeyId } from '../keys/identity';
-import { bindingsFor, type Bindings } from './lookup';
+import { bindingsFor, collidingContexts, type Bindings } from './lookup';
 import { RESERVED_KEYS, reservedReason } from './reserved';
 import { resolveBindings } from './resolve';
 import { SCHEMA_VERSION, type Displaced, type KeymapFile } from './types';
@@ -75,7 +75,11 @@ export function applyOp(input: KeymapFile, op: Op): {
     if (effective(file, op.context, op.command).includes(op.key)) {
       return { file, displaced, inverse };          // already bound: nothing to do
     }
-    takeKey(file, op.context, op.key, op.command, displaced, remember);
+    // Every context this one can collide with, so a shadowed binding cannot
+    // stay behind and make a menu advertise a key that no longer fires.
+    for (const context of collidingContexts(op.context)) {
+      takeKey(file, context, op.key, op.command, displaced, remember);
+    }
     remember(op.context, op.command);
     setOverride(file, op.context, op.command, [...effective(file, op.context, op.command), op.key]);
     return { file, displaced, inverse };
@@ -99,7 +103,11 @@ export function applyOp(input: KeymapFile, op: Op): {
     ...(meta.context === op.context ? meta.defaults : []),
     ...(meta.alsoIn?.[op.context] ?? []),
   ];
-  for (const key of wanted) takeKey(file, op.context, key, op.command, displaced, remember);
+  for (const key of wanted) {
+    for (const context of collidingContexts(op.context)) {
+      takeKey(file, context, key, op.command, displaced, remember);
+    }
+  }
   remember(op.context, op.command);
   delete file.bindings?.[op.context]?.[op.command];
   return { file, displaced, inverse };

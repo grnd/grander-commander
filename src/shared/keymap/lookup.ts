@@ -34,6 +34,21 @@ export function buildKeyTable(bindings: Bindings): KeyTable {
   return table;
 }
 
+/**
+ * The contexts a binding in `context` can collide with.
+ *
+ * A key bound in `panel` shadows the same key in `global`, because the panel
+ * looks in `panel` first. A key bound in `global` is shadowed by one in
+ * `panel`. Both directions matter, so a take-over has to cover them.
+ */
+export function collidingContexts(context: Context): Context[] {
+  const found = new Set<Context>(CHAIN[context] ?? [context]);
+  for (const [other, chain] of Object.entries(CHAIN) as [Context, readonly Context[]][]) {
+    if (chain.includes(context)) found.add(other);
+  }
+  return [...found];
+}
+
 export function lookupKey(table: KeyTable, context: Context, id: KeyId): CommandId | null {
   for (const ctx of CHAIN[context] ?? [context]) {
     const found = table.get(slot(ctx, id));
