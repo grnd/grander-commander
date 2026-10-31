@@ -628,6 +628,23 @@ export function App() {
       // The F4 editor is modal too, and its own onKeyDown handles Esc and save.
       if (s.editor) return;
 
+      // The terminal is a split pane, not a modal, and xterm's helper element is
+      // a <textarea> — so the text-field branch below used to hand bash its own
+      // control keys: Ctrl+H toggled hidden files instead of erasing a
+      // character, and Ctrl+U, Ctrl+R, F5 and F8 went the same way. Inside the
+      // terminal only Cmd combos and the terminal's own toggle are ours.
+      const target = e.target instanceof HTMLElement ? e.target : null;
+      if (target?.closest('.gc-terminal')) {
+        const termCombo = eventToCombo(e);
+        if (!termCombo) return;
+        if (!e.metaKey && termCombo !== 'Ctrl+`') return;
+        const termCmd = lookup(termCombo);
+        if (!termCmd) return;
+        e.preventDefault();
+        dispatch(termCmd);
+        return;
+      }
+
       // An input has focus (PathBar / cmdline). Plain typing belongs to it, but
       // app shortcuts must still work: the fallback below sends unmapped
       // printable keys to the command line, so one letter would otherwise

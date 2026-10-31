@@ -6,6 +6,12 @@ import { useStore } from '@renderer/state/store';
 import { initialPanelState } from '@renderer/state/panelSlice';
 
 beforeAll(() => {
+  // xterm asks for it as soon as the terminal pane mounts.
+  window.matchMedia = ((q: string) => ({
+    matches: false, media: q, onchange: null,
+    addEventListener() {}, removeEventListener() {},
+    addListener() {}, removeListener() {}, dispatchEvent: () => false,
+  })) as unknown as typeof window.matchMedia;
   globalThis.ResizeObserver = class {
     observe() {}
     unobserve() {}
@@ -402,3 +408,48 @@ describe('keyboard routing', () => {
   });
 });
 
+// xterm's helper element is a <textarea>, so the text-field branch used to pass
+// the shell's own control keys to the panel: Ctrl+H toggled hidden files while
+// the user was erasing a character in bash.
+describe('terminal focus', () => {
+  beforeEach(() => {
+    useStore.setState({
+      dialog: null, favoritePickerOpen: false, terminalOpen: true, quickSearch: null,
+      activeSide: 'left',
+      panels: { left: initialPanelState('/home/u'), right: initialPanelState('/home/u/Documents') },
+    });
+    (window as unknown as { gc: ReturnType<typeof mockApi> }).gc = mockApi();
+  });
+
+  /** A textarea inside the terminal pane, which is what xterm gives focus to. */
+  function terminalInput() {
+    const pane = document.querySelector('.gc-terminal') as HTMLElement;
+    const ta = document.createElement('textarea');
+    pane.appendChild(ta);
+    ta.focus();
+    return ta;
+  }
+
+  it('leaves the shell its control keys', async () => {
+    render(<App />);
+    await listed();
+    const before = activePanel().showHidden;
+    const ta = terminalInput();
+
+    fireEvent.keyDown(ta, { key: 'h', code: 'KeyH', ctrlKey: true });
+    fireEvent.keyDown(ta, { key: 'u', code: 'KeyU', ctrlKey: true });
+    fireEvent.keyDown(ta, { key: 'F5', code: 'F5' });
+
+    await waitFor(() => expect(activePanel().showHidden).toBe(before));
+    expect((window as unknown as { gc: ReturnType<typeof mockApi> }).gc.ops.start).not.toHaveBeenCalled();
+  });
+
+  it('still answers Cmd combos and the terminal toggle', async () => {
+    render(<App />);
+    await listed();
+    const ta = terminalInput();
+
+    fireEvent.keyDown(ta, { key: '`', code: 'Backquote', ctrlKey: true });
+    await waitFor(() => expect(useStore.getState().terminalOpen).toBe(false));
+  });
+});
