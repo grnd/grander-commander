@@ -1,28 +1,40 @@
-import type { CommandName } from '../commands';
+import type { CommandId } from '@shared/commands/ids';
+import { bindingsFor, type Bindings } from '@shared/keymap/lookup';
+import { toDisplay } from '@shared/keys/adapters';
 
 type Props = {
-  onInvoke: (cmd: CommandName) => void;
+  bindings: Bindings;
+  onInvoke: (cmd: CommandId) => void;
 };
 
-const BUTTONS: { key: string; label: string; cmd: CommandName }[] = [
-  { key: 'F3', label: 'View', cmd: 'viewFile' },
-  { key: 'F4', label: 'Edit', cmd: 'editFile' },
-  { key: 'F5', label: 'Copy', cmd: 'copy' },
-  { key: 'F6', label: 'Move', cmd: 'move' },
-  { key: 'F7', label: 'MkDir', cmd: 'mkdir' },
-  { key: 'F8', label: 'Delete', cmd: 'trash' },
-  { key: 'F9', label: 'Term', cmd: 'openTerminal' },
-  { key: 'F10', label: 'Quit', cmd: 'quitApp' },
+/**
+ * A row of actions that shows the function key each one currently answers to.
+ * It used to hardcode the pairs, so it advertised F9 and F10 with nothing
+ * listening for either.
+ */
+const BUTTONS: { label: string; cmd: CommandId }[] = [
+  { label: 'View', cmd: 'viewFile' },
+  { label: 'Edit', cmd: 'editFile' },
+  { label: 'Copy', cmd: 'copy' },
+  { label: 'Move', cmd: 'move' },
+  { label: 'MkDir', cmd: 'mkdir' },
+  { label: 'Delete', cmd: 'trash' },
+  { label: 'Term', cmd: 'openTerminal' },
+  { label: 'Quit', cmd: 'quitApp' },
 ];
 
-export function FKeyBar({ onInvoke }: Props) {
+export function FKeyBar({ bindings, onInvoke }: Props) {
   return (
     <div className="gc-fkeybar">
-      {BUTTONS.map((b) => (
-        <button key={b.key} className="gc-fkey-btn" onClick={() => onInvoke(b.cmd)}>
-          <span className="gc-fkey-label">{b.key}</span> {b.label}
-        </button>
-      ))}
+      {BUTTONS.map((b) => {
+        const fkey = bindingsFor(bindings, 'global', b.cmd).find((k) => /^F\d+$/.test(k));
+        return (
+          <button key={b.cmd} className="gc-fkey-btn" onClick={() => onInvoke(b.cmd)}>
+            {fkey && <span className="gc-fkey-label">{toDisplay(fkey)}</span>}
+            {fkey ? ` ${b.label}` : b.label}
+          </button>
+        );
+      })}
     </div>
   );
 }

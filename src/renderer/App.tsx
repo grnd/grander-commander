@@ -614,7 +614,7 @@ export function App() {
         useStore.getState().setTerminalOpen(!useStore.getState().terminalOpen);
         return;
       case 'quitApp':
-        window.close();
+        void api.shell.quit();
         return;
       case 'runShellCommand':
         // Invoked inline with command string from CommandLine; no-op from key dispatch.
@@ -1350,7 +1350,7 @@ export function App() {
           await Promise.all([refreshSide('left'), refreshSide('right')]);
         }}
       />
-      <FKeyBar onInvoke={(cmd) => void dispatch(cmd)} />
+      <FKeyBar bindings={defaultBindings()} onInvoke={(cmd) => void dispatch(cmd)} />
       {cmdOutput && (
         <div className="gc-modal-backdrop" onMouseDown={() => setCmdOutput(null)}>
           <div className="gc-modal gc-cmdresult" onMouseDown={(e) => e.stopPropagation()}>

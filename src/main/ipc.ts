@@ -559,6 +559,14 @@ export function registerIpc() {
     expectArgs(args, 'shell:openTerminal', 1);
     return [expectString(args[0], 'path')];
   }, (_e, path) => openTerminal(path));
+  /**
+   * Quit for real. `window.close()` only hid the app: on macOS main
+   * deliberately keeps running when the last window closes.
+   */
+  handleValidated('app:quit', (args): [] => {
+    expectArgs(args, 'app:quit', 0);
+    return [];
+  }, () => { app.quit(); });
   handleValidated('shell:openFullDiskAccessSettings', (args): [] => {
     expectArgs(args, 'shell:openFullDiskAccessSettings', 0);
     return [];
